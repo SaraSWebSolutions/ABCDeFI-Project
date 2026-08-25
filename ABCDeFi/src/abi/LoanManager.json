@@ -1,0 +1,129 @@
+[
+  {
+    "inputs": [{ "internalType": "address", "name": "admin", "type": "address" }],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  { "inputs": [], "name": "InvalidAddress", "type": "error" },
+  { "inputs": [], "name": "ZeroAmount", "type": "error" },
+  { "inputs": [], "name": "LoanNotActive", "type": "error" },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "loanId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "borrower", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "principal", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "collateralETH", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "interestRateBps", "type": "uint256" }
+    ],
+    "name": "LoanCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "loanId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "borrower", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amountRepaid", "type": "uint256" },
+      { "indexed": false, "internalType": "uint8", "name": "newStatus", "type": "uint8" }
+    ],
+    "name": "LoanRepaid",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "loanId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "borrower", "type": "address" }
+    ],
+    "name": "LoanLiquidated",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "borrower", "type": "address" },
+      { "internalType": "uint256", "name": "principal", "type": "uint256" },
+      { "internalType": "uint256", "name": "collateralETH", "type": "uint256" },
+      { "internalType": "uint256", "name": "interestRateBps", "type": "uint256" }
+    ],
+    "name": "createLoan",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "loanId", "type": "uint256" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "recordRepayment",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "loanId", "type": "uint256" }],
+    "name": "recordLiquidation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "loanId", "type": "uint256" }],
+    "name": "getLoan",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "loanId", "type": "uint256" },
+          { "internalType": "address", "name": "borrower", "type": "address" },
+          { "internalType": "uint256", "name": "principal", "type": "uint256" },
+          { "internalType": "uint256", "name": "collateralETH", "type": "uint256" },
+          { "internalType": "uint256", "name": "interestRateBps", "type": "uint256" },
+          { "internalType": "uint256", "name": "startTime", "type": "uint256" },
+          { "internalType": "uint256", "name": "lastInterestTime", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalRepaid", "type": "uint256" },
+          { "internalType": "uint8", "name": "status", "type": "uint8" }
+        ],
+        "internalType": "struct ILoanManager.LoanRecord",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "borrower", "type": "address" }],
+    "name": "getLoanHistory",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "loanId", "type": "uint256" },
+          { "internalType": "address", "name": "borrower", "type": "address" },
+          { "internalType": "uint256", "name": "principal", "type": "uint256" },
+          { "internalType": "uint256", "name": "collateralETH", "type": "uint256" },
+          { "internalType": "uint256", "name": "interestRateBps", "type": "uint256" },
+          { "internalType": "uint256", "name": "startTime", "type": "uint256" },
+          { "internalType": "uint256", "name": "lastInterestTime", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalRepaid", "type": "uint256" },
+          { "internalType": "uint8", "name": "status", "type": "uint8" }
+        ],
+        "internalType": "struct ILoanManager.LoanRecord[]",
+        "name": "",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "loanId", "type": "uint256" }],
+    "name": "calculateTotalOwed",
+    "outputs": [
+      { "internalType": "uint256", "name": "principalOwed", "type": "uint256" },
+      { "internalType": "uint256", "name": "interestOwed", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "name": "Latvia",
+  "country": "Latvia",
+  "continent": "Asia",
+  "mascot": "Skater Astronaut",
+  "description": "Official ABCDeFi Legion Territory NFT for Latvia. Finance for everyone.",
+  "image": "ipfs://QmY3b1aKw7Jv3pD8mN4L6R2t1Y5c0A3e8F9c/countries/latvia.png",
+  "level": "Country",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "Country"
+    },
+    {
+      "trait_type": "Continent",
+      "value": "Asia"
+    },
+    {
+      "trait_type": "Parent NFT ID",
+      "value": 1
+    },
+    {
+      "trait_type": "Character",
+      "value": "Vanguard Commander"
+    },
+    {
+      "trait_type": "Treasury Share Bps",
+      "value": 300
+    },
+    {
+      "trait_type": "Mascot",
+      "value": "Skater Astronaut"
+    }
+  ]
+}

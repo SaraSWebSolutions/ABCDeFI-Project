@@ -1,0 +1,30 @@
+{
+  "name": "North America",
+  "description": "Official Legion NFT representing North America Continent in the ABCDeFi Ecosystem.",
+  "image": "ipfs://QmX8f9aKw7Jv3pD8mN4L6R2t1Y5c0A3e8F9b/continents/north-america.png",
+  "continent": "North America",
+  "level": "Continent",
+  "mascot": "North American Peregrine Falcon",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "Continent"
+    },
+    {
+      "trait_type": "Parent NFT ID",
+      "value": 0
+    },
+    {
+      "trait_type": "Character",
+      "value": "Supreme Guardian"
+    },
+    {
+      "trait_type": "Treasury Share Bps",
+      "value": 500
+    },
+    {
+      "trait_type": "Mascot",
+      "value": "North American Peregrine Falcon"
+    }
+  ]
+}

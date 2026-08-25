@@ -1,0 +1,124 @@
+[
+  {
+    "inputs": [
+      { "internalType": "address", "name": "borrowTokenAddress", "type": "address" },
+      { "internalType": "uint256", "name": "tokenRatePerETH_", "type": "uint256" },
+      { "internalType": "address", "name": "admin", "type": "address" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  { "inputs": [], "name": "InvalidAddress", "type": "error" },
+  { "inputs": [], "name": "ZeroAmount", "type": "error" },
+  { "inputs": [], "name": "InsufficientCollateral", "type": "error" },
+  { "inputs": [], "name": "LoanNotActive", "type": "error" },
+  { "inputs": [], "name": "LiquidityPoolDepleted", "type": "error" },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "requested", "type": "uint256" },
+      { "internalType": "uint256", "name": "maxAllowed", "type": "uint256" }
+    ],
+    "name": "ExceedsLTVLimit",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "borrower", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "ethAmount", "type": "uint256" }
+    ],
+    "name": "CollateralDeposited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "borrower", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "tokenAmount", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "collateralETH", "type": "uint256" }
+    ],
+    "name": "TokensBorrowed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "borrower", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "tokenAmountRepaid", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "collateralReleased", "type": "uint256" }
+    ],
+    "name": "LoanRepaid",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "borrower", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "ethAmount", "type": "uint256" }
+    ],
+    "name": "CollateralWithdrawn",
+    "type": "event"
+  },
+  { "stateMutability": "payable", "type": "receive" },
+  {
+    "inputs": [],
+    "name": "depositCollateral",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "tokenAmount", "type": "uint256" }],
+    "name": "borrowTokens",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "tokenAmount", "type": "uint256" }],
+    "name": "repayLoan",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "ethAmount", "type": "uint256" }],
+    "name": "withdrawCollateral",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "tokenAmount", "type": "uint256" }],
+    "name": "fundLiquidity",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "borrower", "type": "address" }],
+    "name": "getLoanPosition",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "collateralETH", "type": "uint256" },
+          { "internalType": "uint256", "name": "borrowedTokens", "type": "uint256" },
+          { "internalType": "uint256", "name": "borrowTimestamp", "type": "uint256" },
+          { "internalType": "bool", "name": "active", "type": "bool" }
+        ],
+        "internalType": "struct ILendingPool.LoanPosition",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "borrower", "type": "address" }],
+    "name": "maxBorrowableTokens",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

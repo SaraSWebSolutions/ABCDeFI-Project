@@ -1,0 +1,66 @@
+[
+  {
+    "inputs": [
+      { "internalType": "address", "name": "lendingPoolAddress", "type": "address" },
+      { "internalType": "address", "name": "borrowTokenAddress", "type": "address" },
+      { "internalType": "address payable", "name": "treasuryAddress", "type": "address" },
+      { "internalType": "uint256", "name": "tokenRatePerETH_", "type": "uint256" },
+      { "internalType": "address", "name": "admin", "type": "address" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  { "inputs": [], "name": "InvalidAddress", "type": "error" },
+  { "inputs": [], "name": "ZeroAmount", "type": "error" },
+  { "inputs": [], "name": "LoanNotActive", "type": "error" },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "borrower", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "liquidator", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "debtCovered", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "collateralSeizedETH", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "liquidatorBonusETH", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "surplusToTreasuryETH", "type": "uint256" }
+    ],
+    "name": "PositionLiquidated",
+    "type": "event"
+  },
+  { "stateMutability": "payable", "type": "receive" },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "borrower", "type": "address" },
+      { "internalType": "uint256", "name": "debtToCover", "type": "uint256" }
+    ],
+    "name": "liquidatePosition",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "newThresholdBps", "type": "uint256" }],
+    "name": "setLiquidationThreshold",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "newBonusBps", "type": "uint256" }],
+    "name": "setLiquidationBonus",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "borrower", "type": "address" }],
+    "name": "checkLiquidationEligibility",
+    "outputs": [
+      { "internalType": "bool", "name": "isEligible", "type": "bool" },
+      { "internalType": "uint256", "name": "collateralETH", "type": "uint256" },
+      { "internalType": "uint256", "name": "debtTokens", "type": "uint256" },
+      { "internalType": "uint256", "name": "healthFactor", "type": "uint256" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

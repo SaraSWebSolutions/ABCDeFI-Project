@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGradWld" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="60%" stop-color="#fef8dc"/>
+      <stop offset="100%" stop-color="#fef08a"/>
+    </linearGradient>
+    <radialGradient id="labGlow" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3"/>
+      <stop offset="50%" stop-color="#a855f7" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="suitGradWld" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b"/>
+      <stop offset="50%" stop-color="#312e81"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="visorGradWld" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.85"/>
+      <stop offset="50%" stop-color="#ec4899" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="goldGradWld" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#eab308"/>
+      <stop offset="100%" stop-color="#ca8a04"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="800" height="800" fill="url(#bgGradWld)"/>
+  <rect width="800" height="800" fill="url(#labGlow)"/>
+
+  <!-- Futuristic Web3 Lab Backdrop Rings & Emblem -->
+  <g transform="translate(400, 220)" opacity="0.22">
+    <circle cx="0" cy="0" r="170" fill="none" stroke="#a855f7" stroke-width="8"/>
+    <circle cx="0" cy="0" r="140" fill="none" stroke="#0284c7" stroke-width="3" stroke-dasharray="16 10"/>
+    <path d="M-80 60 L0 -100 L80 60 L40 60 L0 -20 L-40 60 Z" fill="#0284c7"/>
+  </g>
+
+  <!-- TOP CENTER: Official ABCDeFi Circuit Logo -->
+  <g transform="translate(260, 60)">
+    <text x="0" y="50" font-family="'Outfit', sans-serif" font-size="70" font-weight="900" fill="none" stroke="#3b82f6" stroke-width="3.5" letter-spacing="2">ABC</text>
+    <circle cx="42" cy="15" r="14" fill="url(#goldGradWld)"/>
+    <text x="150" y="50" font-family="'Outfit', sans-serif" font-size="70" font-weight="900" fill="#f97316" letter-spacing="1">deFi</text>
+    <path d="M20 70 L170 70 L210 85 L260 85" fill="none" stroke="#eab308" stroke-width="3"/>
+    <circle cx="260" cy="85" r="5" fill="#eab308"/>
+  </g>
+
+  <!-- MID CENTER: Title Name -->
+  <text x="400" y="270" font-family="'Outfit', 'Inter', sans-serif" font-size="54" font-weight="900" fill="#0f172a" text-anchor="middle" letter-spacing="2">Global Genesis</text>
+
+  <!-- LOWER CENTER: Cute 3D Boy Astronaut Roller Skater -->
+  <g transform="translate(400, 520)">
+    <!-- Ground Shadow -->
+    <ellipse cx="0" cy="140" rx="150" ry="22" fill="#cbd5e1" opacity="0.6"/>
+
+    <!-- Left Leg & Roller Skate -->
+    <path d="M-50 40 L-90 100 L-120 120" fill="none" stroke="#1e1b4b" stroke-width="26" stroke-linecap="round"/>
+    <path d="M-50 40 L-90 100 L-120 120" fill="none" stroke="#818cf8" stroke-width="6" stroke-linecap="round"/>
+    <rect x="-145" y="110" width="50" height="24" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <rect x="-145" y="124" width="50" height="10" rx="4" fill="url(#goldGradWld)"/>
+    <circle cx="-135" cy="138" r="10" fill="#f97316" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="-115" cy="138" r="10" fill="#f97316" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="-95" cy="138" r="10" fill="#f97316" stroke="#ffffff" stroke-width="2"/>
+
+    <!-- Right Leg & Roller Skate -->
+    <path d="M10 40 L20 100 L10 125" fill="none" stroke="#1e1b4b" stroke-width="26" stroke-linecap="round"/>
+    <path d="M10 40 L20 100 L10 125" fill="none" stroke="#818cf8" stroke-width="6" stroke-linecap="round"/>
+    <rect x="-10" y="112" width="52" height="24" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <rect x="-10" y="126" width="52" height="10" rx="4" fill="url(#goldGradWld)"/>
+    <circle cx="0" cy="140" r="10" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="20" cy="140" r="10" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="38" cy="140" r="10" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+
+    <!-- Torso Suit -->
+    <path d="M-60 -40 C-70 10 -50 50 -10 50 C30 50 50 10 40 -40 Z" fill="url(#suitGradWld)" stroke="#6366f1" stroke-width="3"/>
+    <path d="M-30 -20 L-10 10 L20 -10" fill="none" stroke="#38bdf8" stroke-width="3"/>
+
+    <!-- A Medallion Emblem on Chest -->
+    <circle cx="-5" cy="-5" r="22" fill="#a855f7" stroke="#ffffff" stroke-width="2.5"/>
+    <path d="M-13 8 L-5 -14 L3 8 M-10 0 L0 0" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+
+    <rect x="-45" y="32" width="80" height="12" rx="4" fill="url(#goldGradWld)"/>
+    <rect x="-12" y="30" width="14" height="16" rx="3" fill="#ffffff"/>
+
+    <!-- Arms -->
+    <path d="M-55 -30 C-110 -20 -130 10 -150 20" fill="none" stroke="#1e1b4b" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="-155" cy="22" r="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <path d="M35 -30 C80 -10 100 20 120 30" fill="none" stroke="#1e1b4b" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="125" cy="32" r="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+
+    <rect x="-72" y="-45" width="24" height="14" rx="4" fill="url(#goldGradWld)"/>
+    <rect x="38" y="-45" width="24" height="14" rx="4" fill="url(#goldGradWld)"/>
+
+    <!-- Astronaut Helmet Head -->
+    <g transform="translate(-10, -110)">
+      <circle cx="0" cy="0" r="72" fill="url(#goldGradWld)"/>
+      <circle cx="0" cy="0" r="64" fill="#0f172a"/>
+      <ellipse cx="0" cy="5" rx="54" ry="42" fill="url(#visorGradWld)"/>
+      <path d="M-38 -15 Q-10 -32 20 -25 Q-15 -18 -30 0 Z" fill="#ffffff" opacity="0.6"/>
+      <circle cx="-18" cy="2" r="5" fill="#ffffff"/>
+      <circle cx="18" cy="2" r="5" fill="#ffffff"/>
+      <path d="M-15 18 Q0 30 15 18" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+      <circle cx="-28" cy="12" r="6" fill="#f43f5e" opacity="0.6"/>
+      <circle cx="28" cy="12" r="6" fill="#f43f5e" opacity="0.6"/>
+      <circle cx="-68" cy="0" r="10" fill="url(#goldGradWld)"/>
+      <circle cx="68" cy="0" r="10" fill="url(#goldGradWld)"/>
+    </g>
+  </g>
+
+  <!-- BOTTOM CENTER: Slogan -->
+  <text x="400" y="735" font-family="'Inter', sans-serif" font-size="28" font-style="italic" font-weight="900" fill="#1e293b" text-anchor="middle">Finance for everyone</text>
+</svg>

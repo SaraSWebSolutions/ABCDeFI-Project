@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#9C27B0"/>
+      <stop offset="50%" stop-color="#7B1FA2"/>
+      <stop offset="100%" stop-color="#3A0078"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Outer Purple Coin Circle -->
+  <circle cx="250" cy="250" r="240" fill="url(#purpleGrad)" />
+  
+  <!-- Outer Gold Ring -->
+  <circle cx="250" cy="250" r="225" fill="none" stroke="#FFB800" stroke-width="12" />
+  
+  <!-- Currency Top/Bottom Notch Vertical Lines -->
+  <rect x="235" y="55" width="12" height="40" rx="4" fill="#FFB800" />
+  <rect x="253" y="55" width="12" height="40" rx="4" fill="#FFB800" />
+  <rect x="235" y="405" width="12" height="40" rx="4" fill="#FFB800" />
+  <rect x="253" y="405" width="12" height="40" rx="4" fill="#FFB800" />
+
+  <!-- Inner Gold Currency Arc Rings -->
+  <path d="M 140 160 A 150 150 0 0 1 360 160" fill="none" stroke="#FFB800" stroke-width="14" stroke-linecap="round" />
+  <path d="M 140 340 A 150 150 0 0 0 360 340" fill="none" stroke="#FFB800" stroke-width="14" stroke-linecap="round" />
+  
+  <!-- Center Stylized 'abcdef' Text in Gold -->
+  <text x="250" y="305" 
+        font-family="Arial, Helvetica, sans-serif" 
+        font-size="145" 
+        font-weight="900" 
+        letter-spacing="-9" 
+        fill="#FFB800" 
+        text-anchor="middle">abcdef</text>
+</svg>

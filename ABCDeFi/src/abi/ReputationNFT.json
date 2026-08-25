@@ -1,0 +1,58 @@
+[
+  {
+    "inputs": [{ "internalType": "address", "name": "admin", "type": "address" }],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "user", "type": "address" },
+      { "indexed": true, "internalType": "uint256", "name": "tokenId", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "creditScore", "type": "uint256" }
+    ],
+    "name": "ReputationMinted",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "recipient", "type": "address" },
+      { "internalType": "uint256", "name": "initialScore", "type": "uint256" },
+      { "internalType": "string", "name": "uri", "type": "string" }
+    ],
+    "name": "mintReputationNFT",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "tokenId", "type": "uint256" },
+      { "internalType": "uint256", "name": "newScore", "type": "uint256" },
+      { "internalType": "bool", "name": "isDefault", "type": "bool" }
+    ],
+    "name": "updateReputation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "tokenId", "type": "uint256" }],
+    "name": "getReputation",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "creditScore", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalLoansCount", "type": "uint256" },
+          { "internalType": "uint256", "name": "totalDefaultsCount", "type": "uint256" },
+          { "internalType": "uint256", "name": "lastUpdatedTime", "type": "uint256" }
+        ],
+        "internalType": "struct IReputationNFT.ReputationData",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

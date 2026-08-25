@@ -1,0 +1,48 @@
+[
+  {
+    "inputs": [{ "internalType": "address", "name": "admin", "type": "address" }],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "recipient", "type": "address" },
+      { "indexed": true, "internalType": "uint256", "name": "tokenId", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "eventName", "type": "string" },
+      { "indexed": false, "internalType": "uint256", "name": "milestoneLevel", "type": "uint256" }
+    ],
+    "name": "ParticipantNFTMinted",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "recipient", "type": "address" },
+      { "internalType": "string", "name": "eventName", "type": "string" },
+      { "internalType": "uint256", "name": "milestoneLevel", "type": "uint256" },
+      { "internalType": "string", "name": "uri", "type": "string" }
+    ],
+    "name": "mintParticipantNFT",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "tokenId", "type": "uint256" }],
+    "name": "getMilestoneDetails",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "string", "name": "eventName", "type": "string" },
+          { "internalType": "uint256", "name": "milestoneLevel", "type": "uint256" },
+          { "internalType": "uint256", "name": "issueTime", "type": "uint256" }
+        ],
+        "internalType": "struct IParticipantNFT.MilestoneDetails",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "name": "ABCDeFi",
+  "description": "Decentralized collateral-backed lending and borrowing platform with smart contract workflow, loan marketplace, EMI repayment, and credit NFT minting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

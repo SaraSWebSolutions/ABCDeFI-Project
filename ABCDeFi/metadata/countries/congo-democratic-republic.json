@@ -1,0 +1,35 @@
+{
+  "name": "Congo (Democratic Republic)",
+  "country": "Congo (Democratic Republic)",
+  "continent": "South America",
+  "mascot": "Skater Astronaut",
+  "description": "Official ABCDeFi Legion Territory NFT for Congo (Democratic Republic). Finance for everyone.",
+  "image": "ipfs://QmY3b1aKw7Jv3pD8mN4L6R2t1Y5c0A3e8F9c/countries/congo-democratic-republic.png",
+  "level": "Country",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "Country"
+    },
+    {
+      "trait_type": "Continent",
+      "value": "South America"
+    },
+    {
+      "trait_type": "Parent NFT ID",
+      "value": 5
+    },
+    {
+      "trait_type": "Character",
+      "value": "Vanguard Commander"
+    },
+    {
+      "trait_type": "Treasury Share Bps",
+      "value": 300
+    },
+    {
+      "trait_type": "Mascot",
+      "value": "Skater Astronaut"
+    }
+  ]
+}

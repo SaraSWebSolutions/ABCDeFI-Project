@@ -1,0 +1,89 @@
+[
+  {
+    "inputs": [
+      { "internalType": "address", "name": "tokenAddress", "type": "address" },
+      { "internalType": "address", "name": "admin", "type": "address" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  { "inputs": [], "name": "CliffNotReached", "type": "error" },
+  { "inputs": [], "name": "InvalidAddress", "type": "error" },
+  { "inputs": [], "name": "NothingToRelease", "type": "error" },
+  { "inputs": [], "name": "ScheduleNotRevocable", "type": "error" },
+  { "inputs": [], "name": "ZeroAmount", "type": "error" },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "bytes32", "name": "scheduleId", "type": "bytes32" },
+      { "indexed": true, "internalType": "address", "name": "beneficiary", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "start", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "cliff", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "duration", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "amountTotal", "type": "uint256" }
+    ],
+    "name": "VestingScheduleCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "bytes32", "name": "scheduleId", "type": "bytes32" },
+      { "indexed": true, "internalType": "address", "name": "beneficiary", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "TokensReleased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "bytes32", "name": "scheduleId", "type": "bytes32" }
+    ],
+    "name": "VestingScheduleRevoked",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "beneficiary", "type": "address" },
+      { "internalType": "uint256", "name": "start", "type": "uint256" },
+      { "internalType": "uint256", "name": "cliff", "type": "uint256" },
+      { "internalType": "uint256", "name": "duration", "type": "uint256" },
+      { "internalType": "uint256", "name": "slicePeriodSeconds", "type": "uint256" },
+      { "internalType": "bool", "name": "revocable", "type": "bool" },
+      { "internalType": "uint256", "name": "amount", "type": "uint256" }
+    ],
+    "name": "createVestingSchedule",
+    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "bytes32", "name": "scheduleId", "type": "bytes32" }],
+    "name": "release",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "bytes32", "name": "scheduleId", "type": "bytes32" }],
+    "name": "revoke",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "bytes32", "name": "scheduleId", "type": "bytes32" }],
+    "name": "computeReleasableAmount",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "beneficiary", "type": "address" }],
+    "name": "getVestingSchedulesCountByBeneficiary",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

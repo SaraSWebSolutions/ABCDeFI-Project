@@ -1,0 +1,110 @@
+[
+  {
+    "inputs": [
+      { "internalType": "address", "name": "tokenAddress", "type": "address" },
+      { "internalType": "address payable", "name": "treasuryAddress", "type": "address" },
+      { "internalType": "uint256", "name": "rate_", "type": "uint256" },
+      { "internalType": "uint256", "name": "softCap_", "type": "uint256" },
+      { "internalType": "uint256", "name": "hardCap_", "type": "uint256" },
+      { "internalType": "uint256", "name": "minBuy_", "type": "uint256" },
+      { "internalType": "uint256", "name": "maxBuy_", "type": "uint256" },
+      { "internalType": "address", "name": "admin", "type": "address" }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  { "inputs": [], "name": "InvalidAddress", "type": "error" },
+  { "inputs": [], "name": "MinBuyNotMet", "type": "error" },
+  { "inputs": [], "name": "MaxBuyExceeded", "type": "error" },
+  { "inputs": [], "name": "CapExceeded", "type": "error" },
+  { "inputs": [], "name": "NotWhitelisted", "type": "error" },
+  { "inputs": [], "name": "PresaleNotActive", "type": "error" },
+  { "inputs": [], "name": "PresaleNotFinalized", "type": "error" },
+  { "inputs": [], "name": "SoftCapNotMet", "type": "error" },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "buyer", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "ethSpent", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "tokensBought", "type": "uint256" }
+    ],
+    "name": "TokensPurchased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": false, "internalType": "uint256", "name": "totalEthRaised", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "totalTokensSold", "type": "uint256" }
+    ],
+    "name": "PresaleFinalized",
+    "type": "event"
+  },
+  { "stateMutability": "payable", "type": "receive" },
+  {
+    "inputs": [],
+    "name": "buyWithETH",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "claimTokens",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "startTime_", "type": "uint256" },
+      { "internalType": "uint256", "name": "endTime_", "type": "uint256" }
+    ],
+    "name": "startPresale",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address[]", "name": "accounts", "type": "address[]" },
+      { "internalType": "bool", "name": "status", "type": "bool" }
+    ],
+    "name": "setWhitelist",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "finalizePresale",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getState",
+    "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "buyer", "type": "address" }],
+    "name": "getBuyerInfo",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "ethContributed", "type": "uint256" },
+          { "internalType": "uint256", "name": "tokensPurchased", "type": "uint256" },
+          { "internalType": "bool", "name": "claimed", "type": "bool" }
+        ],
+        "internalType": "struct IPresale.BuyerInfo",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

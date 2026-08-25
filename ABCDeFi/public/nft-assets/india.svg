@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fffdf2"/>
+      <stop offset="70%" stop-color="#fef7cd"/>
+      <stop offset="100%" stop-color="#fde68a"/>
+    </linearGradient>
+
+    <!-- Circuit Pattern Gradient -->
+    <linearGradient id="circuitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.15"/>
+    </linearGradient>
+
+    <!-- 3D Flag Sphere Shading -->
+    <radialGradient id="sphereShine" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.35"/>
+    </radialGradient>
+
+    <!-- Suit Gradient -->
+    <linearGradient id="suitGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e1b4b"/>
+      <stop offset="50%" stop-color="#312e81"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+
+    <!-- Visor Glass -->
+    <linearGradient id="visorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a855f7" stop-opacity="0.85"/>
+      <stop offset="50%" stop-color="#ec4899" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.85"/>
+    </linearGradient>
+
+    <!-- Gold Accent Gradient -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#eab308"/>
+      <stop offset="100%" stop-color="#ca8a04"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="800" height="800" fill="url(#bgGrad)"/>
+
+  <!-- Subtle Web3 Circuit Background Glow -->
+  <g opacity="0.35">
+    <path d="M450 150 L650 150 L720 220 L720 380 L620 480" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="8 6"/>
+    <circle cx="650" cy="150" r="5" fill="#f59e0b"/>
+    <circle cx="720" cy="220" r="5" fill="#f59e0b"/>
+    <circle cx="720" cy="380" r="5" fill="#3b82f6"/>
+    <path d="M500 500 Q600 550 700 520 T800 600" fill="none" stroke="#eab308" stroke-width="3" opacity="0.4"/>
+    <ellipse cx="650" cy="450" rx="120" ry="40" fill="none" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="12 8" opacity="0.5"/>
+  </g>
+
+  <!-- TOP CENTER: 3D Glossy Indian Flag Sphere -->
+  <g transform="translate(400, 110)">
+    <!-- Shadow -->
+    <ellipse cx="0" cy="52" rx="42" ry="10" fill="#94a3b8" opacity="0.35"/>
+    <g clip-path="url(#sphereClip)">
+      <clipPath id="sphereClip">
+        <circle cx="0" cy="0" r="48"/>
+      </clipPath>
+      <!-- Saffron -->
+      <rect x="-50" y="-50" width="100" height="33.3" fill="#FF9933"/>
+      <!-- White -->
+      <rect x="-50" y="-16.7" width="100" height="33.3" fill="#FFFFFF"/>
+      <!-- Green -->
+      <rect x="-50" y="16.6" width="100" height="33.4" fill="#128807"/>
+      <!-- Ashoka Chakra -->
+      <circle cx="0" cy="0" r="11" fill="none" stroke="#000080" stroke-width="1.8"/>
+      <circle cx="0" cy="0" r="2" fill="#000080"/>
+      <!-- Spokes -->
+      <path d="M0 -11 L0 11 M-11 0 L11 0 M-7.8 -7.8 L7.8 7.8 M-7.8 7.8 L7.8 -7.8" stroke="#000080" stroke-width="1"/>
+    </g>
+    <!-- Glossy Sphere Highlight Overlay -->
+    <circle cx="0" cy="0" r="48" fill="url(#sphereShine)"/>
+    <circle cx="0" cy="0" r="48" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.6"/>
+  </g>
+
+  <!-- MID TOP: State Code & Name -->
+  <text x="400" y="235" font-family="'Outfit', 'Inter', sans-serif" font-size="78" font-weight="900" fill="#0f172a" text-anchor="middle" letter-spacing="4">IN</text>
+  <text x="400" y="285" font-family="'Inter', sans-serif" font-size="28" font-weight="800" fill="#1e293b" text-anchor="middle" letter-spacing="1">India National Legion</text>
+
+  <!-- BOTTOM LEFT: Cute 3D Boy Astronaut Roller Skater -->
+  <g transform="translate(230, 570)">
+    <!-- Ground Shadow -->
+    <ellipse cx="0" cy="140" rx="140" ry="22" fill="#cbd5e1" opacity="0.6"/>
+
+    <!-- Left Leg & Roller Skate -->
+    <path d="M-50 40 L-90 100 L-120 120" fill="none" stroke="#1e1b4b" stroke-width="26" stroke-linecap="round"/>
+    <path d="M-50 40 L-90 100 L-120 120" fill="none" stroke="#818cf8" stroke-width="6" stroke-linecap="round"/>
+    <!-- Left Roller Skate Shoe -->
+    <rect x="-145" y="110" width="50" height="24" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <rect x="-145" y="124" width="50" height="10" rx="4" fill="url(#goldGrad)"/>
+    <!-- Wheels -->
+    <circle cx="-135" cy="138" r="10" fill="#f97316" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="-115" cy="138" r="10" fill="#f97316" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="-95" cy="138" r="10" fill="#f97316" stroke="#ffffff" stroke-width="2"/>
+
+    <!-- Right Leg & Roller Skate -->
+    <path d="M10 40 L20 100 L10 125" fill="none" stroke="#1e1b4b" stroke-width="26" stroke-linecap="round"/>
+    <path d="M10 40 L20 100 L10 125" fill="none" stroke="#818cf8" stroke-width="6" stroke-linecap="round"/>
+    <!-- Right Roller Skate Shoe -->
+    <rect x="-10" y="112" width="52" height="24" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <rect x="-10" y="126" width="52" height="10" rx="4" fill="url(#goldGrad)"/>
+    <!-- Wheels -->
+    <circle cx="0" cy="140" r="10" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="20" cy="140" r="10" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+    <circle cx="38" cy="140" r="10" fill="#ef4444" stroke="#ffffff" stroke-width="2"/>
+
+    <!-- Torso Suit -->
+    <path d="M-60 -40 C-70 10 -50 50 -10 50 C30 50 50 10 40 -40 Z" fill="url(#suitGrad)" stroke="#6366f1" stroke-width="3"/>
+    <!-- Neon Chest Circuits -->
+    <path d="M-30 -20 L-10 10 L20 -10" fill="none" stroke="#38bdf8" stroke-width="3"/>
+    <!-- Tiger Emblem on Chest -->
+    <circle cx="-5" cy="-5" r="22" fill="#fbbf24" stroke="#ffffff" stroke-width="2"/>
+    <path d="M-15 -10 Q-5 -18 5 -10 Q0 5 -5 10 Q-10 5 -15 -10 Z" fill="#b45309"/>
+    <circle cx="-10" cy="-8" r="2" fill="#000"/>
+    <circle cx="0" cy="-8" r="2" fill="#000"/>
+
+    <!-- Gold Belt -->
+    <rect x="-45" y="32" width="80" height="12" rx="4" fill="url(#goldGrad)"/>
+    <rect x="-12" y="30" width="14" height="16" rx="3" fill="#ffffff"/>
+
+    <!-- Arms -->
+    <!-- Left Arm -->
+    <path d="M-55 -30 C-110 -20 -130 10 -150 20" fill="none" stroke="#1e1b4b" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="-155" cy="22" r="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+    <!-- Right Arm -->
+    <path d="M35 -30 C80 -10 100 20 120 30" fill="none" stroke="#1e1b4b" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="125" cy="32" r="14" fill="#ffffff" stroke="#cbd5e1" stroke-width="2"/>
+
+    <!-- Shoulders Gold Pads -->
+    <rect x="-72" y="-45" width="24" height="14" rx="4" fill="url(#goldGrad)"/>
+    <rect x="38" y="-45" width="24" height="14" rx="4" fill="url(#goldGrad)"/>
+
+    <!-- Astronaut Helmet Head -->
+    <g transform="translate(-10, -110)">
+      <!-- Golden Helmet Outer Dome -->
+      <circle cx="0" cy="0" r="72" fill="url(#goldGrad)"/>
+      <circle cx="0" cy="0" r="64" fill="#0f172a"/>
+      <!-- Inner Visor Face Opening -->
+      <ellipse cx="0" cy="5" rx="54" ry="42" fill="url(#visorGrad)"/>
+      <!-- Visor Shine -->
+      <path d="M-38 -15 Q-10 -32 20 -25 Q-15 -18 -30 0 Z" fill="#ffffff" opacity="0.6"/>
+      <!-- Boy Smiling Face inside visor -->
+      <circle cx="-18" cy="2" r="5" fill="#ffffff"/>
+      <circle cx="18" cy="2" r="5" fill="#ffffff"/>
+      <!-- Smile -->
+      <path d="M-15 18 Q0 30 15 18" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/>
+      <!-- Cute cheeks -->
+      <circle cx="-28" cy="12" r="6" fill="#f43f5e" opacity="0.6"/>
+      <circle cx="28" cy="12" r="6" fill="#f43f5e" opacity="0.6"/>
+      <!-- Helmet Ear Caps -->
+      <circle cx="-68" cy="0" r="10" fill="url(#goldGrad)"/>
+      <circle cx="68" cy="0" r="10" fill="url(#goldGrad)"/>
+    </g>
+  </g>
+
+  <!-- BOTTOM RIGHT: ABCDeFi Logo & Slogan -->
+  <g transform="translate(560, 620)">
+    <!-- Circuit ABC Typography -->
+    <g transform="scale(0.85)">
+      <!-- A B C outline circuit -->
+      <text x="0" y="40" font-family="'Outfit', sans-serif" font-size="64" font-weight="900" fill="none" stroke="#3b82f6" stroke-width="3" letter-spacing="2">ABC</text>
+      <!-- Gold Connection Nodes -->
+      <circle cx="38" cy="10" r="12" fill="url(#goldGrad)"/>
+      <!-- deFi Gradient Text -->
+      <text x="135" y="40" font-family="'Outfit', sans-serif" font-size="64" font-weight="900" fill="#f97316" letter-spacing="1">deFi</text>
+      <!-- Circuit connector lines below -->
+      <path d="M20 55 L160 55 L200 70 L240 70" fill="none" stroke="#eab308" stroke-width="3"/>
+      <circle cx="240" cy="70" r="4" fill="#eab308"/>
+    </g>
+    <!-- Slogan text -->
+    <text x="110" y="115" font-family="'Inter', sans-serif" font-size="20" font-style="italic" font-weight="800" fill="#1e293b" text-anchor="middle">Finance for everyone</text>
+  </g>
+</svg>

@@ -1,0 +1,76 @@
+[
+  {
+    "inputs": [{ "internalType": "address", "name": "admin", "type": "address" }],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "tokenId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "partyA", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "offerValue", "type": "uint256" },
+      { "indexed": false, "internalType": "uint256", "name": "requestedValue", "type": "uint256" }
+    ],
+    "name": "BarterNFTMinted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "tokenId", "type": "uint256" },
+      { "indexed": true, "internalType": "address", "name": "partyB", "type": "address" }
+    ],
+    "name": "BarterExecuted",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "partyA", "type": "address" },
+      { "internalType": "uint256", "name": "offerValue", "type": "uint256" },
+      { "internalType": "uint256", "name": "requestedValue", "type": "uint256" },
+      { "internalType": "string", "name": "uri", "type": "string" }
+    ],
+    "name": "createBarterNFT",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "tokenId", "type": "uint256" },
+      { "internalType": "address", "name": "partyB", "type": "address" }
+    ],
+    "name": "executeBarter",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "tokenId", "type": "uint256" }],
+    "name": "cancelBarter",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "tokenId", "type": "uint256" }],
+    "name": "getBarterAgreement",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "address", "name": "partyA", "type": "address" },
+          { "internalType": "address", "name": "partyB", "type": "address" },
+          { "internalType": "uint256", "name": "offerValue", "type": "uint256" },
+          { "internalType": "uint256", "name": "requestedValue", "type": "uint256" },
+          { "internalType": "uint8", "name": "status", "type": "uint8" }
+        ],
+        "internalType": "struct IBarterNFT.BarterAgreement",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

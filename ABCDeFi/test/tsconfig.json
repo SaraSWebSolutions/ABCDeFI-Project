@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "strict": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "types": [
+      "mocha",
+      "chai",
+      "node",
+      "@nomicfoundation/hardhat-toolbox"
+    ]
+  },
+  "include": [
+    "**/*.ts"
+  ]
+}
+

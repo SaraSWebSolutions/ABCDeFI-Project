@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
+  <defs>
+    <radialGradient id="hydGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#3b82f6" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="charminarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="400" cy="400" r="360" fill="url(#hydGlow)" />
+  <circle cx="400" cy="400" r="300" fill="none" stroke="#06b6d4" stroke-width="4"/>
+
+  <!-- Charminar Cyber Spires Silhouette in Background -->
+  <g transform="translate(400, 360)" opacity="0.4">
+    <rect x="-120" y="-120" width="30" height="240" fill="url(#charminarGrad)"/>
+    <rect x="90" y="-120" width="30" height="240" fill="url(#charminarGrad)"/>
+    <polygon points="-120,-120 -105,-150 -90,-120" fill="#38bdf8"/>
+    <polygon points="90,-120 105,-150 120,-120" fill="#38bdf8"/>
+    <rect x="-90" y="-40" width="180" height="20" fill="#38bdf8"/>
+  </g>
+
+  <!-- Voyager Cyber Citadel Helmet -->
+  <g transform="translate(400, 420)">
+    <!-- Shoulders -->
+    <path d="M-130 150 L-90 50 L0 20 L90 50 L130 150 Z" fill="#0e7490" stroke="#06b6d4" stroke-width="3"/>
+    <!-- Helmet -->
+    <path d="M-60 30 C-60 -50 -40 -90 0 -90 C40 -90 60 -50 60 30 Z" fill="#1e1b4b" stroke="#06b6d4" stroke-width="4"/>
+    <!-- Visor -->
+    <path d="M-45 -10 Q0 -35 45 -10 Q35 25 0 25 Q-35 25 -45 -10 Z" fill="#a5f3fc" stroke="#ecfeff" stroke-width="3"/>
+  </g>
+
+  <text x="400" y="110" font-family="'Outfit', sans-serif" font-size="36" font-weight="900" fill="#f8fafc" text-anchor="middle" letter-spacing="4">HYDERABAD LEGION NFT</text>
+  <text x="400" y="150" font-family="'Inter', sans-serif" font-size="20" font-weight="700" fill="#06b6d4" text-anchor="middle" letter-spacing="2">DISTRICT TIER | CODE: HYD | PARENT: TELANGANA</text>
+  
+  <rect x="250" y="690" width="300" height="44" rx="22" fill="rgba(15,23,42,0.8)" stroke="#06b6d4" stroke-width="2"/>
+  <text x="400" y="718" font-family="'Inter', sans-serif" font-size="14" font-weight="800" fill="#cffaffe" text-anchor="middle">CHARACTER: VOYAGER CYBER CITADEL</text>
+</svg>

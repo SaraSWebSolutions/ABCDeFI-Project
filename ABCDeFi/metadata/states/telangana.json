@@ -1,0 +1,41 @@
+{
+  "name": "Telangana",
+  "state": "Telangana",
+  "code": "TS",
+  "country": "India",
+  "continent": "Asia",
+  "mascot": "Regional Warlord",
+  "description": "Official ABCDeFi Legion State Territory NFT for Telangana (TS), India.",
+  "image": "ipfs://QmZ9c4aKw7Jv3pD8mN4L6R2t1Y5c0A3e8F9d/states/telangana.png",
+  "level": "State",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "State"
+    },
+    {
+      "trait_type": "State Code",
+      "value": "TS"
+    },
+    {
+      "trait_type": "Country",
+      "value": "India"
+    },
+    {
+      "trait_type": "Parent NFT ID",
+      "value": 83
+    },
+    {
+      "trait_type": "Character",
+      "value": "Regional Warlord"
+    },
+    {
+      "trait_type": "Treasury Share Bps",
+      "value": 150
+    },
+    {
+      "trait_type": "Mascot",
+      "value": "Regional Warlord"
+    }
+  ]
+}

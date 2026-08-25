@@ -1,0 +1,49 @@
+{
+  "purchases": [
+    {
+      "id": "ico_1785752364958_bc98e7",
+      "walletAddress": "0xDEADBEEF00000000000000000000000000000000",
+      "phase": "public",
+      "amountUSD": 123,
+      "tokensPurchased": 1537,
+      "bonusTokens": 76,
+      "referralBonusTokens": 0,
+      "totalTokens": 1613,
+      "txHash": "0x1ea28c8f4dee",
+      "createdAt": "2026-08-03T10:19:24.958Z",
+      "status": "Confirmed"
+    }
+  ],
+  "referrals": [],
+  "vesting": [
+    {
+      "walletAddress": "0xDEADBEEF00000000000000000000000000000000",
+      "totalTokens": 1613,
+      "cliffDays": 0,
+      "durationDays": 60,
+      "startDate": "2026-08-03T10:19:24.958Z",
+      "claimedTokens": 0,
+      "createdAt": "2026-08-03T10:19:24.958Z"
+    }
+  ],
+  "stages": [
+    {
+      "id": "private",
+      "raisedUSD": 0,
+      "tokensSold": 0,
+      "status": "Live"
+    },
+    {
+      "id": "presale",
+      "raisedUSD": 0,
+      "tokensSold": 0,
+      "status": "Pending"
+    },
+    {
+      "id": "public",
+      "raisedUSD": 123,
+      "tokensSold": 1613,
+      "status": "Live"
+    }
+  ]
+}
