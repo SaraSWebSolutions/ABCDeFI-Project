@@ -87,7 +87,7 @@ export const ProtocolDashboard: React.FC = () => {
     tvl: '12,450,000',
     treasuryEth: '50.50',
     treasuryAbcd: '2,500,000',
-    abcdBalance: '125,000',
+    abcdBalance: null as string | null,
     totalStaked: '500,000',
     userStaked: '2,500',
     totalBorrowed: '150,000',
@@ -396,7 +396,7 @@ export const ProtocolDashboard: React.FC = () => {
                 <Coins className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-xl font-black text-amber-400 font-mono tracking-tight">{liveCards.abcdBalance} ABCD</div>
+            <div className="text-xl font-black text-amber-400 font-mono tracking-tight">{liveCards.abcdBalance === null ? 'Unavailable' : `${liveCards.abcdBalance} ABCD`}</div>
             <div className="flex items-center justify-between mt-3 text-[11px] text-slate-400 border-t border-slate-800/80 pt-2">
               <span>User Wallet Balance</span>
               <button onClick={() => setActiveModal('buy')} className="text-amber-400 hover:underline font-semibold cursor-pointer">

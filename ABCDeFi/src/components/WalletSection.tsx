@@ -162,12 +162,21 @@ export const WalletSection: React.FC<WalletSectionProps> = ({ user: _user, onWal
     action: Exclude<typeof tokenAction, null>,
     operation: () => Promise<{ hash?: string }>,
     successMessage: string,
+    allowanceSpender?: string,
   ) => {
     setTokenAction(action); setTokenError(""); setTokenMessage("");
     try {
       const receipt = await operation();
       await Promise.all([refreshBalances(), refreshTokenState()]);
-      setTokenMessage(`${successMessage}${receipt.hash ? ` Transaction: ${receipt.hash}` : ""}`);
+      let refreshNotice = "";
+      if (action === "approve" && address && allowanceSpender) {
+        try {
+          setTokenAllowance(await getAllowance(address, allowanceSpender));
+        } catch (allowanceRefreshError) {
+          refreshNotice = ` Approval confirmed, but the allowance could not be refreshed: ${tokenErrorMessage(allowanceRefreshError)}`;
+        }
+      }
+      setTokenMessage(`${successMessage}${receipt.hash ? ` Transaction: ${receipt.hash}` : ""}${refreshNotice}`);
     } catch (tokenOperationError) {
       setTokenError(tokenErrorMessage(tokenOperationError));
     } finally { setTokenAction(null); }
@@ -212,7 +221,7 @@ export const WalletSection: React.FC<WalletSectionProps> = ({ user: _user, onWal
           <input value={tokenSpender} onChange={(event) => { setTokenSpender(event.target.value); setTokenAllowance(null); }} placeholder="Spender contract address (0x...)" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
           <input value={tokenApprovalAmount} onChange={(event) => setTokenApprovalAmount(event.target.value)} placeholder="Amount" inputMode="decimal" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
           <button onClick={readAllowance} disabled={tokenAction !== null} className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-200 disabled:opacity-50">{tokenAction === "allowance" ? "Reading..." : "Allowance"}</button>
-          <button onClick={() => runTokenAction("approve", () => approveSpender(tokenSpender.trim(), tokenApprovalAmount.trim()), "ABCD approval confirmed.")} disabled={tokenAction !== null} className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{tokenAction === "approve" ? "Confirming..." : "Approve"}</button>
+          <button onClick={() => runTokenAction("approve", () => approveSpender(tokenSpender.trim(), tokenApprovalAmount.trim()), "ABCD approval confirmed.", tokenSpender.trim())} disabled={tokenAction !== null} className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{tokenAction === "approve" ? "Confirming..." : "Approve"}</button>
         </div>
         {tokenAllowance !== null && <p className="text-xs text-slate-400">Current allowance: {tokenAllowance} ABCD</p>}
         <div className="grid gap-2 sm:grid-cols-[10rem_auto_1fr]">

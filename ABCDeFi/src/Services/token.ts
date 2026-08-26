@@ -187,6 +187,18 @@ export function tokenErrorMessage(error: unknown): string {
   if (/insufficient funds|ERC20InsufficientBalance|insufficient balance/i.test(message)) {
     return "Insufficient ABCD balance or ETH for gas.";
   }
+  if (/AccessControlUnauthorizedAccount|MINTER_ROLE/i.test(message)) {
+    return "The connected wallet is not authorized for this ABCD token operation.";
+  }
+  if (/MaxSupplyExceeded|fixed max supply/i.test(message)) {
+    return "ABCD has reached its fixed maximum supply. Burned supply must exist before an authorized mint can succeed.";
+  }
+  if (/ZeroAmount/i.test(message)) {
+    return "Enter an ABCD amount greater than zero.";
+  }
+  if (/InvalidAddress/i.test(message)) {
+    return "Enter a valid ABCD recipient or spender address.";
+  }
   if (/enforcedpause|paused/i.test(message)) {
     return "ABCD is currently paused. Transfers and burns are unavailable until an authorized pauser unpauses it.";
   }

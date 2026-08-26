@@ -17,6 +17,8 @@ export interface TreasuryState {
   reserveVaultBalance: string;
   interestPoolBalance: string;
   burnPoolBalance: string;
+  distributionReportCount: number;
+  latestDistributionAmount: string | null;
   isPaused: boolean;
   canWithdraw: boolean;
   canAdminister: boolean;
@@ -65,20 +67,24 @@ export async function getTreasuryContract(withSigner = false) {
 export async function getTreasuryState(account?: string): Promise<TreasuryState> {
   if (account) requireAddress(account, "Wallet");
   const contract = await getTreasuryContract(false);
-  const [balances, abcdBalance, isPaused, canWithdraw, canAdminister, canPause] = await Promise.all([
+  const [balances, abcdBalance, isPaused, reports, canWithdraw, canAdminister, canPause] = await Promise.all([
     contract.viewBalances(),
     contract.getERC20Balance(CONTRACTS.token),
     contract.paused(),
+    contract.getReports(),
     account ? contract.hasRole(WITHDRAWER_ROLE, account) : false,
     account ? contract.hasRole(TREASURY_ADMIN_ROLE, account) : false,
     account ? contract.hasRole(PAUSER_ROLE, account) : false,
   ]);
 
+  const latestReport = reports.length ? reports[reports.length - 1] : null;
   return {
     ethBalance: formatEther(balances.treasuryBalance),
     reserveVaultBalance: formatEther(balances.reserveVaultBalance),
     interestPoolBalance: formatEther(balances.interestPool),
     burnPoolBalance: formatEther(balances.burnPool),
+    distributionReportCount: reports.length,
+    latestDistributionAmount: latestReport ? formatEther(latestReport.totalAmount) : null,
     abcdBalance: formatEther(abcdBalance),
     isPaused,
     canWithdraw,
@@ -159,12 +165,15 @@ export async function transferTreasuryFunds(recipientAddress: string, amountEthS
 export function treasuryErrorMessage(error: unknown): string {
   const details = error as { code?: string | number; shortMessage?: string; message?: string; info?: { error?: { code?: string | number; message?: string } } };
   const code = details?.code ?? details?.info?.error?.code;
-  if (code === "ACTION_REJECTED" || code === 4001 || /user rejected|user denied/i.test(String(details?.message))) {
+  const message = details?.shortMessage || details?.message || details?.info?.error?.message || "Treasury contract call failed.";
+  if (code === "ACTION_REJECTED" || code === 4001 || /user rejected|user denied/i.test(message)) {
     return "Transaction rejected in MetaMask. No on-chain state was changed.";
   }
-  const message = details?.shortMessage || details?.message || "Treasury contract call failed.";
   if (/insufficient funds|InsufficientBalance|ERC20InsufficientBalance/i.test(message)) {
     return "Insufficient balance for this Treasury operation.";
+  }
+  if (/enforcedpause|paused/i.test(message)) {
+    return "Treasury is paused. The requested operation is unavailable until an authorized pauser unpauses it.";
   }
   return message;
 }
