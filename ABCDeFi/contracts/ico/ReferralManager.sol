@@ -18,6 +18,7 @@ contract ReferralManager is AccessControl, Pausable, ReentrancyGuard {
 
     IERC20 public immutable token;
     address public rewardVault;
+    address public presale;
 
     uint256 public constant REFERRAL_BPS = 5; // 0.05% (5 BPS of 10,000)
 
@@ -35,6 +36,7 @@ contract ReferralManager is AccessControl, Pausable, ReentrancyGuard {
     mapping(address => uint256) public claimedRewards;
     mapping(address => bool) public isFrozen;
     mapping(address => ReferralRecord[]) public referralHistory;
+    mapping(bytes32 => bool) public processedPurchases;
 
     event ReferralCodeCreated(address indexed user, string code);
     event ReferralBound(address indexed buyer, address indexed referrer);
@@ -42,6 +44,7 @@ contract ReferralManager is AccessControl, Pausable, ReentrancyGuard {
     event RewardClaimed(address indexed referrer, uint256 amount);
     event AccountFrozen(address indexed account);
     event AccountUnfrozen(address indexed account);
+    event PresaleConfigured(address indexed presale);
 
     constructor(address tokenAddress, address rewardVault_) {
         if (tokenAddress == address(0) || rewardVault_ == address(0)) {
@@ -58,6 +61,19 @@ contract ReferralManager is AccessControl, Pausable, ReentrancyGuard {
     function setRewardVault(address newVault) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (newVault == address(0)) revert Errors.InvalidAddress();
         rewardVault = newVault;
+    }
+
+    /**
+     * @notice Registers the sole sale contract that can record referral
+     * purchases. It is intentionally one-time to prevent reward-source
+     * substitution after launch.
+     */
+    function setPresale(address presale_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (presale_ == address(0)) revert Errors.InvalidAddress();
+        if (presale_.code.length == 0) revert Errors.InvalidAddress();
+        if (presale != address(0)) revert Errors.AlreadyProcessed();
+        presale = presale_;
+        emit PresaleConfigured(presale_);
     }
 
     function createReferralCode(string memory code) external {
@@ -84,7 +100,17 @@ contract ReferralManager is AccessControl, Pausable, ReentrancyGuard {
     /**
      * @notice Pipeline: B buys tokens -> Auto calculate 0.05% -> Transfer to Referrer A -> Record History
      */
-    function recordPurchase(address buyer, uint256 tokenAmount) external onlyRole(Constants.PRESALE_ADMIN_ROLE) nonReentrant whenNotPaused {
+    function recordPurchase(address buyer, uint256 tokenAmount, bytes32 purchaseId)
+        external
+        onlyRole(Constants.PRESALE_ADMIN_ROLE)
+        nonReentrant
+        whenNotPaused
+    {
+        if (msg.sender != presale) revert Errors.Unauthorized();
+        if (buyer == address(0) || tokenAmount == 0 || purchaseId == bytes32(0)) revert Errors.InvalidAmount();
+        if (processedPurchases[purchaseId]) revert Errors.AlreadyProcessed();
+        processedPurchases[purchaseId] = true;
+
         if (isFrozen[buyer]) return;
 
         address referrer = referrerOf[buyer];

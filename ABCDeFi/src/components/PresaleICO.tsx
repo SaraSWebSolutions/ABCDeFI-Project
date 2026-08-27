@@ -1,13 +1,18 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatUnits, parseEther } from 'ethers';
 import { AlertTriangle, CheckCircle2, Clock, Coins, Loader2, RefreshCw, ShieldCheck, Wallet } from 'lucide-react';
 import { useWallet } from '../Context/WalletContext';
 import { buyTokens, claimPresaleTokens, getPresaleData, presaleErrorMessage, type PresaleData } from '../Services/presale';
+import { CONTRACTS } from '../Config/contracts';
 
 type PurchaseStatus = 'idle' | 'validating' | 'awaiting-wallet' | 'confirming' | 'success' | 'error';
 
 const formatDate = (timestamp: bigint) =>
   timestamp === 0n ? 'Not scheduled' : new Date(Number(timestamp) * 1000).toLocaleString();
+const sameAddress = (left: string | null | undefined, right: string | null | undefined) =>
+  Boolean(left && right && left.toLowerCase() === right.toLowerCase());
+const sameWalletIdentity = (left: string | null | undefined, right: string | null | undefined) =>
+  (!left && !right) || sameAddress(left, right);
 
 const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div className="rounded-xl border border-slate-800 bg-slate-950 p-3">
@@ -19,23 +24,35 @@ const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) =>
 export const PresaleICO: React.FC = () => {
   const { address, isConnected, isCorrectNetwork, refreshBalances } = useWallet();
   const [presale, setPresale] = useState<PresaleData | null>(null);
+  const [readForAddress, setReadForAddress] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [ethAmount, setEthAmount] = useState('0.1');
   const [status, setStatus] = useState<PurchaseStatus>('idle');
   const [message, setMessage] = useState('');
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
+  const currentAddressRef = useRef(address);
+  const readSequence = useRef(0);
+
+  currentAddressRef.current = address;
 
   const loadPresale = useCallback(async () => {
+    const sequence = ++readSequence.current;
+    const requestedAddress = address;
     setIsLoading(true);
     try {
-      setPresale(await getPresaleData(address ?? undefined));
+      const data = await getPresaleData(requestedAddress ?? undefined);
+      if (sequence !== readSequence.current || !sameWalletIdentity(currentAddressRef.current, requestedAddress)) return;
+      setPresale(data);
+      setReadForAddress(requestedAddress);
     } catch (error) {
+      if (sequence !== readSequence.current || !sameWalletIdentity(currentAddressRef.current, requestedAddress)) return;
       console.error('Failed to load on-chain presale state:', error);
       setPresale(null);
-      setMessage('Unable to read the Presale contract on the configured network.');
+      setReadForAddress(null);
+      setMessage(presaleErrorMessage(error));
       setStatus('error');
     } finally {
-      setIsLoading(false);
+      if (sequence === readSequence.current) setIsLoading(false);
     }
   }, [address]);
 
@@ -53,6 +70,8 @@ export const PresaleICO: React.FC = () => {
   }, [ethAmount, presale]);
 
   const isPending = status === 'validating' || status === 'awaiting-wallet' || status === 'confirming';
+  const hasCurrentBuyerRead = Boolean(address && sameAddress(readForAddress, address));
+  const buyer = hasCurrentBuyerRead ? presale?.buyer ?? null : null;
 
   const handlePurchase = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -101,7 +120,7 @@ export const PresaleICO: React.FC = () => {
       setMessage('This presale requires a whitelisted wallet address.');
       return;
     }
-    if (presale.buyer && parseEther(presale.buyer.ethContributed) + value > parseEther(presale.maxBuy)) {
+    if (buyer && parseEther(buyer.ethContributed) + value > parseEther(presale.maxBuy)) {
       setStatus('error');
       setMessage(`This wallet would exceed the ${presale.maxBuy} ETH per-wallet limit.`);
       return;
@@ -138,7 +157,7 @@ export const PresaleICO: React.FC = () => {
       setMessage('Switch MetaMask to Hardhat Local (chain 31337) before claiming ABCD.');
       return;
     }
-    if (!presale?.buyer || presale.status !== 'Finalized' || presale.buyer.claimed || parseEther(presale.buyer.tokensPurchased) === 0n) {
+    if (!buyer || presale?.status !== 'Finalized' || buyer.claimed || parseEther(buyer.tokensPurchased) === 0n) {
       setStatus('error');
       setMessage('There are no claimable Presale tokens for this wallet.');
       return;
@@ -177,17 +196,28 @@ export const PresaleICO: React.FC = () => {
         </div>
 
         {isLoading ? <div className="mt-6 flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Reading Presale contract…</div> : presale && (
-          <div className="mt-6 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-            <Metric label="Sale state" value={presale.status} />
-            <Metric label="Rate" value={`${presale.rateAbcdPerEth} ABCD / ETH`} />
-            <Metric label="Raised / hard cap" value={`${presale.totalEthRaised} / ${presale.hardCap} ETH`} />
-            <Metric label="Remaining capacity" value={`${presale.remainingEthCapacity} ETH`} />
-            <Metric label="Contribution range" value={`${presale.minBuy}–${presale.maxBuy} ETH`} />
-            <Metric label="Presale token reserve" value={`${presale.tokenReserve} ABCD`} />
-            <Metric label="Contract pause state" value={presale.isPaused ? 'Paused' : 'Unpaused'} />
-            <Metric label="Start" value={formatDate(presale.startTime)} />
-            <Metric label="End" value={formatDate(presale.endTime)} />
-          </div>
+          <>
+            {presale.status === 'Pending' && (
+              <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                Presale has not started. An authorized Presale administrator must start it before contributions can be accepted.
+              </div>
+            )}
+            <div className="mt-6 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+              <Metric label="Sale state" value={presale.status} />
+              <Metric label="Canonical Presale" value={CONTRACTS.presale} />
+              <Metric label="Rate" value={`${presale.rateAbcdPerEth} ABCD / ETH`} />
+              <Metric label="Soft cap" value={`${presale.softCap} ETH`} />
+              <Metric label="Raised / hard cap" value={`${presale.totalEthRaised} / ${presale.hardCap} ETH`} />
+              <Metric label="Remaining capacity" value={`${presale.remainingEthCapacity} ETH`} />
+              <Metric label="Contribution range" value={`${presale.minBuy}–${presale.maxBuy} ETH`} />
+              <Metric label="ABCD sold" value={`${presale.totalTokensSold} ABCD`} />
+              <Metric label="Presale token reserve" value={`${presale.tokenReserve} ABCD`} />
+              <Metric label="Contract pause state" value={presale.isPaused ? 'Paused' : 'Unpaused'} />
+              <Metric label="Finalized / cancelled" value={`${presale.isFinalized ? 'Yes' : 'No'} / ${presale.isCancelled ? 'Yes' : 'No'}`} />
+              <Metric label="Start" value={formatDate(presale.startTime)} />
+              <Metric label="End" value={formatDate(presale.endTime)} />
+            </div>
+          </>
         )}
       </section>
 
@@ -203,7 +233,7 @@ export const PresaleICO: React.FC = () => {
             {!isConnected && <p className="text-xs text-slate-400">Connect a wallet to contribute.</p>}
             {isConnected && !isCorrectNetwork && <p className="text-xs text-amber-300">Switch MetaMask to Hardhat Local (chain 31337) to contribute.</p>}
             <button type="submit" disabled={isPending || !isConnected || !isCorrectNetwork || !presale || presale.status !== 'Active' || presale.isPaused} className="w-full rounded-xl bg-amber-400 py-3.5 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
-              {status === 'validating' ? 'Validating…' : status === 'awaiting-wallet' ? 'Confirm in Wallet…' : status === 'confirming' ? 'Confirming on-chain…' : presale?.isPaused ? 'Presale Paused' : presale?.status === 'Active' ? 'Buy ABCD with ETH' : `Presale ${presale?.status ?? 'Unavailable'}`}
+              {status === 'validating' ? 'Validating…' : status === 'awaiting-wallet' ? 'Confirm in Wallet…' : status === 'confirming' ? 'Confirming on-chain…' : presale?.isPaused ? 'Presale Paused' : presale?.status === 'Active' ? 'Buy ABCD with ETH' : presale?.status === 'Pending' ? 'Presale has not started' : `Presale ${presale?.status ?? 'Unavailable'}`}
             </button>
           </form>
           {status !== 'idle' && <div className={`mt-4 rounded-xl border p-4 text-xs ${status === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : status === 'error' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-100'}`}>
@@ -214,18 +244,18 @@ export const PresaleICO: React.FC = () => {
 
         <section className="lg:col-span-2 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
           <h2 className="flex items-center gap-2 text-lg font-bold text-white"><ShieldCheck className="h-5 w-5 text-emerald-400" /> Your on-chain allocation</h2>
-          {presale?.buyer ? <div className="mt-5 space-y-3 text-xs">
-            <Metric label="ETH contributed" value={`${presale.buyer.ethContributed} ETH`} />
-            <Metric label="ABCD purchased" value={`${presale.buyer.tokensPurchased} ABCD`} />
-            <Metric label="Claim status" value={presale.buyer.claimed ? 'Claimed' : presale.status === 'Finalized' ? 'Claim available' : 'Available after finalization'} />
-            {presale.whitelistRequired && <Metric label="Whitelist" value={presale.buyer.isWhitelisted ? 'Approved' : 'Not approved'} />}
+          {buyer ? <div className="mt-5 space-y-3 text-xs">
+            <Metric label="ETH contributed" value={`${buyer.ethContributed} ETH`} />
+            <Metric label="ABCD purchased" value={`${buyer.tokensPurchased} ABCD`} />
+            <Metric label="Claim status" value={buyer.claimed ? 'Claimed' : presale?.status === 'Finalized' ? 'Claim available' : 'Available after finalization'} />
+            {presale?.whitelistRequired && <Metric label="Whitelist" value={buyer.isWhitelisted ? 'Approved' : 'Not approved'} />}
             <p className="pt-2 text-slate-400"><Clock className="mr-1 inline h-3.5 w-3.5" /> Purchases create an allocation. The contract transfers ABCD only through <code>claimTokens()</code> after finalization.</p>
-            {presale.status === 'Finalized' && !presale.buyer.claimed && parseEther(presale.buyer.tokensPurchased) > 0n && (
+            {presale?.status === 'Finalized' && !buyer.claimed && parseEther(buyer.tokensPurchased) > 0n && (
               <button type="button" onClick={handleClaim} disabled={isPending || !isConnected || !isCorrectNetwork} className="w-full rounded-xl bg-emerald-500 py-3 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
                 {status === 'awaiting-wallet' ? 'Confirm Claim in Wallet…' : status === 'confirming' ? 'Confirming Claim…' : 'Claim ABCD'}
               </button>
             )}
-          </div> : <p className="mt-5 text-sm text-slate-400">Connect a wallet to read its Presale allocation.</p>}
+          </div> : <p className="mt-5 text-sm text-slate-400">{address && !hasCurrentBuyerRead ? 'Reading this wallet’s on-chain Presale allocation…' : 'Connect a wallet to read its Presale allocation.'}</p>}
         </section>
       </div>
     </div>

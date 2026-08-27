@@ -15,6 +15,29 @@ const Referral = require("../referral/referral.model");
 const { ethers } = require("ethers");
 const logger = require("../../../logger");
 
+const AUTH_DATABASE_TIMEOUT_MS = 10_000;
+
+function authenticationDatabaseUnavailable(res) {
+    if (UserAccount.db.readyState === 1) return false;
+    res.status(503).json({
+        success: false,
+        message: "Authentication database is unavailable. Please try again later."
+    });
+    return true;
+}
+
+function withinAuthenticationDatabaseTimeout(operation) {
+    let timeoutId;
+    const timeout = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+            const error = new Error("Authentication database did not respond in time.");
+            error.code = "AUTH_DATABASE_TIMEOUT";
+            reject(error);
+        }, AUTH_DATABASE_TIMEOUT_MS);
+    });
+    return Promise.race([operation, timeout]).finally(() => clearTimeout(timeoutId));
+}
+
 // Helper to generate access and refresh tokens
 const generateTokens = async (user) => {
     const accessToken = jwt.sign(
@@ -45,6 +68,28 @@ const generateTokens = async (user) => {
 
     return { accessToken, refreshToken };
 };
+
+function developmentWalletAuthenticationEnabled() {
+    return config.development_auth_enabled === true && config.node_env !== "production";
+}
+
+async function findOrCreateDevelopmentWalletUser(walletAddress) {
+    let user = await UserAccount.findOne({ walletAddress });
+    if (user) return user;
+
+    // This identity exists only for an explicit local development wallet-sign
+    // in. It has no password, email OTP, or production claim; the signature
+    // below remains the possession proof before a token is issued.
+    user = await UserAccount.create({
+        name: "Local development wallet",
+        walletAddress,
+        status: true,
+        is2FAEnabled: false,
+        country: "Local Development",
+        privacyData: false,
+    });
+    return user;
+}
 
 exports.registerUser = async (req, res, next) => {
     const { name, mobileNumber, email, password, gender, country, privacyData, refId } = req.body;
@@ -367,6 +412,7 @@ exports.userLogin = async (req, res, next) => {
         if (!password || (!email && !mobileNumber)) {
             return res.status(400).json({ success: false, message: "Email or Phone number and Password required" });
         }
+        if (authenticationDatabaseUnavailable(res)) return;
         let query = {};
         if (email) {
             query.email = String(email).trim().toLowerCase();
@@ -374,7 +420,7 @@ exports.userLogin = async (req, res, next) => {
             query.mobileNumber = Number(mobileNumber);
         }
 
-        const user = await UserAccount.findOne(query);
+        const user = await withinAuthenticationDatabaseTimeout(UserAccount.findOne(query));
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -498,6 +544,12 @@ exports.userLogin = async (req, res, next) => {
             }
         });
     } catch (err) {
+        if (err?.code === "AUTH_DATABASE_TIMEOUT") {
+            return res.status(503).json({
+                success: false,
+                message: "Authentication database did not respond in time. Please try again later."
+            });
+        }
         next(err);
     }
 };
@@ -698,7 +750,9 @@ exports.otpForPasswordReset = async (req, res, next) => {
             );
         }
 
-        res.status(200).json({ success: true, message: "OTP sent", otp: otp, userId: user._id });
+        // OTP values are delivered through the configured push channel only;
+        // returning one in JSON would let any caller bypass possession proof.
+        res.status(200).json({ success: true, message: "OTP sent", userId: user._id });
     } catch (err) {
         next(err)
     }
@@ -733,9 +787,15 @@ exports.verifyOtpForPasswordReset = async (req, res, next) => {
 }
 
 exports.passwordResetWithOtp = async (req, res, next) => {
-    const { userId, password } = req.body;
+    const { userId, otp, password } = req.body;
     try {
         const user = await UserAccount.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        if (!otp) {
+            return res.status(400).json({ success: false, message: "OTP is required to reset a password" });
+        }
         const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
         if (!passwordRegex.test(password)) {
@@ -744,8 +804,15 @@ exports.passwordResetWithOtp = async (req, res, next) => {
                 message: "Password must be at least 8 characters long and include 1 uppercase letter, 1 number, and 1 special character"
             });
         }
+        const hashedOtp = crypto.createHash("sha256").update(String(otp)).digest("hex");
+        if (!user.otp || !user.otpExpires || Date.now() > user.otpExpires || String(user.otp) !== hashedOtp) {
+            return res.status(400).json({ success: false, message: "OTP expired or invalid" });
+        }
         const hashedPassword = await bcrypt.hash(password, 10);
         user.password = hashedPassword;
+        user.otp = undefined;
+        user.otpExpires = undefined;
+        user.otpLastSent = undefined;
         await user.save();
         res.status(200).json({ success: true, message: "Password Changed successfully" });
     } catch (err) {
@@ -1215,7 +1282,7 @@ exports.adminResetUserPassword = async (req, res, next) => {
 // -----------------------------------------------------------------------------
 exports.walletLoginNonce = async (req, res, next) => {
     try {
-        const { walletAddress } = req.body;
+        const { walletAddress, chainId: requestedChainId } = req.body;
         if (!walletAddress || !ethers.isAddress(walletAddress)) {
             return res.status(400).json({ success: false, message: "Valid wallet address is required" });
         }
@@ -1223,7 +1290,15 @@ exports.walletLoginNonce = async (req, res, next) => {
         const normalized = walletAddress.toLowerCase();
 
         // UserAccount is the primary account-to-wallet relationship.
-        const user = await UserAccount.findOne({ walletAddress: normalized });
+        let user = await UserAccount.findOne({ walletAddress: normalized });
+
+        if (!user && developmentWalletAuthenticationEnabled()) {
+            const chainId = Number(requestedChainId);
+            if (!Number.isInteger(chainId) || !config.allowedChains.includes(chainId)) {
+                return res.status(400).json({ success: false, message: "Development wallet authentication requires the configured local chain." });
+            }
+            user = await findOrCreateDevelopmentWalletUser(normalized);
+        }
 
         if (!user) {
             return res.status(404).json({
@@ -1242,7 +1317,7 @@ exports.walletLoginNonce = async (req, res, next) => {
             verified: true
         });
 
-        if (!linkedWallet) {
+        if (!linkedWallet && !developmentWalletAuthenticationEnabled()) {
             return res.status(403).json({
                 success: false,
                 message: "Wallet is not verified. Please verify and link your wallet first."
@@ -1252,7 +1327,9 @@ exports.walletLoginNonce = async (req, res, next) => {
         const nonce = crypto.randomBytes(32).toString("hex");
         const issuedAt = new Date();
         const expiresAt = new Date(issuedAt.getTime() + 5 * 60 * 1000);
-        const chainId = Number(linkedWallet.chainId);
+        const chainId = developmentWalletAuthenticationEnabled()
+            ? Number(requestedChainId)
+            : Number(linkedWallet.chainId);
         if (!Number.isInteger(chainId)) {
             return res.status(500).json({
                 success: false,
@@ -1298,18 +1375,36 @@ exports.walletLogin = async (req, res, next) => {
         }
 
         // Confirm the wallet is still verified when consuming the challenge.
+        // A local development wallet becomes verified only after this real
+        // signature check succeeds; production never accepts this exception.
         const linkedWallet = await Wallet.findOne({
             userId: user._id,
             walletAddress: normalized,
             verified: true
         });
-        if (!linkedWallet) {
+        if (!linkedWallet && !developmentWalletAuthenticationEnabled()) {
             return res.status(403).json({ success: false, message: "Wallet is not verified" });
         }
 
         const recovered = ethers.verifyMessage(user.walletLoginMessage, signature);
         if (recovered.toLowerCase() !== normalized) {
             return res.status(401).json({ success: false, message: "Wallet signature verification failed" });
+        }
+
+        if (!linkedWallet && developmentWalletAuthenticationEnabled()) {
+            await Wallet.findOneAndUpdate(
+                { userId: user._id },
+                {
+                    userId: user._id,
+                    walletAddress: normalized,
+                    walletType: "MetaMask",
+                    chainId: config.allowedChains[0],
+                    verified: true,
+                    linkedAt: new Date(),
+                    lastConnectedAt: new Date(),
+                },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
         }
 
         user.walletLoginNonce = null;

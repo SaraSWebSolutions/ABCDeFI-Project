@@ -36,20 +36,11 @@ module.exports = async function sendMail({ to, subject, html }) {
     process.env.SMTP_PASS
   );
 
-  // Local-only fallback when there is no configured SMTP transport. OTP
-  // generation, hashing, storage, expiry, and verification remain unchanged.
+  // Development authentication uses an actual wallet signature instead of an
+  // out-of-band OTP. Never turn a missing SMTP configuration into a logged or
+  // fabricated email delivery path.
   if (isLocalDevelopment && !smtpConfigured) {
-    const otpMatch = html ? html.match(/\b\d{6}\b/) : null;
-
-    if (otpMatch) {
-      console.log(`[LOCAL DEV OTP] email=${to} otp=${otpMatch[0]}`);
-    } else {
-      logger.warn(`Local development mail fallback received no OTP for ${to}`);
-    }
-
-    return {
-      localDelivery: true,
-    };
+    return { suppressed: true };
   }
 
   // PRODUCTION:

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Copy, Gift, Link2, RefreshCw, Users } from 'lucide-react';
 import { useWallet } from '../Context/WalletContext';
 import {
@@ -6,6 +6,7 @@ import {
   claimReferralRewards,
   createReferralCode,
   getReferralSnapshot,
+  referralErrorMessage,
   ReferralSnapshot,
 } from '../Services/referral';
 
@@ -23,20 +24,29 @@ export const ReferralSystem: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [hash, setHash] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const refreshId = useRef(0);
 
   const refresh = useCallback(async () => {
+    const requestId = ++refreshId.current;
     if (!address) {
       setSnapshot(null);
       return;
     }
     try {
-      setSnapshot(await getReferralSnapshot(address));
+      const next = await getReferralSnapshot(address);
+      if (requestId === refreshId.current) setSnapshot(next);
     } catch (error: any) {
-      setMessage(error?.message || 'Unable to read ReferralManager state.');
+      if (requestId === refreshId.current) {
+        setSnapshot(null);
+        setMessage(error?.message || 'Referral data is unavailable on the current deployment.');
+      }
     }
   }, [address]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    void refresh();
+    return () => { refreshId.current += 1; };
+  }, [refresh]);
 
   const submitted = (transactionHash: string, stage: string) => {
     setHash(transactionHash);
@@ -65,7 +75,7 @@ export const ReferralSystem: React.FC = () => {
       await refresh();
     } catch (error: any) {
       setState('error');
-      setMessage(error?.shortMessage || error?.message || 'Referral transaction failed.');
+      setMessage(referralErrorMessage(error));
     }
   };
 
@@ -77,7 +87,7 @@ export const ReferralSystem: React.FC = () => {
   };
 
   const busy = state === 'awaiting-wallet' || state === 'confirming';
-  const claimable = Number(snapshot?.pendingRewards || '0') > 0;
+  const claimable = (snapshot?.pendingRewardsWei || 0n) > 0n;
 
   return (
     <div className="space-y-6 font-mono">
@@ -92,9 +102,10 @@ export const ReferralSystem: React.FC = () => {
         </div>
 
         {!address ? <p className="text-amber-300 text-sm">Connect a wallet to read your ReferralManager state.</p> : <>
-          {snapshot?.paused && <p className="text-amber-300 text-sm">ReferralManager is paused; write actions are unavailable.</p>}
-          {snapshot?.referralCode ? <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2"><div className="text-xs text-slate-400">Your on-chain referral code</div><div className="flex gap-2"><input readOnly value={snapshot.referralCode} className="flex-1 bg-slate-900 rounded-xl px-3 py-2 text-emerald-300" /><button onClick={() => void copyLink()} className="px-3 py-2 bg-emerald-600 rounded-xl">{copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}</button></div><p className="text-xs text-slate-500 break-all">{snapshot.referralLink}</p></div> : <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row gap-2"><input value={code} onChange={e => setCode(e.target.value)} placeholder="Create a code (min. 4 characters)" disabled={busy || snapshot?.paused} className="flex-1 bg-slate-900 rounded-xl px-3 py-2" /><button disabled={busy || snapshot?.paused} onClick={() => void run(() => createReferralCode(code, submitted))} className="px-4 py-2 bg-emerald-600 rounded-xl disabled:opacity-50">Create code</button></div>}
-          {!snapshot?.referrer && <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row gap-2"><input value={referrerCode} onChange={e => setReferrerCode(e.target.value)} placeholder="Enter a referrer’s on-chain code" disabled={busy || snapshot?.paused} className="flex-1 bg-slate-900 rounded-xl px-3 py-2" /><button disabled={busy || snapshot?.paused} onClick={() => void run(() => bindReferrerCode(referrerCode, submitted))} className="px-4 py-2 bg-cyan-700 rounded-xl disabled:opacity-50 flex gap-2 justify-center"><Link2 className="w-4 h-4" /> Bind referrer</button></div>}
+          {snapshot?.paused && <p className="text-amber-300 text-sm">ReferralManager is paused: reward accrual and claims are unavailable. Creating or binding a referral code remains permitted by the deployed contract.</p>}
+          {snapshot?.frozen && <p className="text-amber-300 text-sm">This account is frozen by ReferralManager. It cannot receive or claim referral rewards.</p>}
+          {snapshot?.referralCode ? <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2"><div className="text-xs text-slate-400">Your on-chain referral code</div><div className="flex gap-2"><input readOnly value={snapshot.referralCode} className="flex-1 bg-slate-900 rounded-xl px-3 py-2 text-emerald-300" /><button onClick={() => void copyLink()} className="px-3 py-2 bg-emerald-600 rounded-xl">{copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}</button></div><p className="text-xs text-slate-500 break-all">{snapshot.referralLink}</p></div> : <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row gap-2"><input value={code} onChange={e => setCode(e.target.value)} placeholder="Create a code (min. 4 characters)" disabled={busy} className="flex-1 bg-slate-900 rounded-xl px-3 py-2" /><button disabled={busy} onClick={() => void run(() => createReferralCode(code, submitted))} className="px-4 py-2 bg-emerald-600 rounded-xl disabled:opacity-50">Create code</button></div>}
+          {!snapshot?.referrer && <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row gap-2"><input value={referrerCode} onChange={e => setReferrerCode(e.target.value)} placeholder="Enter a referrer’s on-chain code" disabled={busy} className="flex-1 bg-slate-900 rounded-xl px-3 py-2" /><button disabled={busy} onClick={() => void run(() => bindReferrerCode(referrerCode, submitted))} className="px-4 py-2 bg-cyan-700 rounded-xl disabled:opacity-50 flex gap-2 justify-center"><Link2 className="w-4 h-4" /> Bind referrer</button></div>}
         </>}
       </div>
 
@@ -105,7 +116,7 @@ export const ReferralSystem: React.FC = () => {
       </div>
 
       <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5 space-y-3">
-        <div className="flex justify-between gap-3 items-center"><div><h3 className="font-bold text-white">On-chain claim</h3><p className="text-xs text-slate-500">The button is enabled only when ReferralManager reports a nonzero pending amount.</p></div><button disabled={!claimable || busy || snapshot?.paused} onClick={() => void run(() => claimReferralRewards(submitted))} className="px-4 py-2 bg-emerald-600 rounded-xl disabled:opacity-50">Claim rewards</button></div>
+        <div className="flex justify-between gap-3 items-center"><div><h3 className="font-bold text-white">On-chain claim</h3><p className="text-xs text-slate-500">The button is enabled only when ReferralManager reports a nonzero pending amount. This deployment pays recorded rewards immediately, so a zero pending balance is not estimated or replaced.</p></div><button disabled={!claimable || busy || snapshot?.paused || snapshot?.frozen} onClick={() => void run(() => claimReferralRewards(submitted))} className="px-4 py-2 bg-emerald-600 rounded-xl disabled:opacity-50">Claim rewards</button></div>
         {hash && <p className="text-xs text-cyan-300 break-all">Transaction: {hash}</p>}
         {message && <p className={`text-sm ${state === 'error' ? 'text-red-300' : state === 'success' ? 'text-emerald-300' : 'text-slate-300'}`}>{message}</p>}
       </div>

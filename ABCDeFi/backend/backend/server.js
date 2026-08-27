@@ -40,6 +40,7 @@ const LoanRouter = require("./modules/loan/loan.routes");
 const NftRouter = require("./modules/nft/nft.routes");
 const DashboardRouter = require("./modules/dashboard/dashboard.routes");
 const TransactionRouter = require("./modules/transactions/transaction.routes");
+const LendingReadRouter = require("./modules/lendingProjection/lendingRead.routes");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -83,6 +84,7 @@ app.use("/api/deposits", DepositRouter);
 const PresaleRouter = require("./routes/presale");
 
 app.use("/api/loans", LoanRouter);
+app.use("/api/lending", LendingReadRouter);
 app.use("/api/nfts", NftRouter);
 app.use("/api/presale", PresaleRouter);
 app.use("/api/dashboard", DashboardRouter);

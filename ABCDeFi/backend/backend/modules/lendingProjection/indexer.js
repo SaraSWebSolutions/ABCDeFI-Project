@@ -1,8 +1,10 @@
 const { Interface } = require('ethers');
 
-const DEFAULT_SCOPE = 'phase1-lending-p2p';
+// A new scope triggers a complete backfill when the canonical event surface expands.
+const DEFAULT_SCOPE = 'canonical-lending-v2';
 const FRAMEWORK_EVENTS = ['RoleAdminChanged', 'RoleGranted', 'RoleRevoked', 'Paused', 'Unpaused'];
 const EVENT_ALLOWLIST = Object.freeze({
+  lendingPool: ['CollateralDeposited', 'CollateralWithdrawn', 'TokensBorrowed', 'LoanRepaid', 'LiquidationSettled', ...FRAMEWORK_EVENTS],
   loanMarketplace: ['RequestCreated', 'RequestFunded', 'RequestCancelled', 'EMIManagerUpdated', 'P2PLoanLiquidated', ...FRAMEWORK_EVENTS],
   loanManager: ['LoanCreated', 'LoanRepaid', 'LoanDefaulted', 'LoanLiquidated', ...FRAMEWORK_EVENTS],
   emiManager: ['EMIScheduleCreated', 'EMIPaid', 'EMIDefaulted', ...FRAMEWORK_EVENTS],
@@ -10,6 +12,8 @@ const EVENT_ALLOWLIST = Object.freeze({
     'CollateralETHDeposited', 'CollateralERC20Deposited', 'CollateralETHReleased',
     'CollateralERC20Released', 'CollateralETHLiquidated', 'CollateralERC20Liquidated', ...FRAMEWORK_EVENTS,
   ],
+  liquidation: ['PositionLiquidated', 'LiquidationThresholdUpdated', 'LiquidationBonusUpdated', ...FRAMEWORK_EVENTS],
+  loanNFT: ['LoanNFTMinted', 'LoanStatusUpdated', 'LoanNFTBurned', 'Transfer', ...FRAMEWORK_EVENTS],
   abcdToken: ['Transfer'],
 });
 
@@ -129,9 +133,9 @@ function createMongoIndexerStore(models) {
   return {
     async recordDeployment(manifest) {
       const contracts = {
-        abcdToken: mapDeployment(manifest, 'abcdToken'), collateralVault: mapDeployment(manifest, 'collateralVault'),
+        abcdToken: mapDeployment(manifest, 'abcdToken'), lendingPool: mapDeployment(manifest, 'lendingPool'), collateralVault: mapDeployment(manifest, 'collateralVault'),
         loanManager: mapDeployment(manifest, 'loanManager'), loanMarketplace: mapDeployment(manifest, 'loanMarketplace'),
-        emiManager: mapDeployment(manifest, 'emiManager'),
+        emiManager: mapDeployment(manifest, 'emiManager'), liquidation: mapDeployment(manifest, 'liquidation'), loanNFT: mapDeployment(manifest, 'loanNFT'),
       };
       await Deployment.updateOne(
         { chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion },
@@ -145,15 +149,17 @@ function createMongoIndexerStore(models) {
     },
     async insertRawEvent(event) {
       const { removed, ...eventWithoutRemoved } = event;
+      const identity = { chainId: event.chainId, transactionHash: event.transactionHash, logIndex: event.logIndex };
+      const existing = await ChainEvent.findOne(identity).select('removed').lean();
       const result = await ChainEvent.updateOne(
-        { chainId: event.chainId, transactionHash: event.transactionHash, logIndex: event.logIndex },
+        identity,
         {
           $setOnInsert: { ...eventWithoutRemoved, indexedAt: new Date() },
           $set: { removed: Boolean(removed), indexedAt: new Date() },
         },
         { upsert: true, setDefaultsOnInsert: true }
       );
-      return { inserted: result.upsertedCount === 1 };
+      return { inserted: result.upsertedCount === 1, restored: Boolean(existing?.removed) && !Boolean(removed) };
     },
     async markRawEventRemoved(identity) {
       await ChainEvent.updateOne(identity, { $set: { removed: true, indexedAt: new Date() } });
@@ -177,7 +183,7 @@ function createMongoIndexerStore(models) {
 }
 
 function mapDeployment(manifest, key) {
-  const sourceKey = { abcdToken: 'ABCDToken', collateralVault: 'CollateralVault', loanManager: 'LoanManager', loanMarketplace: 'LoanMarketplace', emiManager: 'EMIManager' }[key];
+  const sourceKey = { abcdToken: 'ABCDToken', lendingPool: 'LendingPool', collateralVault: 'CollateralVault', loanManager: 'LoanManager', loanMarketplace: 'LoanMarketplace', emiManager: 'EMIManager', liquidation: 'Liquidation', loanNFT: 'LoanNFT' }[key];
   const source = manifest.rawContracts && manifest.rawContracts[sourceKey];
   if (!source) throw new Error(`Manifest is missing raw deployment evidence for ${sourceKey}`);
   return { address: source.address, deploymentTransactionHash: source.deploymentTransactionHash, deploymentBlock: String(source.deploymentBlock) };
@@ -276,8 +282,8 @@ class LendingIndexer {
       return { event, inserted: false, removed: true };
     }
     const result = await this.callDatabase(() => this.store.insertRawEvent(event), { operation: 'insertRawEvent', ...identity });
-    if (result.inserted) await this.eventProcessor(event);
-    return { event, inserted: result.inserted, removed: false };
+    if (result.inserted || result.restored) await this.eventProcessor(event);
+    return { event, inserted: result.inserted, restored: Boolean(result.restored), removed: false };
   }
 
   async processRange(fromBlock, toBlock) {

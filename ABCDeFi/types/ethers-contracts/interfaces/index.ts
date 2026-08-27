@@ -15,6 +15,7 @@ export type { INFTMarketplace } from './INFTMarketplace.js';
 export type { IP2PLoanMarketplace } from './IP2PLoanMarketplace.js';
 export type { IParticipantNFT } from './IParticipantNFT.js';
 export type { IPresale } from './IPresale.js';
+export type { IReferralManager } from './IReferralManager.js';
 export type { IReputationNFT } from './IReputationNFT.js';
 export type { IStaking } from './IStaking.js';
 export type { IStakingPool } from './IStakingPool.js';

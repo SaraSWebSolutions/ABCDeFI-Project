@@ -221,6 +221,18 @@ test('restores a removed raw log when the same canonical event reappears', async
   assert.equal([...store.events.values()][0].removed, false);
 });
 
+test('reprojects a restored canonical log after a reorg instead of treating it as an ordinary duplicate', async () => {
+  const store = new FixtureStore(); let projections = 0;
+  store.insertRawEvent = async () => ({ inserted: false, restored: true });
+  const subject = new LendingIndexer({
+    manifest: fixtureManifest(), artifacts, provider: new FixtureProvider(), store, logger: { info() {}, warn() {}, error() {} },
+    options: { confirmationDepth: 0, blockRange: 2, retryAttempts: 1, retryDelayMs: 0, pollIntervalMs: 100 },
+    eventProcessor: async () => { projections += 1; }, sleep: async () => {},
+  });
+  const result = await subject.processEvent(fixtureLog());
+  assert.equal(result.inserted, false); assert.equal(result.restored, true); assert.equal(projections, 1);
+});
+
 test('marks a supplied removed log as reverted without deleting its raw record', async () => {
   const store = new FixtureStore(); const subject = indexer(new FixtureProvider(), store); const log = fixtureLog();
   await subject.processEvent(log); await subject.processEvent({ ...log, removed: true });

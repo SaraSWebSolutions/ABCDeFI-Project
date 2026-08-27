@@ -1,8 +1,11 @@
 const requiredRuntimeSecrets = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
 const { loadLendingManifest } = require('./lendingManifest.cjs');
+const { resolveAuthMode } = require('./authMode.cjs');
 const canonicalChainId = loadLendingManifest().chainId;
+const authenticationMode = resolveAuthMode();
 
 function validateRuntimeConfig() {
+  resolveAuthMode();
   const missing = requiredRuntimeSecrets.filter((name) => !process.env[name]);
   if (missing.length > 0) {
     throw new Error(`Missing required runtime configuration: ${missing.join(', ')}`);
@@ -11,6 +14,8 @@ function validateRuntimeConfig() {
 
 module.exports = {
   node_env: process.env.NODE_ENV || 'development',
+  auth_mode: authenticationMode.mode,
+  development_auth_enabled: authenticationMode.developmentEnabled,
   port: Number(process.env.PORT || 5000),
   url: process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/abcdefi',
 

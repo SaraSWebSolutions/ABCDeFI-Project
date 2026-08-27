@@ -13,9 +13,9 @@ export declare namespace ReferralManager {
     }
 
   export interface ReferralManagerInterface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "REFERRAL_BPS" | "bindReferrer" | "claimRewards" | "claimedRewards" | "codeToUser" | "createReferralCode" | "freezeAccount" | "getReferralHistory" | "getReferralLink" | "getRoleAdmin" | "grantRole" | "hasRole" | "isFrozen" | "paused" | "pendingRewards" | "recordPurchase" | "referralHistory" | "referrerOf" | "renounceRole" | "revokeRole" | "rewardVault" | "setRewardVault" | "supportsInterface" | "token" | "unfreezeAccount" | "userReferralCode"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "REFERRAL_BPS" | "bindReferrer" | "claimRewards" | "claimedRewards" | "codeToUser" | "createReferralCode" | "freezeAccount" | "getReferralHistory" | "getReferralLink" | "getRoleAdmin" | "grantRole" | "hasRole" | "isFrozen" | "paused" | "pendingRewards" | "presale" | "processedPurchases" | "recordPurchase" | "referralHistory" | "referrerOf" | "renounceRole" | "revokeRole" | "rewardVault" | "setPresale" | "setRewardVault" | "supportsInterface" | "token" | "unfreezeAccount" | "userReferralCode"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "AccountFrozen" | "AccountUnfrozen" | "Paused" | "ReferralBound" | "ReferralCodeCreated" | "RewardAccrued" | "RewardClaimed" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "AccountFrozen" | "AccountUnfrozen" | "Paused" | "PresaleConfigured" | "ReferralBound" | "ReferralCodeCreated" | "RewardAccrued" | "RewardClaimed" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'REFERRAL_BPS', values?: undefined): string;
@@ -33,12 +33,15 @@ encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]
 encodeFunctionData(functionFragment: 'isFrozen', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
 encodeFunctionData(functionFragment: 'pendingRewards', values: [AddressLike]): string;
-encodeFunctionData(functionFragment: 'recordPurchase', values: [AddressLike, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'presale', values?: undefined): string;
+encodeFunctionData(functionFragment: 'processedPurchases', values: [BytesLike]): string;
+encodeFunctionData(functionFragment: 'recordPurchase', values: [AddressLike, BigNumberish, BytesLike]): string;
 encodeFunctionData(functionFragment: 'referralHistory', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'referrerOf', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'rewardVault', values?: undefined): string;
+encodeFunctionData(functionFragment: 'setPresale', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setRewardVault', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'token', values?: undefined): string;
@@ -61,12 +64,15 @@ decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'isFrozen', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pendingRewards', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'presale', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'processedPurchases', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'recordPurchase', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'referralHistory', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'referrerOf', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'rewardVault', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setPresale', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setRewardVault', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'token', data: BytesLike): Result;
@@ -103,6 +109,18 @@ decodeFunctionResult(functionFragment: 'userReferralCode', data: BytesLike): Res
       export type InputTuple = [account: AddressLike];
       export type OutputTuple = [account: string];
       export interface OutputObject {account: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace PresaleConfiguredEvent {
+      export type InputTuple = [presale: AddressLike];
+      export type OutputTuple = [presale: string];
+      export interface OutputObject {presale: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -369,8 +387,24 @@ decodeFunctionResult(functionFragment: 'userReferralCode', data: BytesLike): Res
     
 
     
+    presale: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    processedPurchases: TypedContractMethod<
+      [arg0: BytesLike, ],
+      [boolean],
+      'view'
+    >
+    
+
+    
     recordPurchase: TypedContractMethod<
-      [buyer: AddressLike, tokenAmount: BigNumberish, ],
+      [buyer: AddressLike, tokenAmount: BigNumberish, purchaseId: BytesLike, ],
       [void],
       'nonpayable'
     >
@@ -413,6 +447,14 @@ decodeFunctionResult(functionFragment: 'userReferralCode', data: BytesLike): Res
       [],
       [string],
       'view'
+    >
+    
+
+    
+    setPresale: TypedContractMethod<
+      [presale_: AddressLike, ],
+      [void],
+      'nonpayable'
     >
     
 
@@ -539,8 +581,18 @@ getFunction(nameOrSignature: 'pendingRewards'): TypedContractMethod<
       [bigint],
       'view'
     >;
+getFunction(nameOrSignature: 'presale'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'processedPurchases'): TypedContractMethod<
+      [arg0: BytesLike, ],
+      [boolean],
+      'view'
+    >;
 getFunction(nameOrSignature: 'recordPurchase'): TypedContractMethod<
-      [buyer: AddressLike, tokenAmount: BigNumberish, ],
+      [buyer: AddressLike, tokenAmount: BigNumberish, purchaseId: BytesLike, ],
       [void],
       'nonpayable'
     >;
@@ -568,6 +620,11 @@ getFunction(nameOrSignature: 'rewardVault'): TypedContractMethod<
       [],
       [string],
       'view'
+    >;
+getFunction(nameOrSignature: 'setPresale'): TypedContractMethod<
+      [presale_: AddressLike, ],
+      [void],
+      'nonpayable'
     >;
 getFunction(nameOrSignature: 'setRewardVault'): TypedContractMethod<
       [newVault: AddressLike, ],
@@ -598,6 +655,7 @@ getFunction(nameOrSignature: 'userReferralCode'): TypedContractMethod<
     getEvent(key: 'AccountFrozen'): TypedContractEvent<AccountFrozenEvent.InputTuple, AccountFrozenEvent.OutputTuple, AccountFrozenEvent.OutputObject>;
 getEvent(key: 'AccountUnfrozen'): TypedContractEvent<AccountUnfrozenEvent.InputTuple, AccountUnfrozenEvent.OutputTuple, AccountUnfrozenEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+getEvent(key: 'PresaleConfigured'): TypedContractEvent<PresaleConfiguredEvent.InputTuple, PresaleConfiguredEvent.OutputTuple, PresaleConfiguredEvent.OutputObject>;
 getEvent(key: 'ReferralBound'): TypedContractEvent<ReferralBoundEvent.InputTuple, ReferralBoundEvent.OutputTuple, ReferralBoundEvent.OutputObject>;
 getEvent(key: 'ReferralCodeCreated'): TypedContractEvent<ReferralCodeCreatedEvent.InputTuple, ReferralCodeCreatedEvent.OutputTuple, ReferralCodeCreatedEvent.OutputObject>;
 getEvent(key: 'RewardAccrued'): TypedContractEvent<RewardAccruedEvent.InputTuple, RewardAccruedEvent.OutputTuple, RewardAccruedEvent.OutputObject>;
@@ -619,6 +677,10 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
       'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
       Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+    
+
+      'PresaleConfigured(address)': TypedContractEvent<PresaleConfiguredEvent.InputTuple, PresaleConfiguredEvent.OutputTuple, PresaleConfiguredEvent.OutputObject>;
+      PresaleConfigured: TypedContractEvent<PresaleConfiguredEvent.InputTuple, PresaleConfiguredEvent.OutputTuple, PresaleConfiguredEvent.OutputObject>;
     
 
       'ReferralBound(address,address)': TypedContractEvent<ReferralBoundEvent.InputTuple, ReferralBoundEvent.OutputTuple, ReferralBoundEvent.OutputObject>;

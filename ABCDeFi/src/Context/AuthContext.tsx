@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 export interface AuthUser {
   id?: string;
   name?: string;
-  email: string;
+  email?: string;
   mobileNumber?: number | string;
   walletAddress?: string;
   country?: string;
@@ -58,6 +58,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const STORAGE_KEY_USER = 'abcdefi_auth_user';
 const STORAGE_KEY_TOKEN = 'abcdefi_jwt';
 const STORAGE_KEY_REFRESH = 'abcdefi_auth_refresh';
+const STORAGE_KEY_METHOD = 'abcdefi_auth_method';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(() => {
@@ -88,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
-  const clearAuthSession = useCallback(() => {
+  const clearAuthSession = useCallback((disconnectWallet = true) => {
     setUser(null);
     setToken(null);
     setRefreshTokenState(null);
@@ -96,8 +97,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem(STORAGE_KEY_USER);
     localStorage.removeItem(STORAGE_KEY_TOKEN);
     localStorage.removeItem(STORAGE_KEY_REFRESH);
+    localStorage.removeItem(STORAGE_KEY_METHOD);
     localStorage.removeItem('abcdefi_connected_wallet');
-    window.dispatchEvent(new Event('abcdefi-auth-logout'));
+    if (disconnectWallet) {
+      window.dispatchEvent(new Event('abcdefi-auth-logout'));
+    }
   }, []);
 
   const setPendingAuth = (val: PendingAuthState | null | ((prev: PendingAuthState | null) => PendingAuthState | null)) => {
@@ -143,7 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [refreshProfile]);
 
 
-  const saveAuthSession = (userData: AuthUser, accessToken: string, refToken?: string) => {
+  const saveAuthSession = (userData: AuthUser, accessToken: string, refToken?: string, method: 'password' | 'wallet' = 'password') => {
     setUser(userData);
     setToken(accessToken);
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userData));
@@ -151,17 +155,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (refToken) {
       setRefreshTokenState(refToken);
       localStorage.setItem(STORAGE_KEY_REFRESH, refToken);
+    } else {
+      setRefreshTokenState(null);
+      localStorage.removeItem(STORAGE_KEY_REFRESH);
     }
+    localStorage.setItem(STORAGE_KEY_METHOD, method);
   };
+
+  // WalletContext owns MetaMask interaction. AuthContext owns the app session;
+  // the event is emitted only after the backend verifies the signed challenge.
+  useEffect(() => {
+    const handleWalletAuthenticated = (event: Event) => {
+      const detail = (event as CustomEvent<{ user?: AuthUser; token?: string; refreshToken?: string }>).detail;
+      if (!detail?.user || !detail.token) return;
+      saveAuthSession(detail.user, detail.token, detail.refreshToken, 'wallet');
+      setPendingAuth(null);
+    };
+    const handleWalletInvalidated = () => {
+      if (localStorage.getItem(STORAGE_KEY_METHOD) === 'wallet') {
+        // An account or chain change returns the app to sign-in but must not
+        // disconnect the newly selected MetaMask account.
+        clearAuthSession(false);
+      }
+    };
+    window.addEventListener('abcdefi-wallet-authenticated', handleWalletAuthenticated);
+    window.addEventListener('abcdefi-wallet-auth-invalidated', handleWalletInvalidated);
+    return () => {
+      window.removeEventListener('abcdefi-wallet-authenticated', handleWalletAuthenticated);
+      window.removeEventListener('abcdefi-wallet-auth-invalidated', handleWalletInvalidated);
+    };
+  }, [clearAuthSession]);
 
   // Login Step 1
   const loginStep1 = async (email: string, password: string) => {
     setLoading(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
     try {
       const res = await fetch('/api/user/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        signal: controller.signal,
       });
       const data = await res.json().catch(() => ({}));
       
@@ -206,9 +241,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       return {
         success: false,
-        message: err?.message || 'Authentication server unavailable. Please try again.'
+        message: err instanceof DOMException && err.name === 'AbortError'
+          ? 'Sign-in request timed out. The authentication service did not respond. Please try again later.'
+          : err?.message || 'Authentication server unavailable. Please try again.'
       };
     } finally {
+      window.clearTimeout(timeoutId);
       setLoading(false);
     }
   };

@@ -26,6 +26,8 @@ export const CONTRACTS = Object.freeze({
   emiManager: address('EMIManager'), liquidation: address('Liquidation'),
   loanNFT: address('LoanNFT'), reputationNFT: address('ReputationNFT'),
   guruNFT: address('GuruNFT'), bonusManager: address('BonusManager'),
+  legionNFT: address('LegionNFT'),
+  franchiseNFT: address('FranchiseNFT'),
 });
 
 export const DEPLOYMENT_CHAIN_ID = BigInt(deploymentManifest.chainId);

@@ -3,10 +3,13 @@ const path = require("node:path");
 
 const REQUIRED_CONTRACTS = [
   "ABCDToken",
+  "LendingPool",
   "CollateralVault",
   "LoanManager",
   "LoanMarketplace",
   "EMIManager",
+  "Liquidation",
+  "LoanNFT",
 ];
 
 function resolveManifestPath() {
@@ -101,10 +104,13 @@ function loadLendingManifest() {
     )),
     contracts: Object.freeze({
       abcdToken: manifest.contracts.ABCDToken.address,
+      lendingPool: manifest.contracts.LendingPool.address,
       collateralVault: manifest.contracts.CollateralVault.address,
       loanManager: manifest.contracts.LoanManager.address,
       loanMarketplace: manifest.contracts.LoanMarketplace.address,
       emiManager: manifest.contracts.EMIManager.address,
+      liquidation: manifest.contracts.Liquidation.address,
+      loanNFT: manifest.contracts.LoanNFT.address,
     }),
   });
 }

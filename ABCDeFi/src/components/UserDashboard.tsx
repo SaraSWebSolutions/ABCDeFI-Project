@@ -25,25 +25,27 @@ import {
   Bell,
   Settings,
   User,
-  Activity
+  Activity,
+  Building2,
+  MapPinned
 } from 'lucide-react';
 
 // Import existing components that will be embedded in this dashboard
 import { PortfolioDashboard } from './PortfolioDashboard';
 import { TransactionHistory } from './TransactionHistory';
 import { NFTEcosystem } from './NFTEcosystem';
+import { LegionNFT } from './LegionNFT';
+import { FranchiseNFT } from './FranchiseNFT';
 import { PresaleICO } from './PresaleICO';
 import { ClaimPortal } from './ClaimPortal';
 import { ReferralSystem } from './ReferralSystem';
 import { AIFinancialAssistant } from './AIFinancialAssistant';
 import { FinancialEducation } from './FinancialEducation';
-import { ReputationSystem } from './ReputationSystem';
 import { AIGamesDashboard } from './AIGamesDashboard';
 import { ProtocolDashboard } from './ProtocolDashboard';
 import { ContractInteractDashboard } from './ContractInteractDashboard';
 import { MasterProtocolManager } from './MasterProtocolManager';
 import { NFTSubModuleManager } from './NFTSubModuleManager';
-import { FranchiseSubModuleManager } from './FranchiseSubModuleManager';
 import P2PLendingDashboard from './P2PLendingDashboard';
 
 import NextGenProtocolDashboard from './NextGenProtocolDashboard';
@@ -78,6 +80,16 @@ export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
   );
   const [activeTab, setActiveTab] = useState('overview');
   const [depositSubTab, setDepositSubTab] = useState<'deposit' | 'withdraw'>('deposit');
+  const [walletConnectError, setWalletConnectError] = useState('');
+
+  const connectMetaMask = async () => {
+    setWalletConnectError('');
+    try {
+      await wallet.connectWallet('metamask');
+    } catch (error) {
+      setWalletConnectError(error instanceof Error ? error.message : 'Unable to connect MetaMask.');
+    }
+  };
 
   const hasKycSubmission = Boolean(user?.kycSubmittedAt || user?.kycProviderReference);
   const rawKycStatus = String(user?.kycStatus || '').toLowerCase();
@@ -120,8 +132,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
     // { id: 'staking', label: 'Staking', icon: TrendingUp },
     // { id: 'rewards', label: 'Rewards', icon: Gift },
     { id: 'nft-ecosystem', label: 'NFT Ecosystem', icon: Layers },
+    { id: 'legion', label: 'Legion NFTs', icon: MapPinned },
+    { id: 'franchise', label: 'Franchise NFTs', icon: Building2 },
     // { id: 'ai-59c', label: '🤖 59C AI Games & Learning', icon: Bot },
     { id: 'ico', label: 'ICO Participation', icon: Rocket },
+    { id: 'referral', label: 'Referrals', icon: Users },
     // { id: 'vesting', label: 'Claim Vesting', icon: Download },
     { id: 'credit', label: 'Credit Score', icon: ShieldCheck },
     // { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -174,7 +189,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
             {/* Live Balances Display */}
             <div className="flex items-center gap-4 bg-slate-950/70 border border-slate-800/80 px-4 py-2 rounded-2xl text-xs font-mono">
               <div>
-                <div className="text-[10px] font-bold text-slate-400 uppercase">BNB Balance</div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase">ETH Balance</div>
                 <div className="text-xs font-black text-amber-300">{wallet.balanceBNB === null ? 'Unavailable' : `${wallet.balanceBNB} ETH`}</div>
               </div>
               <div className="w-px h-6 bg-slate-800" />
@@ -187,14 +202,26 @@ export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
             </div>
 
             {!wallet.isConnected ? (
-              <button
-                onClick={() => setActiveTab('wallet')}
-                className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black rounded-xl text-xs shadow-lg shadow-amber-500/20 transition cursor-pointer flex items-center gap-1.5"
-              >
-                <Wallet className="w-4 h-4" /> Connect Wallet
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  onClick={() => void connectMetaMask()}
+                  disabled={wallet.isConnecting}
+                  className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black rounded-xl text-xs shadow-lg shadow-amber-500/20 transition cursor-pointer flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Wallet className="w-4 h-4" /> {wallet.isConnecting ? 'Connecting…' : 'Connect Wallet'}
+                </button>
+                {walletConnectError && <span className="max-w-48 text-right text-[10px] text-rose-300">{walletConnectError}</span>}
+              </div>
             ) : (
               <div className="flex items-center gap-2">
+                {!wallet.isCorrectNetwork && (
+                  <button
+                    onClick={() => void wallet.switchChain('Hardhat Local').catch((error) => setWalletConnectError(error instanceof Error ? error.message : 'Unable to switch MetaMask to Hardhat Local.'))}
+                    className="px-3.5 py-2 bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 border border-amber-500/40 font-black rounded-xl text-xs transition cursor-pointer"
+                  >
+                    Switch to Hardhat Local
+                  </button>
+                )}
                 <button
                   onClick={() => setActiveTab('wallet')}
                   className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-xs transition cursor-pointer flex items-center gap-1.5"
@@ -207,6 +234,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
                 >
                   Disconnect
                 </button>
+                {walletConnectError && <span className="max-w-48 text-right text-[10px] text-rose-300">{walletConnectError}</span>}
               </div>
             )}
           </div>
@@ -349,15 +377,14 @@ export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
         <MasterProtocolManager initialTab={activeTab} userAddress={selectedAccount?.address} />
       )} */}
 
-      {/* Franchise Sub-Modules (Franchise Licensing, Operator KYC, Revenue Share, Audit Franchisees) */}
-      {['franchise-licensing', 'operator-kyc', 'revenue-share', 'audit-franchisees'].includes(activeTab) && (
-        <FranchiseSubModuleManager tab={activeTab as any} userAddress={wallet.address || undefined} />
-      )}
-
       {/* NFT Ecosystem — Unified Legion / Franchise / Loan NFT Portal */}
       {activeTab === 'nft-ecosystem' && (
         <NFTEcosystem connectedWallet={wallet.address || undefined} />
       )}
+
+      {activeTab === 'legion' && <LegionNFT />}
+
+      {activeTab === 'franchise' && <FranchiseNFT />}
 
       {/* {activeTab === 'vesting' && (
         <ClaimPortal
@@ -375,7 +402,14 @@ export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
 
       {activeTab === 'referral' && <ReferralSystem />}
 
-      {activeTab === 'credit' && <ReputationSystem />}
+      {activeTab === 'credit' && (
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-3 max-w-2xl mx-auto">
+          <h2 className="text-xl font-bold text-white uppercase flex items-center gap-2 border-b border-slate-800 pb-3">
+            <ShieldCheck className="w-5 h-5 text-indigo-400" /> Credit Score
+          </h2>
+          <p className="text-sm text-slate-400">Credit scoring is not available on the current local deployment. The deployed ReputationNFT can be viewed from NFT Ecosystem when one exists for the connected wallet.</p>
+        </div>
+      )}
 
       {activeTab === 'notifications' && (
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 max-w-2xl mx-auto">
@@ -383,7 +417,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
             <Bell className="w-5 h-5 text-amber-400" /> Notifications
           </h2>
           <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl text-sm text-slate-400">
-            No indexed notifications are available for this account.
+            Notifications are not available on the current local deployment.
           </div>
         </div>
       )}
@@ -393,25 +427,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
           <h2 className="text-xl font-bold text-white uppercase flex items-center gap-2 border-b border-slate-800 pb-3">
             <Settings className="w-5 h-5 text-slate-400" /> Preferences
           </h2>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-2xl">
-              <div>
-                <div className="font-bold text-white text-sm">Dark Mode</div>
-                <div className="text-xs text-slate-400">Toggle application theme</div>
-              </div>
-              <div className="w-10 h-5 bg-indigo-600 rounded-full flex items-center px-1">
-                <div className="w-3 h-3 bg-white rounded-full translate-x-5"></div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-slate-950 border border-slate-800 rounded-2xl">
-              <div>
-                <div className="font-bold text-white text-sm">Email Alerts</div>
-                <div className="text-xs text-slate-400">Receive liquidation warnings</div>
-              </div>
-              <div className="w-10 h-5 bg-indigo-600 rounded-full flex items-center px-1">
-                <div className="w-3 h-3 bg-white rounded-full translate-x-5"></div>
-              </div>
-            </div>
+          <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl text-sm text-slate-400">
+            Preferences are not available on the current local deployment.
           </div>
         </div>
       )}

@@ -14,6 +14,11 @@ const expectedCollections = {
   Repayment: 'repayments',
   LoanDefault: 'loan_defaults',
   Liquidation: 'liquidations',
+  DirectLendingPosition: 'direct_lending_positions',
+  DirectLendingActivity: 'direct_lending_activities',
+  DirectLiquidation: 'direct_liquidations',
+  LoanNFTCertificate: 'loan_nft_certificates',
+  LoanNFTTransfer: 'loan_nft_transfers',
   CollateralMovement: 'collateral_movements',
   LoanStateTransition: 'loan_state_transitions',
   ReconciliationError: 'lending_reconciliation_errors',
@@ -36,6 +41,9 @@ test('uses canonical chain identities as unique idempotency keys', () => {
   assert.ok(hasIndex(models.LoanRequest, { chainId: 1, loanMarketplaceAddress: 1, requestId: 1 }, true));
   assert.ok(hasIndex(models.Loan, { chainId: 1, loanManagerAddress: 1, loanId: 1 }, true));
   assert.ok(hasIndex(models.EMIInstallment, { chainId: 1, emiManagerAddress: 1, loanId: 1, installmentId: 1 }, true));
+  assert.ok(hasIndex(models.DirectLendingPosition, { chainId: 1, lendingPoolAddress: 1, borrower: 1 }, true));
+  assert.ok(hasIndex(models.DirectLendingActivity, { chainId: 1, 'evidence.transactionHash': 1, 'evidence.logIndex': 1 }, true));
+  assert.ok(hasIndex(models.LoanNFTCertificate, { chainId: 1, loanNFTAddress: 1, tokenId: 1 }, true));
 });
 
 test('preserves uint256 precision and stores required repayment evidence', () => {

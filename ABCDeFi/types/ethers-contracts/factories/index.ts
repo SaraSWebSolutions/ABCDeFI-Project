@@ -12,6 +12,7 @@ export * as nft from './nft/index.js';
 export * as oracle from './oracle/index.js';
 export * as reputation from './reputation/index.js';
 export * as staking from './staking/index.js';
+export * as test from './test/index.js';
 export * as token from './token/index.js';
 export * as tokens from './tokens/index.js';
 export * as treasury from './treasury/index.js';

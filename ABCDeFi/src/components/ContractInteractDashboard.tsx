@@ -17,12 +17,12 @@ import {
   withdrawTreasuryERC20,
   withdrawTreasuryETH,
 } from '../Services/treasury';
-import { getLoanInfo, depositCollateral, borrowTokens, repayLoan, withdrawCollateral } from '../Services/lending';
+import { getLoanInfo } from '../Services/lending';
 import { getReferralStats, registerReferral, claimReferralReward } from '../Services/referral';
 import { getNFTListings, mintNFT, buyNFT } from '../Services/marketplace';
 import { CONTRACTS, requireContractAddress } from '../Config/contracts';
 import { useWallet } from '../Context/WalletContext';
-import LoanMarketplace from './LoanMarketplace';
+import LendingPool from './LendingPool';
 import {
   Coins,
   ShoppingBag,
@@ -568,51 +568,7 @@ export const ContractInteractDashboard: React.FC = () => {
 
         {/* 6. LENDING MODULE */}
         {activeModule === 'lending' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <div className="text-xs text-slate-400 uppercase font-mono">Deposited Collateral</div>
-                <div className="text-lg font-bold text-emerald-400 font-mono mt-1">{lendingData.collateral} ETH</div>
-              </div>
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <div className="text-xs text-slate-400 uppercase font-mono">Borrowed Tokens</div>
-                <div className="text-lg font-bold text-rose-400 font-mono mt-1">{lendingData.borrowed} ABCD</div>
-              </div>
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                <div className="text-xs text-slate-400 uppercase font-mono">Health Factor</div>
-                <div className="text-lg font-bold text-indigo-300 font-mono mt-1">{lendingData.healthFactor}</div>
-              </div>
-            </div>
-
-            <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800 space-y-4">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Lending & Collateral Actions</h3>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  onClick={() => runTransaction('Deposit Collateral', () => depositCollateral(depositCollateralInput))}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer"
-                >
-                  Deposit Collateral
-                </button>
-                <button
-                  onClick={() => runTransaction('borrowTokens', () => borrowTokens(borrowInput))}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer"
-                >
-                  Borrow (borrow)
-                </button>
-                <button
-                  onClick={() => runTransaction('repayLoan', () => repayLoan(borrowInput))}
-                  className="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-4 py-2 rounded-xl text-xs transition cursor-pointer"
-                >
-                  Repay (repay)
-                </button>
-              </div>
-            </div>
-
-            {/* STEP 4: LOAN MARKETPLACE COMPONENT */}
-            <div className="pt-4 border-t border-slate-800">
-              <LoanMarketplace onActionSuccess={refreshAllData} />
-            </div>
-          </div>
+          <LendingPool />
         )}
 
         {/* 7. REFERRAL MODULE */}

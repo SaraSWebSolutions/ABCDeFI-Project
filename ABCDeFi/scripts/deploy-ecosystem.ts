@@ -144,6 +144,14 @@ async function main() {
   const participantNFT = await deploy("ParticipantNFT", [deployer.address]);
   const reputationNFT = await deploy("ReputationNFT", [deployer.address]);
   const guruNFT = await deploy("GuruNFT", [deployer.address]);
+  // Legion territory certificates are issuer-minted ERC-721s. The deployer
+  // receives the initial administration and minting roles; this does not add
+  // payment, revenue, or marketplace behavior.
+  const legionNFT = await deploy("LegionNFT", [deployer.address, deployer.address]);
+  // Franchise certificates are issuer-minted ERC-721 licences. The deployer is
+  // deliberately the initial minter; no public purchase or revenue mechanism
+  // is implied by this deployment.
+  const franchiseNFT = await deploy("FranchiseNFT", [deployer.address, deployer.address]);
   const loanNFT = await deploy("LoanNFT", [loanMarketplaceAddress]);
   const referralManager = await deploy("ReferralManager", [tokenAddress, wallets.reserve]);
   const bonusEngine = await deploy("BonusEngine", [tokenAddress, wallets.reserve]);
@@ -151,12 +159,18 @@ async function main() {
 
   // --------------------------- Protocol wiring ---------------------------
   const WITHDRAWER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("WITHDRAWER_ROLE"));
+  const PRESALE_ADMIN_ROLE = ethers.keccak256(ethers.toUtf8Bytes("PRESALE_ADMIN_ROLE"));
   const LIQUIDATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("LIQUIDATOR_ROLE"));
   const LOAN_OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("LOAN_OPERATOR_ROLE"));
   const MINTER_NFT_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_NFT_ROLE"));
   const VAULT_OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("VAULT_OPERATOR_ROLE"));
   const MARKETPLACE_EMI_OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("EMI_OPERATOR_ROLE"));
   const LENDING_ADMIN_ROLE = ethers.keccak256(ethers.toUtf8Bytes("LENDING_ADMIN_ROLE"));
+  const FRANCHISE_MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_ROLE"));
+  const FRANCHISE_PAUSER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("PAUSER_ROLE"));
+  const FRANCHISE_UPDATER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("UPDATER_ROLE"));
+  const LEGION_MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_ROLE"));
+  const LEGION_PAUSER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("PAUSER_ROLE"));
 
   await (await token.setTreasury(treasuryAddress)).wait();
   await (await treasury.grantRole(WITHDRAWER_ROLE, deployer.address)).wait();
@@ -174,12 +188,41 @@ async function main() {
   await (await loanMarketplace.grantRole(MARKETPLACE_EMI_OPERATOR_ROLE, emiManagerAddress)).wait();
   await (await collateralVault.grantRole(VAULT_OPERATOR_ROLE, loanMarketplaceAddress)).wait();
   await (await loanMarketplace.setEMIManager(emiManagerAddress)).wait();
+  if (
+    !await franchiseNFT.hasRole(ethers.ZeroHash, deployer.address) ||
+    !await franchiseNFT.hasRole(FRANCHISE_MINTER_ROLE, deployer.address) ||
+    !await franchiseNFT.hasRole(FRANCHISE_PAUSER_ROLE, deployer.address) ||
+    !await franchiseNFT.hasRole(FRANCHISE_UPDATER_ROLE, deployer.address)
+  ) {
+    throw new Error("FranchiseNFT role wiring verification failed");
+  }
+  if (
+    !await legionNFT.hasRole(ethers.ZeroHash, deployer.address) ||
+    !await legionNFT.hasRole(LEGION_MINTER_ROLE, deployer.address) ||
+    !await legionNFT.hasRole(LEGION_PAUSER_ROLE, deployer.address)
+  ) {
+    throw new Error("LegionNFT role wiring verification failed");
+  }
   await (await referralManager.setRewardVault(wallets.reserve)).wait();
+  // Referral rewards are recorded atomically from Presale.buyWithETH(). The
+  // reciprocal one-time wiring locks the integration to these deployed
+  // contracts before the sale can start.
+  await (await presale.setReferralManager(deployed.ReferralManager.address)).wait();
+  await (await referralManager.setPresale(presaleAddress)).wait();
+  await (await referralManager.grantRole(PRESALE_ADMIN_ROLE, presaleAddress)).wait();
+  if (
+    (await presale.referralManager()).toLowerCase() !== deployed.ReferralManager.address.toLowerCase() ||
+    (await referralManager.presale()).toLowerCase() !== presaleAddress.toLowerCase() ||
+    !await referralManager.hasRole(PRESALE_ADMIN_ROLE, presaleAddress)
+  ) {
+    throw new Error("Presale and ReferralManager integration wiring verification failed");
+  }
 
   // Fund contracts that pay user rewards / fulfill token claims from the appropriate ecosystem pools.
   const icoSigner = signers.find((s: any) => s.address.toLowerCase() === wallets.ico.toLowerCase());
   const reserveSigner = signers.find((s: any) => s.address.toLowerCase() === wallets.reserve.toLowerCase());
   if (!icoSigner) throw new Error("Configured ICO wallet is not an available deployment signer");
+  if (!reserveSigner) throw new Error("Configured reserve wallet is not an available deployment signer for ReferralManager rewards");
 
   await waitForSuccessfulReceipt(
     await token.connect(icoSigner).transfer(
@@ -231,13 +274,22 @@ async function main() {
     `✓ LendingPool liquidity funded: ${ethers.formatUnits(initialLendingLiquidity, 18)} ABCD ` +
     `(approval ${approvalReceipt.hash}, funding ${fundingReceipt.hash})`
   );
-  if (reserveSigner) {
-    const STAKING_ADMIN_ROLE = ethers.keccak256(ethers.toUtf8Bytes("STAKING_ADMIN_ROLE"));
-    await (await staking.grantRole(STAKING_ADMIN_ROLE, reserveSigner.address)).wait();
-    const rewardAmount = ethers.parseUnits(process.env.STAKING_REWARD_POOL || "5000000", 18);
-    await (await token.connect(reserveSigner).approve(stakingAddress, rewardAmount)).wait();
-    await (await staking.connect(reserveSigner).fundRewardPool(rewardAmount)).wait();
-  }
+  const STAKING_ADMIN_ROLE = ethers.keccak256(ethers.toUtf8Bytes("STAKING_ADMIN_ROLE"));
+  await (await staking.grantRole(STAKING_ADMIN_ROLE, reserveSigner.address)).wait();
+  const rewardAmount = ethers.parseUnits(process.env.STAKING_REWARD_POOL || "5000000", 18);
+  await (await token.connect(reserveSigner).approve(stakingAddress, rewardAmount)).wait();
+  await (await staking.connect(reserveSigner).fundRewardPool(rewardAmount)).wait();
+
+  // The maximum aggregate referral reward is bounded by the sale hard cap,
+  // rate and immutable 5 BPS setting. Approving exactly that amount means a
+  // referral payout cannot consume more reserve allowance than the sale can
+  // ever generate.
+  const maxPresaleTokens = (await presale.hardCap()) * (await presale.rate()) / ethers.parseUnits("1", 18);
+  const maxReferralRewards = maxPresaleTokens * (await referralManager.REFERRAL_BPS()) / 10_000n;
+  await waitForSuccessfulReceipt(
+    await token.connect(reserveSigner).approve(deployed.ReferralManager.address, maxReferralRewards),
+    "ReferralManager reward allowance"
+  );
 
   const networkInfo = await hh.provider.getNetwork();
   const chainId = networkInfo.chainId.toString();

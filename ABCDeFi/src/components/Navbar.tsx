@@ -136,7 +136,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenK
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-slate-300">
-                        <span className="text-slate-400 font-sans">BNB:</span>
+                        <span className="text-slate-400 font-sans">ETH:</span>
                         <span>{balances.BNB ?? 'Unavailable'} ETH</span>
                       </div>
                       <div className="flex justify-between items-center text-slate-300">

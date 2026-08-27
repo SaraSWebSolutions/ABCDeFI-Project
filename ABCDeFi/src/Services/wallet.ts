@@ -36,7 +36,11 @@ export async function connectWallet(walletType: 'metamask' | 'walletconnect' | '
   const ethereum = injectedProvider();
   if (!ethereum) throw new Error('MetaMask was not detected. Install MetaMask or use the configured wallet provider.');
 
+  // An explicit connection may follow an account or chain change. Never let a
+  // signer cached for the previous EIP-1193 account survive that boundary.
   cachedProvider = new BrowserProvider(ethereum);
+  cachedSigner = null;
+  cachedAddress = null;
   const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
   if (!accounts?.length) throw new Error('No wallet account returned.');
 
@@ -55,6 +59,52 @@ export async function connectWallet(walletType: 'metamask' | 'walletconnect' | '
   };
 }
 
+/**
+ * Opens MetaMask's account-permission selector from an explicit user action.
+ * This is not a second wallet connection: it refreshes the same EIP-1193
+ * provider and returns through the canonical connectWallet flow.
+ */
+export async function requestWalletAccountSelection() {
+  const ethereum = injectedProvider();
+  if (!ethereum) throw new Error('MetaMask was not detected. Install MetaMask or use the configured wallet provider.');
+
+  try {
+    await ethereum.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
+  } catch (error) {
+    const details = error as { code?: number };
+    // Some EIP-1193 providers do not expose the optional permissions method.
+    // They can still present their normal account connect UI below.
+    if (details.code !== -32601) throw error;
+  }
+
+  return connectWallet('metamask');
+}
+
+/**
+ * Restore an account that the user has already authorized for this origin.
+ * This deliberately uses eth_accounts rather than eth_requestAccounts so it
+ * never opens MetaMask or creates a new permission request on page load.
+ */
+export async function restoreWalletConnection() {
+  const ethereum = injectedProvider();
+  if (!ethereum) return null;
+
+  const provider = new BrowserProvider(ethereum);
+  const accounts = await ethereum.request({ method: 'eth_accounts' }) as string[];
+  if (!accounts?.length) {
+    cachedProvider = provider;
+    cachedSigner = null;
+    cachedAddress = null;
+    return null;
+  }
+
+  cachedProvider = provider;
+  cachedSigner = null;
+  cachedAddress = accounts[0];
+  const network = await provider.getNetwork();
+  return { provider, address: accounts[0], chainId: network.chainId };
+}
+
 export async function getProvider(): Promise<BrowserProvider> {
   if (cachedProvider) return cachedProvider;
   const ethereum = injectedProvider();
@@ -64,20 +114,24 @@ export async function getProvider(): Promise<BrowserProvider> {
 }
 
 export async function getSigner(): Promise<Signer> {
-  if (cachedSigner) return cachedSigner;
   const provider = await getProvider();
   const accounts = await provider.send('eth_accounts', []);
   if (!accounts?.length) throw new Error('Wallet is not connected.');
-  cachedSigner = await provider.getSigner();
+  const currentAddress = accounts[0];
+  if (cachedSigner && cachedAddress?.toLowerCase() === currentAddress.toLowerCase()) {
+    return cachedSigner;
+  }
+
+  // Recreate the signer whenever MetaMask reports a different selected
+  // account. This is the final safeguard against a stale signer being used by
+  // an admin transaction even if an EIP-1193 event was missed.
+  cachedSigner = await provider.getSigner(currentAddress);
   cachedAddress = await cachedSigner.getAddress();
   return cachedSigner;
 }
 
 export async function getWalletAddress(): Promise<string> {
-  if (cachedAddress) return cachedAddress;
-  const address = await (await getSigner()).getAddress();
-  cachedAddress = address;
-  return address;
+  return (await getSigner()).getAddress();
 }
 
 export async function signAuthChallenge(_userAddress: string, message: string): Promise<string> {

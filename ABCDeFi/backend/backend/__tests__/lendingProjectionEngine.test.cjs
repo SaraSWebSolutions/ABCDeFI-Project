@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { loadLendingManifest } = require('../config/lendingManifest.cjs');
-const { LendingProjectionEngine, LOAN_STATUS } = require('../modules/lendingProjection/projection');
+const { LendingProjectionEngine, LOAN_STATUS, LOAN_NFT_STATUS } = require('../modules/lendingProjection/projection');
 
 // Deterministic fixtures in this file are test-only and are never runtime blockchain data.
 // Projection fixtures use synthetic events beginning at block 1. Keep that
@@ -24,8 +24,11 @@ function event(eventName, args, { block = 1, transaction = 1, log = 0, contractA
   const eventContracts = {
     RequestCreated: contract.loanMarketplace, RequestFunded: contract.loanMarketplace, RequestCancelled: contract.loanMarketplace, P2PLoanLiquidated: contract.loanMarketplace,
     LoanCreated: contract.loanManager, LoanRepaid: contract.loanManager, LoanDefaulted: contract.loanManager, LoanLiquidated: contract.loanManager,
+    CollateralDeposited: contract.lendingPool, CollateralWithdrawn: contract.lendingPool, TokensBorrowed: contract.lendingPool, LiquidationSettled: contract.lendingPool,
     EMIScheduleCreated: contract.emiManager, EMIPaid: contract.emiManager, EMIDefaulted: contract.emiManager,
     CollateralETHDeposited: contract.collateralVault, CollateralETHReleased: contract.collateralVault, CollateralETHLiquidated: contract.collateralVault,
+    PositionLiquidated: contract.liquidation,
+    LoanNFTMinted: contract.loanNFT, LoanStatusUpdated: contract.loanNFT, LoanNFTBurned: contract.loanNFT,
     Transfer: contract.abcdToken,
   };
   return { chainId: String(manifest.chainId), contractAddress: contractAddress || eventContracts[eventName], transactionHash: hash(transaction), blockNumber: String(block), transactionIndex: 0, logIndex: log, blockHash: hash(1000 + block), eventName, eventSignature: `${eventName}(fixture)`, topic0: hash(2000 + log), topics: [], data: '0x', args, removed: false };
@@ -33,16 +36,19 @@ function event(eventName, args, { block = 1, transaction = 1, log = 0, contractA
 function loan(overrides = {}) { return { loanId: '1', borrower, lender, principal: '100', collateralETH: '50', interestRateBps: '1200', durationMonths: '2', emiAmount: '55', startTime: '10', lastInterestTime: '10', totalRepaid: '0', status: 'ACTIVE', ...overrides }; }
 function request(overrides = {}) { return { requestId: '1', borrower, lender: null, principal: '100', collateralETH: '50', interestRateBps: '1200', durationMonths: '2', emiAmount: '55', purpose: 'fixture purpose', status: 'OPEN', ...overrides }; }
 function installment(overrides = {}) { return { installmentId: '0', loanId: '1', dueDate: '40', amount: '55', paid: false, paidAt: '0', ...overrides }; }
+function directPosition(overrides = {}) { return { collateralETH: '50', borrowedTokens: '10', active: true, ...overrides }; }
+function loanNft(overrides = {}) { return { tokenId: '1', owner: borrower, loanId: '1', borrower, lender, loanAmount: '100', collateral: '50', interestRateBps: '1200', durationMonths: '2', status: 'ACTIVE', mintDate: '10', ipfsUri: '', ...overrides }; }
 
 class Store {
   constructor(events = []) { this.events = events; this.clear(); }
-  clear() { this.requests = new Map(); this.loans = new Map(); this.schedules = new Map(); this.installments = new Map(); this.repayments = new Map(); this.defaults = new Map(); this.liquidations = new Map(); this.collateral = new Map(); this.transitions = new Map(); this.errors = new Map(); }
+  clear() { this.requests = new Map(); this.loans = new Map(); this.schedules = new Map(); this.installments = new Map(); this.repayments = new Map(); this.defaults = new Map(); this.liquidations = new Map(); this.directPositions = new Map(); this.directActivities = new Map(); this.directLiquidations = new Map(); this.loanNfts = new Map(); this.loanNftTransfers = new Map(); this.collateral = new Map(); this.transitions = new Map(); this.errors = new Map(); }
   async listCanonicalEvents({ chainId, deploymentBlock, contractAddresses }) { return this.events.filter((item) => !item.removed && item.chainId === String(chainId) && Number(item.blockNumber) >= deploymentBlock && contractAddresses.includes(item.contractAddress)); }
   async findEventsByTransaction(chainId, transactionHash) { return this.events.filter((item) => !item.removed && item.chainId === String(chainId) && item.transactionHash === transactionHash); }
   async getLoan(_chain, _address, loanId) { return this.loans.get(String(loanId)) || null; }
   async getRequest(_chain, _address, requestId) { return this.requests.get(String(requestId)) || null; }
   async getRequestByLoan(_chain, _address, loanId) { return [...this.requests.values()].find((item) => item.loanId === String(loanId)) || null; }
   async getInstallment(_chain, _address, loanId, installmentId) { return this.installments.get(`${loanId}:${installmentId}`) || null; }
+  async getLoanNft(_chain, _address, tokenId) { return this.loanNfts.get(String(tokenId)) || null; }
   async upsertRequest(doc) { this.requests.set(doc.requestId, structuredClone(doc)); }
   async upsertLoan(doc) { this.loans.set(doc.loanId, structuredClone(doc)); }
   async upsertSchedule(doc) { this.schedules.set(doc.loanId, structuredClone(doc)); }
@@ -51,20 +57,27 @@ class Store {
   async upsertRepayment(doc) { this.repayments.set(`${doc.transactionHash}:${doc.emiEvidence.logIndex}`, structuredClone(doc)); }
   async upsertDefault(doc) { this.defaults.set(`${doc.loanId}:${doc.installmentId}`, structuredClone(doc)); }
   async upsertLiquidation(doc) { this.liquidations.set(doc.loanId, structuredClone(doc)); }
+  async upsertDirectPosition(doc) { this.directPositions.set(doc.borrower, structuredClone(doc)); }
+  async appendDirectActivity(doc) { this.directActivities.set(`${doc.evidence.transactionHash}:${doc.evidence.logIndex}`, structuredClone(doc)); }
+  async upsertDirectLiquidation(doc) { this.directLiquidations.set(`${doc.liquidationEvidence.transactionHash}:${doc.liquidationEvidence.logIndex}`, structuredClone(doc)); }
+  async upsertLoanNft(doc) { this.loanNfts.set(doc.tokenId, structuredClone(doc)); }
+  async appendLoanNftTransfer(doc) { this.loanNftTransfers.set(`${doc.evidence.transactionHash}:${doc.evidence.logIndex}`, structuredClone(doc)); }
   async upsertCollateral(doc) { this.collateral.set(`${doc.transactionHash}:${doc.logIndex}`, structuredClone(doc)); }
   async attributeCollateral(_chain, tx, log, update) { Object.assign(this.collateral.get(`${tx}:${log}`), update); }
   async appendTransition(doc) { this.transitions.set(`${doc.evidence.transactionHash}:${doc.evidence.logIndex}`, structuredClone(doc)); }
   async recordError(doc) { this.errors.set(`${doc.code}:${doc.transactionHash}:${doc.logIndex}`, structuredClone(doc)); }
   async clearProjections() { this.clear(); }
-  snapshot() { return JSON.stringify(Object.fromEntries(['requests', 'loans', 'schedules', 'installments', 'repayments', 'defaults', 'liquidations', 'collateral', 'transitions', 'errors'].map((name) => [name, [...this[name].entries()].sort(([a], [b]) => a.localeCompare(b))]))); }
+  snapshot() { return JSON.stringify(Object.fromEntries(['requests', 'loans', 'schedules', 'installments', 'repayments', 'defaults', 'liquidations', 'directPositions', 'directActivities', 'directLiquidations', 'loanNfts', 'loanNftTransfers', 'collateral', 'transitions', 'errors'].map((name) => [name, [...this[name].entries()].sort(([a], [b]) => a.localeCompare(b))]))); }
 }
 
-function reader({ loanAt = {}, requestAt = {}, scheduleAt = {} } = {}) {
+function reader({ loanAt = {}, requestAt = {}, scheduleAt = {}, directPositionAt = {}, loanNftAt = {} } = {}) {
   return {
     async getLoan(_loanId, block) { return structuredClone(loanAt[block] || loan()); },
     async getLoanRequest(_requestId, block) { return structuredClone(requestAt[block] || request()); },
     async getSchedule(_loanId, block) { return structuredClone(scheduleAt[block] || [installment()]); },
     async getNextInstallmentIndex() { return '0'; },
+    async getDirectPosition(_borrower, block) { return structuredClone(directPositionAt[block] || directPosition()); },
+    async getLoanNft(_tokenId, block) { return structuredClone(loanNftAt[block] || loanNft()); },
   };
 }
 function engine(events, state = {}) { const store = new Store(events); return { store, engine: new LendingProjectionEngine({ manifest, store, stateReader: reader(state), logger: { info() {}, warn() {}, error() {} } }) }; }
@@ -72,6 +85,45 @@ async function rebuild(events, state) { const subject = engine(events, state); a
 
 test('uses the exact ILoanManager LoanStatus enum order', () => {
   assert.deepEqual(LOAN_STATUS, { 0: 'ACTIVE', 1: 'REPAID', 2: 'LIQUIDATED', 3: 'DEFAULTED' });
+  assert.deepEqual(LOAN_NFT_STATUS, { 0: 'ACTIVE', 1: 'COMPLETED', 2: 'DEFAULTED', 3: 'LIQUIDATED' });
+});
+
+test('projects direct LendingPool state from canonical events without calculating it locally', async () => {
+  const { store } = await rebuild([event('TokensBorrowed', { borrower, tokenAmount: '10', collateralETH: '50' })], { directPositionAt: { 1: directPosition() } });
+  assert.deepEqual(store.directPositions.get(borrower).borrowedTokens, '10');
+  assert.equal(store.directPositions.get(borrower).lendingPoolAddress, contract.lendingPool);
+});
+
+test('projects an idempotent direct LendingPool activity ledger from actual pool event arguments', async () => {
+  const deposit = event('CollateralDeposited', { borrower, ethAmount: '50' }, { transaction: 1, log: 0 });
+  const borrow = event('TokensBorrowed', { borrower, tokenAmount: '10', collateralETH: '50' }, { transaction: 2, log: 0 });
+  const repay = event('LoanRepaid', { borrower, tokenAmountRepaid: '4', collateralReleased: '0' }, { transaction: 3, log: 0, contractAddress: contract.lendingPool });
+  const withdrawal = event('CollateralWithdrawn', { borrower, ethAmount: '5' }, { transaction: 4, log: 0 });
+  const { store } = await rebuild([deposit, borrow, repay, withdrawal, borrow], { directPositionAt: { 1: directPosition(), 2: directPosition(), 3: directPosition(), 4: directPosition() } });
+  assert.equal(store.directActivities.size, 4);
+  const activities = [...store.directActivities.values()];
+  assert.deepEqual(activities.map((item) => [item.action, item.asset, item.amount]), [
+    ['COLLATERAL_DEPOSIT', 'ETH', '50'], ['BORROW', 'ABCD', '10'], ['REPAY', 'ABCD', '4'], ['COLLATERAL_WITHDRAWAL', 'ETH', '5'],
+  ]);
+  assert.equal(activities[1].relatedCollateralETH, '50');
+  assert.equal(activities[2].relatedCollateralETH, '0');
+});
+
+test('projects LoanNFT mint and status updates using the LoanNFT enum order', async () => {
+  const events = [event('LoanNFTMinted', { tokenId: '1', loanId: '1', borrower, lender }), event('LoanStatusUpdated', { tokenId: '1', newStatus: '2' }, { block: 2, transaction: 2 })];
+  const { store } = await rebuild(events, { loanNftAt: { 1: loanNft(), 2: loanNft({ status: 'DEFAULTED' }) } });
+  assert.equal(store.loanNfts.get('1').status, 'DEFAULTED');
+  assert.equal(store.loanNfts.get('1').owner, borrower);
+});
+
+test('projects a direct liquidation only when both Liquidation and LendingPool evidence exists', async () => {
+  const events = [
+    event('LiquidationSettled', { borrower, liquidator: lender, debtCovered: '10', collateralToLiquidator: '11', surplusToTreasury: '39' }, { transaction: 2, log: 0 }),
+    event('PositionLiquidated', { borrower, liquidator: lender, debtCovered: '10', collateralSeizedETH: '11', liquidatorBonusETH: '1', surplusToTreasuryETH: '39' }, { transaction: 2, log: 1 }),
+  ];
+  const { store } = await rebuild(events, { directPositionAt: { 1: directPosition({ collateralETH: '0', borrowedTokens: '0', active: false }) } });
+  assert.equal(store.directLiquidations.size, 1);
+  assert.equal([...store.directLiquidations.values()][0].debtCovered, '10');
 });
 
 test('RequestCreated projects a canonical loan request', async () => {

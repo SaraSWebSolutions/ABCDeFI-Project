@@ -106,6 +106,82 @@ export interface LiquidationEligibilityRead {
   healthFactor: string | null;
 }
 
+export interface IndexedLendingEvidence {
+  transactionHash: string;
+  blockNumber: string;
+  transactionIndex: number;
+  logIndex: number;
+  eventName: string;
+}
+
+export interface IndexedDirectLendingActivity {
+  borrower: string;
+  counterparty: string | null;
+  action: 'COLLATERAL_DEPOSIT' | 'COLLATERAL_WITHDRAWAL' | 'BORROW' | 'REPAY' | 'LIQUIDATION';
+  asset: 'ETH' | 'ABCD';
+  amount: string;
+  relatedCollateralETH: string | null;
+  evidence: IndexedLendingEvidence;
+}
+
+export interface CanonicalIndexedLendingHistory {
+  directActivities: IndexedDirectLendingActivity[];
+  repayments: Array<{ loanId: string; amount: string; borrower: string; lender: string; emiEvidence: IndexedLendingEvidence }>;
+  unavailable: string | null;
+}
+
+type LendingHistoryApiResponse = {
+  source?: { kind?: string; chainId?: string; contracts?: { lendingPool?: string } };
+  available?: boolean;
+  status?: string;
+  reason?: string;
+  message?: string;
+  data?: {
+    directLending?: { activities?: IndexedDirectLendingActivity[] };
+    p2p?: { repayments?: Array<{ loanId: string; amount: string; borrower: string; lender: string; emiEvidence: IndexedLendingEvidence }> };
+  };
+};
+
+type LendingHistoryFetch = (input: string) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
+
+export function canonicalLendingHistoryEndpoint(walletAddress: string) {
+  return `/api/lending/wallet/${encodeURIComponent(walletAddress)}?limit=50`;
+}
+
+/**
+ * Reads the existing server-side canonical event projection. It deliberately
+ * returns an explicit unavailable reason rather than deriving history from UI
+ * state or falling back to an unverified source.
+ */
+export async function readCanonicalIndexedLendingHistory(
+  walletAddress: string,
+  fetchJson: LendingHistoryFetch = (input) => fetch(input) as Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>,
+): Promise<CanonicalIndexedLendingHistory> {
+  requireWalletAddress(walletAddress);
+  try {
+    const response = await fetchJson(canonicalLendingHistoryEndpoint(walletAddress));
+    const payload = await response.json() as LendingHistoryApiResponse;
+    if (!response.ok) throw new Error(payload.message || `Canonical lending API returned HTTP ${response.status}.`);
+    if (payload.source?.kind !== 'canonical-indexed-on-chain'
+      || payload.source.chainId !== DEPLOYMENT_CHAIN_ID.toString()
+      || payload.source.contracts?.lendingPool?.toLowerCase() !== CONTRACTS.lending.toLowerCase()) {
+      throw new Error('Lending history response does not match the canonical deployment manifest.');
+    }
+    if (!payload.available || payload.status !== 'AVAILABLE') {
+      return { directActivities: [], repayments: [], unavailable: payload.reason || 'The canonical lending indexer is unavailable for this deployment.' };
+    }
+    const directActivities = payload.data?.directLending?.activities;
+    const repayments = payload.data?.p2p?.repayments;
+    if (!Array.isArray(directActivities) || !Array.isArray(repayments)) {
+      throw new Error('Canonical lending API returned an invalid history response.');
+    }
+    return { directActivities, repayments, unavailable: null };
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : 'Canonical lending history request failed.';
+    return { directActivities: [], repayments: [], unavailable: message };
+  }
+}
+
 const lendingDeploymentAddresses = Object.freeze({
   ABCDToken: CONTRACTS.token,
   LendingPool: CONTRACTS.lending,
@@ -394,7 +470,9 @@ async function readOwnedLoanNfts(address: string): Promise<LoanNftRead[]> {
       tokenId: tokenId.toString(), loanId: info.loanId.toString(), borrower: info.borrower, lender: info.lender,
       loanAmount: formatEther(info.loanAmount), collateral: formatEther(info.collateral),
       interestRateBps: info.interestRateBps.toString(), durationMonths: info.durationMonths.toString(),
-      status: ['ACTIVE', 'REPAID', 'LIQUIDATED', 'DEFAULTED'][Number(info.status)] ?? 'UNKNOWN', mintDate: info.mintDate.toString(),
+      // LoanNFT has its own enum order: ACTIVE, COMPLETED, DEFAULTED, LIQUIDATED.
+      // It is intentionally distinct from LoanManager's ACTIVE, REPAID, LIQUIDATED, DEFAULTED order.
+      status: ['ACTIVE', 'COMPLETED', 'DEFAULTED', 'LIQUIDATED'][Number(info.status)] ?? 'UNKNOWN', mintDate: info.mintDate.toString(),
     };
   }));
 }

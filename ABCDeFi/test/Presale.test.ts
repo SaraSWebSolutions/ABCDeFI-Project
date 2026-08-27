@@ -25,7 +25,7 @@ beforeEach(async function () {
   const conn = await network.connect();
   hardhatEthers = conn.ethers;
 });
-import { Presale, Treasury, ABCDToken } from "../typechain-types";
+import { Presale, Treasury, ABCDToken, PresaleRefundAttacker } from "../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("Presale Contract Suite", function () {
@@ -95,14 +95,42 @@ describe("Presale Contract Suite", function () {
       expect(await presale.getState()).to.equal(0); // Pending
 
       const now = await time.latest();
-      await presale.connect(admin).startPresale(now, now + 3600);
+      await expect(presale.connect(admin).startPresale(now, now + 3600))
+        .to.emit(presale, "StateChanged")
+        .withArgs(1);
 
       expect(await presale.getState()).to.equal(1); // Active
     });
 
-    it("should allow admin to cancel presale", async function () {
-      await presale.connect(admin).cancelPresale();
+    it("allows cancellation in Pending and makes it terminal", async function () {
+      await expect(presale.connect(admin).cancelPresale())
+        .to.emit(presale, "PresaleCancelled")
+        .withArgs(admin.address, "ADMIN_CANCELLATION");
+
       expect(await presale.getState()).to.equal(4); // Cancelled
+      await expect(presale.connect(admin).startPresale(await time.latest(), (await time.latest()) + 3600))
+        .to.be.revertedWithCustomError(presale, "InvalidLifecycleState");
+      await expect(presale.connect(admin).finalizePresale())
+        .to.be.revertedWithCustomError(presale, "PresaleIsCancelled");
+    });
+
+    it("allows cancellation in Active and Ended states", async function () {
+      const now = await time.latest();
+      await presale.connect(admin).startPresale(now, now + 3600);
+      await presale.connect(admin).cancelPresale();
+      expect(await presale.getState()).to.equal(4);
+
+      const PresaleFactory = await hardhatEthers.getContractFactory("Presale");
+      const endedPresale = await PresaleFactory.deploy(
+        await token.getAddress(), await treasury.getAddress(), RATE, SOFT_CAP, HARD_CAP, MIN_BUY, MAX_BUY, admin.address
+      );
+      await endedPresale.waitForDeployment();
+      await token.connect(owner).transfer(await endedPresale.getAddress(), ethers.parseUnits("100000", 18));
+      const endedNow = await time.latest();
+      await endedPresale.connect(admin).startPresale(endedNow, endedNow + 60);
+      await time.increase(61);
+      await expect(endedPresale.connect(admin).cancelPresale()).to.emit(endedPresale, "StateChanged").withArgs(4);
+      expect(await endedPresale.getState()).to.equal(4);
     });
   });
 
@@ -138,14 +166,15 @@ describe("Presale Contract Suite", function () {
       ).to.emit(presale, "TokensPurchased");
     });
 
-    it("should enforce Min/Max buy limits", async function () {
+    it("should enforce min and cumulative wallet caps", async function () {
       // Below min buy
       await expect(
         presale.connect(buyer1).buyWithETH({ value: ethers.parseEther("0.1") })
       ).to.be.revertedWithCustomError(presale, "MinBuyNotMet");
 
-      // Buy max allowed 5 ETH
-      await presale.connect(buyer1).buyWithETH({ value: ethers.parseEther("5.0") });
+      // Multiple purchases may cumulatively reach the maximum.
+      await presale.connect(buyer1).buyWithETH({ value: ethers.parseEther("2.0") });
+      await presale.connect(buyer1).buyWithETH({ value: ethers.parseEther("3.0") });
 
       // Exceed max buy on next attempt
       await expect(
@@ -153,20 +182,49 @@ describe("Presale Contract Suite", function () {
       ).to.be.revertedWithCustomError(presale, "MaxBuyExceeded");
     });
 
-    it("should enforce Hard Cap limit", async function () {
-      // Raise 9 ETH while the presale is still active.
-      await presale.connect(buyer1).buyWithETH({ value: ethers.parseEther("4.5") });
+    it("allows an exact hard-cap purchase and rejects one wei above it", async function () {
+      await presale.connect(buyer1).buyWithETH({ value: ethers.parseEther("5.0") });
       await presale.connect(buyer2).buyWithETH({ value: ethers.parseEther("4.5") });
 
-      // 9 + 1.5 = 10.5 ETH, therefore the hard cap must reject it.
       await expect(
-        presale.connect(buyer3).buyWithETH({ value: ethers.parseEther("1.5") })
+        presale.connect(buyer3).buyWithETH({ value: ethers.parseEther("0.5") + 1n })
       ).to.be.revertedWithCustomError(presale, "CapExceeded");
+
+      await presale.connect(buyer3).buyWithETH({ value: ethers.parseEther("0.5") });
+      expect(await presale.totalEthRaised()).to.equal(HARD_CAP);
+    });
+
+    it("rejects purchases when its token reserve cannot cover the new obligation", async function () {
+      const PresaleFactory = await hardhatEthers.getContractFactory("Presale");
+      const underfundedPresale = await PresaleFactory.deploy(
+        await token.getAddress(), await treasury.getAddress(), RATE, SOFT_CAP, HARD_CAP, MIN_BUY, MAX_BUY, admin.address
+      );
+      await underfundedPresale.waitForDeployment();
+      const now = await time.latest();
+      await underfundedPresale.connect(admin).startPresale(now, now + 3600);
+
+      await expect(
+        underfundedPresale.connect(buyer3).buyWithETH({ value: ethers.parseEther("1.0") })
+      ).to.be.revertedWithCustomError(underfundedPresale, "InsufficientTokenReserve");
     });
   });
 
   describe("3. Finalization, Treasury Fund Transfer & Claims", function () {
-    it("should finalize presale and forward ETH proceeds directly to Treasury", async function () {
+    it("rejects finalization while Active and cancellation after Finalized", async function () {
+      const now = await time.latest();
+      await presale.connect(admin).startPresale(now, now + 3600);
+      await presale.connect(buyer1).buyWithETH({ value: ethers.parseEther("2.0") });
+
+      await expect(presale.connect(admin).finalizePresale())
+        .to.be.revertedWithCustomError(presale, "InvalidLifecycleState");
+
+      await time.increase(3601);
+      await presale.connect(admin).finalizePresale();
+      await expect(presale.connect(admin).cancelPresale())
+        .to.be.revertedWithCustomError(presale, "PresaleAlreadyFinalized");
+    });
+
+    it("finalizes only after ending above the soft cap and routes proceeds explicitly", async function () {
       const now = await time.latest();
       await presale.connect(admin).startPresale(now, now + 3600);
 
@@ -183,6 +241,11 @@ describe("Presale Contract Suite", function () {
         .withArgs(ethers.parseEther("4.0"), ethers.parseUnits("4000", 18));
 
       expect(await presale.isFinalized()).to.be.true;
+      expect(await hardhatEthers.provider.getBalance(await presale.getAddress())).to.equal(ethers.parseEther("4.0"));
+
+      await expect(presale.connect(admin).withdrawProceeds())
+        .to.emit(presale, "ProceedsWithdrawn")
+        .withArgs(await treasury.getAddress(), ethers.parseEther("4.0"));
       expect(await treasury.getETHBalance()).to.equal(treasuryEthBefore + ethers.parseEther("4.0"));
     });
 
@@ -200,6 +263,12 @@ describe("Presale Contract Suite", function () {
         .withArgs(buyer1.address, ethers.parseUnits("2000", 18));
 
       expect(await token.balanceOf(buyer1.address)).to.equal(ethers.parseUnits("2000", 18));
+      expect(await presale.totalTokensClaimed()).to.equal(ethers.parseUnits("2000", 18));
+
+      await expect(presale.connect(buyer1).claimTokens()).to.be.revertedWithCustomError(
+        presale,
+        "NothingToRelease"
+      );
     });
 
     it("should revert token claims before finalization", async function () {
@@ -211,6 +280,108 @@ describe("Presale Contract Suite", function () {
         presale,
         "PresaleNotFinalized"
       );
+    });
+  });
+
+  describe("4. Cancellation, failed sales, and refunds", function () {
+    async function startAndBuy(amount = ethers.parseEther("1.0")) {
+      const now = await time.latest();
+      await presale.connect(admin).startPresale(now, now + 3600);
+      await presale.connect(buyer1).buyWithETH({ value: amount });
+    }
+
+    it("blocks finalization, claims, and proceeds after cancellation", async function () {
+      await startAndBuy();
+      await presale.connect(admin).cancelPresale();
+
+      await expect(presale.connect(buyer2).buyWithETH({ value: ethers.parseEther("1.0") }))
+        .to.be.revertedWithCustomError(presale, "PresaleNotActive");
+      await expect(presale.connect(admin).finalizePresale()).to.be.revertedWithCustomError(presale, "PresaleIsCancelled");
+      await expect(presale.connect(buyer1).claimTokens()).to.be.revertedWithCustomError(presale, "PresaleIsCancelled");
+      await expect(presale.connect(admin).withdrawProceeds()).to.be.revertedWithCustomError(presale, "PresaleIsCancelled");
+    });
+
+    it("allows a permissionless failed-sale cancellation and exact one-time refunds", async function () {
+      await startAndBuy();
+      await time.increase(3601);
+
+      await expect(presale.connect(admin).finalizePresale()).to.be.revertedWithCustomError(presale, "SoftCapNotMet");
+      await expect(presale.connect(buyer2).cancelFailedSale())
+        .to.emit(presale, "SaleFailed")
+        .withArgs(ethers.parseEther("1.0"), SOFT_CAP);
+
+      const balanceBefore = await hardhatEthers.provider.getBalance(await presale.getAddress());
+      await expect(presale.connect(buyer1).claimRefund())
+        .to.emit(presale, "RefundClaimed")
+        .withArgs(buyer1.address, ethers.parseEther("1.0"));
+      expect(await hardhatEthers.provider.getBalance(await presale.getAddress())).to.equal(balanceBefore - ethers.parseEther("1.0"));
+      expect(await presale.isRefunded(buyer1.address)).to.equal(true);
+      expect(await presale.totalEthRefunded()).to.equal(ethers.parseEther("1.0"));
+
+      await expect(presale.connect(buyer1).claimRefund()).to.be.revertedWithCustomError(presale, "RefundAlreadyClaimed");
+      await expect(presale.connect(buyer2).claimRefund()).to.be.revertedWithCustomError(presale, "NothingToRefund");
+      await expect(presale.connect(admin).withdrawProceeds()).to.be.revertedWithCustomError(presale, "PresaleIsCancelled");
+    });
+
+    it("keeps refunds available while paused", async function () {
+      await startAndBuy();
+      await presale.connect(admin).pause();
+      await presale.connect(admin).cancelPresale();
+
+      await expect(presale.connect(buyer1).claimRefund()).to.emit(presale, "RefundClaimed");
+    });
+
+    it("prevents refund reentrancy", async function () {
+      const now = await time.latest();
+      await presale.connect(admin).startPresale(now, now + 3600);
+      const AttackerFactory = await hardhatEthers.getContractFactory("PresaleRefundAttacker");
+      const attacker: PresaleRefundAttacker = await AttackerFactory.deploy(await presale.getAddress());
+      await attacker.waitForDeployment();
+      await attacker.buy({ value: ethers.parseEther("1.0") });
+      await presale.connect(admin).cancelPresale();
+
+      await attacker.attackRefund();
+      expect(await attacker.reentryAttempted()).to.equal(true);
+      expect(await attacker.reentrySucceeded()).to.equal(false);
+      expect(await presale.isRefunded(await attacker.getAddress())).to.equal(true);
+      expect(await hardhatEthers.provider.getBalance(await presale.getAddress())).to.equal(0n);
+    });
+  });
+
+  describe("5. Roles and pause controls", function () {
+    it("rejects unauthorized admin and pauser actions", async function () {
+      const now = await time.latest();
+      await expect(presale.connect(buyer1).startPresale(now, now + 3600))
+        .to.be.revertedWithCustomError(presale, "AccessControlUnauthorizedAccount");
+      await expect(presale.connect(buyer1).pause())
+        .to.be.revertedWithCustomError(presale, "AccessControlUnauthorizedAccount");
+      await expect(presale.connect(buyer1).unpause())
+        .to.be.revertedWithCustomError(presale, "AccessControlUnauthorizedAccount");
+    });
+
+    it("allows a pauser to unpause and resume purchases", async function () {
+      const now = await time.latest();
+      await presale.connect(admin).startPresale(now, now + 3600);
+      await presale.connect(admin).pause();
+      expect(await presale.paused()).to.equal(true);
+
+      await presale.connect(admin).unpause();
+      expect(await presale.paused()).to.equal(false);
+      await expect(presale.connect(buyer1).buyWithETH({ value: ethers.parseEther("1.0") }))
+        .to.emit(presale, "TokensPurchased");
+    });
+
+    it("pauses purchases but not claims from a successfully finalized sale", async function () {
+      const now = await time.latest();
+      await presale.connect(admin).startPresale(now, now + 3600);
+      await presale.connect(buyer1).buyWithETH({ value: ethers.parseEther("2.0") });
+      await presale.connect(admin).pause();
+      await expect(presale.connect(buyer2).buyWithETH({ value: ethers.parseEther("1.0") }))
+        .to.be.revertedWithCustomError(presale, "EnforcedPause");
+
+      await time.increase(3601);
+      await presale.connect(admin).finalizePresale();
+      await expect(presale.connect(buyer1).claimTokens()).to.emit(presale, "TokensClaimed");
     });
   });
 });

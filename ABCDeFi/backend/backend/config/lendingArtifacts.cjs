@@ -2,11 +2,14 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const ARTIFACTS = Object.freeze({
+  lendingPool: "artifacts/contracts/lending/LendingPool.sol/LendingPool.json",
   loanMarketplace: "artifacts/contracts/lending/LoanMarketplace.sol/LoanMarketplace.json",
   loanManager: "artifacts/contracts/lending/LoanManager.sol/LoanManager.json",
   emiManager: "artifacts/contracts/lending/EMIManager.sol/EMIManager.json",
   collateralVault: "artifacts/contracts/vault/CollateralVault.sol/CollateralVault.json",
   abcdToken: "artifacts/contracts/token/ABCDToken.sol/ABCDToken.json",
+  liquidation: "artifacts/contracts/lending/Liquidation.sol/Liquidation.json",
+  loanNFT: "artifacts/contracts/nft/LoanNFT.sol/LoanNFT.json",
 });
 
 function loadCanonicalLendingArtifacts() {

@@ -30,7 +30,7 @@ const REQUIRED_CONTRACTS = [
   "ABCDToken", "Treasury", "TokenVesting", "Presale", "StakingPool",
   "LendingPool", "CollateralVault", "LoanManager", "LoanMarketplace",
   "EMIManager", "Liquidation", "NFTMarketplace", "ParticipantNFT",
-  "ReputationNFT", "GuruNFT", "LoanNFT", "ReferralManager", "BonusEngine",
+  "ReputationNFT", "GuruNFT", "LegionNFT", "FranchiseNFT", "LoanNFT", "ReferralManager", "BonusEngine",
   "BonusManager",
 ] as const;
 
@@ -55,7 +55,7 @@ async function main() {
     assert.match(contract.deploymentTransactionHash, /^0x[a-fA-F0-9]{64}$/, `${name} has an invalid deployment transaction hash`);
     assert.ok(Number.isInteger(contract.deploymentBlock) && contract.deploymentBlock >= deployment.deploymentBlock, `${name} has an invalid deployment block`);
   }
-  console.log("✓ deployment manifest exists and contains 19 valid contract records");
+  console.log("✓ deployment manifest exists and contains 21 valid contract records");
   console.log("✓ chain ID = 31337");
   console.log("✓ network = localhost");
   console.log("✓ localhost RPC configured");

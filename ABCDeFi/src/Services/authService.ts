@@ -14,8 +14,8 @@ export const AuthService = {
     return response.data;
   },
 
-  walletLoginChallenge: async (walletAddress: string) => {
-    const response = await api.post("user/wallet-login/nonce", { walletAddress });
+  walletLoginChallenge: async (walletAddress: string, chainId: number) => {
+    const response = await api.post("user/wallet-login/nonce", { walletAddress, chainId });
     return response.data;
   },
 

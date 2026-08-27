@@ -58,7 +58,26 @@ async function waitForSuccess(transaction: { wait: () => Promise<any> }) {
   return receipt;
 }
 
+/**
+ * Prevent the UI from treating an old local-chain manifest as a working
+ * Presale. This is intentionally a canonical-RPC check; it never uses the
+ * browser wallet as a fallback deployment source.
+ */
+export async function assertCanonicalPresaleDeployment(): Promise<void> {
+  if (!isAddress(CONTRACTS.presale)) {
+    throw new Error('The canonical Presale address in deployments.json is invalid.');
+  }
+
+  const bytecode = await canonicalProvider.getCode(CONTRACTS.presale);
+  if (bytecode === '0x') {
+    throw new Error(
+      `No Presale bytecode exists at ${CONTRACTS.presale} on Hardhat Local (31337). The active local chain does not match deployments.json.`,
+    );
+  }
+}
+
 export async function getPresaleContract(withSigner = false) {
+  await assertCanonicalPresaleDeployment();
   const providerOrSigner = withSigner ? await getSignerOnDeploymentChain() : canonicalProvider;
   return new Contract(CONTRACTS.presale, PresaleArtifact.abi, providerOrSigner);
 }
@@ -107,6 +126,7 @@ export async function getPresaleData(buyerAddress?: string): Promise<PresaleData
 
 export async function buyTokens(ethAmount: string, onSubmitted?: (transactionHash: string) => void) {
   const value = parsePositiveEth(ethAmount);
+  await assertCanonicalPresaleDeployment();
   const signer = await getSignerOnDeploymentChain();
   const buyer = await signer.getAddress();
   const contract = new Contract(CONTRACTS.presale, PresaleArtifact.abi, signer);
@@ -129,6 +149,7 @@ export async function buyTokens(ethAmount: string, onSubmitted?: (transactionHas
 }
 
 export async function claimPresaleTokens(onSubmitted?: (transactionHash: string) => void) {
+  await assertCanonicalPresaleDeployment();
   const signer = await getSignerOnDeploymentChain();
   const buyer = await signer.getAddress();
   const contract = new Contract(CONTRACTS.presale, PresaleArtifact.abi, signer);

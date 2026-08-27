@@ -13,32 +13,60 @@ export declare namespace IPresale {
     }
 
   export interface IPresaleInterface extends Interface {
-    getFunction(nameOrSignature: "buyWithETH" | "cancelPresale" | "claimTokens" | "finalizePresale" | "getBuyerInfo" | "getState" | "setWhitelist" | "startPresale" | "withdrawProceeds"): FunctionFragment;
+    getFunction(nameOrSignature: "buyWithETH" | "cancelFailedSale" | "cancelPresale" | "claimRefund" | "claimTokens" | "finalizePresale" | "getBuyerInfo" | "getState" | "isRefunded" | "isWhitelisted" | "pause" | "setReferralManager" | "setWhitelist" | "setWhitelistRequired" | "startPresale" | "unpause" | "withdrawProceeds"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "PresaleFinalized" | "PresaleStateChanged" | "TokensClaimed" | "TokensPurchased" | "WhitelistUpdated"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "PresaleCancelled" | "PresaleFinalized" | "PresaleStateChanged" | "ProceedsWithdrawn" | "ReferralManagerConfigured" | "ReferralPurchaseRecorded" | "RefundClaimed" | "ReserveValidated" | "SaleFailed" | "StateChanged" | "TokensClaimed" | "TokensPurchased" | "WhitelistUpdated"): EventFragment;
 
     encodeFunctionData(functionFragment: 'buyWithETH', values?: undefined): string;
+encodeFunctionData(functionFragment: 'cancelFailedSale', values?: undefined): string;
 encodeFunctionData(functionFragment: 'cancelPresale', values?: undefined): string;
+encodeFunctionData(functionFragment: 'claimRefund', values?: undefined): string;
 encodeFunctionData(functionFragment: 'claimTokens', values?: undefined): string;
 encodeFunctionData(functionFragment: 'finalizePresale', values?: undefined): string;
 encodeFunctionData(functionFragment: 'getBuyerInfo', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'getState', values?: undefined): string;
+encodeFunctionData(functionFragment: 'isRefunded', values: [AddressLike]): string;
+encodeFunctionData(functionFragment: 'isWhitelisted', values: [AddressLike]): string;
+encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
+encodeFunctionData(functionFragment: 'setReferralManager', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setWhitelist', values: [AddressLike[], boolean]): string;
+encodeFunctionData(functionFragment: 'setWhitelistRequired', values: [boolean]): string;
 encodeFunctionData(functionFragment: 'startPresale', values: [BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'withdrawProceeds', values?: undefined): string;
 
     decodeFunctionResult(functionFragment: 'buyWithETH', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'cancelFailedSale', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'cancelPresale', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'claimRefund', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'claimTokens', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'finalizePresale', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getBuyerInfo', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getState', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'isRefunded', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'isWhitelisted', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setReferralManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setWhitelist', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setWhitelistRequired', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'startPresale', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'withdrawProceeds', data: BytesLike): Result;
   }
 
   
+    export namespace PresaleCancelledEvent {
+      export type InputTuple = [admin: AddressLike, reason: string];
+      export type OutputTuple = [admin: string, reason: string];
+      export interface OutputObject {admin: string, reason: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace PresaleFinalizedEvent {
       export type InputTuple = [totalEthRaised: BigNumberish, totalTokensSold: BigNumberish];
       export type OutputTuple = [totalEthRaised: bigint, totalTokensSold: bigint];
@@ -52,6 +80,90 @@ decodeFunctionResult(functionFragment: 'withdrawProceeds', data: BytesLike): Res
   
 
     export namespace PresaleStateChangedEvent {
+      export type InputTuple = [newState: BigNumberish];
+      export type OutputTuple = [newState: bigint];
+      export interface OutputObject {newState: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace ProceedsWithdrawnEvent {
+      export type InputTuple = [treasury: AddressLike, amount: BigNumberish];
+      export type OutputTuple = [treasury: string, amount: bigint];
+      export interface OutputObject {treasury: string, amount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace ReferralManagerConfiguredEvent {
+      export type InputTuple = [referralManager: AddressLike];
+      export type OutputTuple = [referralManager: string];
+      export interface OutputObject {referralManager: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace ReferralPurchaseRecordedEvent {
+      export type InputTuple = [buyer: AddressLike, purchaseId: BytesLike, tokenAmount: BigNumberish];
+      export type OutputTuple = [buyer: string, purchaseId: string, tokenAmount: bigint];
+      export interface OutputObject {buyer: string, purchaseId: string, tokenAmount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace RefundClaimedEvent {
+      export type InputTuple = [buyer: AddressLike, amount: BigNumberish];
+      export type OutputTuple = [buyer: string, amount: bigint];
+      export interface OutputObject {buyer: string, amount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace ReserveValidatedEvent {
+      export type InputTuple = [available: BigNumberish, required: BigNumberish];
+      export type OutputTuple = [available: bigint, required: bigint];
+      export interface OutputObject {available: bigint, required: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace SaleFailedEvent {
+      export type InputTuple = [totalEthRaised: BigNumberish, softCap: BigNumberish];
+      export type OutputTuple = [totalEthRaised: bigint, softCap: bigint];
+      export interface OutputObject {totalEthRaised: bigint, softCap: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace StateChangedEvent {
       export type InputTuple = [newState: BigNumberish];
       export type OutputTuple = [newState: bigint];
       export interface OutputObject {newState: bigint };
@@ -141,7 +253,23 @@ decodeFunctionResult(functionFragment: 'withdrawProceeds', data: BytesLike): Res
     
 
     
+    cancelFailedSale: TypedContractMethod<
+      [],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     cancelPresale: TypedContractMethod<
+      [],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    claimRefund: TypedContractMethod<
       [],
       [void],
       'nonpayable'
@@ -181,6 +309,38 @@ decodeFunctionResult(functionFragment: 'withdrawProceeds', data: BytesLike): Res
     
 
     
+    isRefunded: TypedContractMethod<
+      [buyer: AddressLike, ],
+      [boolean],
+      'view'
+    >
+    
+
+    
+    isWhitelisted: TypedContractMethod<
+      [account: AddressLike, ],
+      [boolean],
+      'view'
+    >
+    
+
+    
+    pause: TypedContractMethod<
+      [],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    setReferralManager: TypedContractMethod<
+      [referralManager: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     setWhitelist: TypedContractMethod<
       [accounts: AddressLike[], status: boolean, ],
       [void],
@@ -189,8 +349,24 @@ decodeFunctionResult(functionFragment: 'withdrawProceeds', data: BytesLike): Res
     
 
     
+    setWhitelistRequired: TypedContractMethod<
+      [required: boolean, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     startPresale: TypedContractMethod<
       [startTime: BigNumberish, endTime: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    unpause: TypedContractMethod<
+      [],
       [void],
       'nonpayable'
     >
@@ -212,7 +388,17 @@ decodeFunctionResult(functionFragment: 'withdrawProceeds', data: BytesLike): Res
       [void],
       'payable'
     >;
+getFunction(nameOrSignature: 'cancelFailedSale'): TypedContractMethod<
+      [],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'cancelPresale'): TypedContractMethod<
+      [],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'claimRefund'): TypedContractMethod<
       [],
       [void],
       'nonpayable'
@@ -237,13 +423,43 @@ getFunction(nameOrSignature: 'getState'): TypedContractMethod<
       [bigint],
       'view'
     >;
+getFunction(nameOrSignature: 'isRefunded'): TypedContractMethod<
+      [buyer: AddressLike, ],
+      [boolean],
+      'view'
+    >;
+getFunction(nameOrSignature: 'isWhitelisted'): TypedContractMethod<
+      [account: AddressLike, ],
+      [boolean],
+      'view'
+    >;
+getFunction(nameOrSignature: 'pause'): TypedContractMethod<
+      [],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'setReferralManager'): TypedContractMethod<
+      [referralManager: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'setWhitelist'): TypedContractMethod<
       [accounts: AddressLike[], status: boolean, ],
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'setWhitelistRequired'): TypedContractMethod<
+      [required: boolean, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'startPresale'): TypedContractMethod<
       [startTime: BigNumberish, endTime: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
+      [],
       [void],
       'nonpayable'
     >;
@@ -253,20 +469,60 @@ getFunction(nameOrSignature: 'withdrawProceeds'): TypedContractMethod<
       'nonpayable'
     >;
 
-    getEvent(key: 'PresaleFinalized'): TypedContractEvent<PresaleFinalizedEvent.InputTuple, PresaleFinalizedEvent.OutputTuple, PresaleFinalizedEvent.OutputObject>;
+    getEvent(key: 'PresaleCancelled'): TypedContractEvent<PresaleCancelledEvent.InputTuple, PresaleCancelledEvent.OutputTuple, PresaleCancelledEvent.OutputObject>;
+getEvent(key: 'PresaleFinalized'): TypedContractEvent<PresaleFinalizedEvent.InputTuple, PresaleFinalizedEvent.OutputTuple, PresaleFinalizedEvent.OutputObject>;
 getEvent(key: 'PresaleStateChanged'): TypedContractEvent<PresaleStateChangedEvent.InputTuple, PresaleStateChangedEvent.OutputTuple, PresaleStateChangedEvent.OutputObject>;
+getEvent(key: 'ProceedsWithdrawn'): TypedContractEvent<ProceedsWithdrawnEvent.InputTuple, ProceedsWithdrawnEvent.OutputTuple, ProceedsWithdrawnEvent.OutputObject>;
+getEvent(key: 'ReferralManagerConfigured'): TypedContractEvent<ReferralManagerConfiguredEvent.InputTuple, ReferralManagerConfiguredEvent.OutputTuple, ReferralManagerConfiguredEvent.OutputObject>;
+getEvent(key: 'ReferralPurchaseRecorded'): TypedContractEvent<ReferralPurchaseRecordedEvent.InputTuple, ReferralPurchaseRecordedEvent.OutputTuple, ReferralPurchaseRecordedEvent.OutputObject>;
+getEvent(key: 'RefundClaimed'): TypedContractEvent<RefundClaimedEvent.InputTuple, RefundClaimedEvent.OutputTuple, RefundClaimedEvent.OutputObject>;
+getEvent(key: 'ReserveValidated'): TypedContractEvent<ReserveValidatedEvent.InputTuple, ReserveValidatedEvent.OutputTuple, ReserveValidatedEvent.OutputObject>;
+getEvent(key: 'SaleFailed'): TypedContractEvent<SaleFailedEvent.InputTuple, SaleFailedEvent.OutputTuple, SaleFailedEvent.OutputObject>;
+getEvent(key: 'StateChanged'): TypedContractEvent<StateChangedEvent.InputTuple, StateChangedEvent.OutputTuple, StateChangedEvent.OutputObject>;
 getEvent(key: 'TokensClaimed'): TypedContractEvent<TokensClaimedEvent.InputTuple, TokensClaimedEvent.OutputTuple, TokensClaimedEvent.OutputObject>;
 getEvent(key: 'TokensPurchased'): TypedContractEvent<TokensPurchasedEvent.InputTuple, TokensPurchasedEvent.OutputTuple, TokensPurchasedEvent.OutputObject>;
 getEvent(key: 'WhitelistUpdated'): TypedContractEvent<WhitelistUpdatedEvent.InputTuple, WhitelistUpdatedEvent.OutputTuple, WhitelistUpdatedEvent.OutputObject>;
 
     filters: {
       
+      'PresaleCancelled(address,string)': TypedContractEvent<PresaleCancelledEvent.InputTuple, PresaleCancelledEvent.OutputTuple, PresaleCancelledEvent.OutputObject>;
+      PresaleCancelled: TypedContractEvent<PresaleCancelledEvent.InputTuple, PresaleCancelledEvent.OutputTuple, PresaleCancelledEvent.OutputObject>;
+    
+
       'PresaleFinalized(uint256,uint256)': TypedContractEvent<PresaleFinalizedEvent.InputTuple, PresaleFinalizedEvent.OutputTuple, PresaleFinalizedEvent.OutputObject>;
       PresaleFinalized: TypedContractEvent<PresaleFinalizedEvent.InputTuple, PresaleFinalizedEvent.OutputTuple, PresaleFinalizedEvent.OutputObject>;
     
 
       'PresaleStateChanged(uint8)': TypedContractEvent<PresaleStateChangedEvent.InputTuple, PresaleStateChangedEvent.OutputTuple, PresaleStateChangedEvent.OutputObject>;
       PresaleStateChanged: TypedContractEvent<PresaleStateChangedEvent.InputTuple, PresaleStateChangedEvent.OutputTuple, PresaleStateChangedEvent.OutputObject>;
+    
+
+      'ProceedsWithdrawn(address,uint256)': TypedContractEvent<ProceedsWithdrawnEvent.InputTuple, ProceedsWithdrawnEvent.OutputTuple, ProceedsWithdrawnEvent.OutputObject>;
+      ProceedsWithdrawn: TypedContractEvent<ProceedsWithdrawnEvent.InputTuple, ProceedsWithdrawnEvent.OutputTuple, ProceedsWithdrawnEvent.OutputObject>;
+    
+
+      'ReferralManagerConfigured(address)': TypedContractEvent<ReferralManagerConfiguredEvent.InputTuple, ReferralManagerConfiguredEvent.OutputTuple, ReferralManagerConfiguredEvent.OutputObject>;
+      ReferralManagerConfigured: TypedContractEvent<ReferralManagerConfiguredEvent.InputTuple, ReferralManagerConfiguredEvent.OutputTuple, ReferralManagerConfiguredEvent.OutputObject>;
+    
+
+      'ReferralPurchaseRecorded(address,bytes32,uint256)': TypedContractEvent<ReferralPurchaseRecordedEvent.InputTuple, ReferralPurchaseRecordedEvent.OutputTuple, ReferralPurchaseRecordedEvent.OutputObject>;
+      ReferralPurchaseRecorded: TypedContractEvent<ReferralPurchaseRecordedEvent.InputTuple, ReferralPurchaseRecordedEvent.OutputTuple, ReferralPurchaseRecordedEvent.OutputObject>;
+    
+
+      'RefundClaimed(address,uint256)': TypedContractEvent<RefundClaimedEvent.InputTuple, RefundClaimedEvent.OutputTuple, RefundClaimedEvent.OutputObject>;
+      RefundClaimed: TypedContractEvent<RefundClaimedEvent.InputTuple, RefundClaimedEvent.OutputTuple, RefundClaimedEvent.OutputObject>;
+    
+
+      'ReserveValidated(uint256,uint256)': TypedContractEvent<ReserveValidatedEvent.InputTuple, ReserveValidatedEvent.OutputTuple, ReserveValidatedEvent.OutputObject>;
+      ReserveValidated: TypedContractEvent<ReserveValidatedEvent.InputTuple, ReserveValidatedEvent.OutputTuple, ReserveValidatedEvent.OutputObject>;
+    
+
+      'SaleFailed(uint256,uint256)': TypedContractEvent<SaleFailedEvent.InputTuple, SaleFailedEvent.OutputTuple, SaleFailedEvent.OutputObject>;
+      SaleFailed: TypedContractEvent<SaleFailedEvent.InputTuple, SaleFailedEvent.OutputTuple, SaleFailedEvent.OutputObject>;
+    
+
+      'StateChanged(uint8)': TypedContractEvent<StateChangedEvent.InputTuple, StateChangedEvent.OutputTuple, StateChangedEvent.OutputObject>;
+      StateChanged: TypedContractEvent<StateChangedEvent.InputTuple, StateChangedEvent.OutputTuple, StateChangedEvent.OutputObject>;
     
 
       'TokensClaimed(address,uint256)': TypedContractEvent<TokensClaimedEvent.InputTuple, TokensClaimedEvent.OutputTuple, TokensClaimedEvent.OutputObject>;

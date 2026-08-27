@@ -15,6 +15,7 @@ export { INFTMarketplace__factory } from './INFTMarketplace__factory.js';
 export { IP2PLoanMarketplace__factory } from './IP2PLoanMarketplace__factory.js';
 export { IParticipantNFT__factory } from './IParticipantNFT__factory.js';
 export { IPresale__factory } from './IPresale__factory.js';
+export { IReferralManager__factory } from './IReferralManager__factory.js';
 export { IReputationNFT__factory } from './IReputationNFT__factory.js';
 export { IStaking__factory } from './IStaking__factory.js';
 export { IStakingPool__factory } from './IStakingPool__factory.js';

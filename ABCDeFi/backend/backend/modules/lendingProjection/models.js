@@ -69,10 +69,13 @@ const deploymentSchema = new Schema(
     manifestPath: { type: String, default: null },
     contracts: {
       abcdToken: { address, deploymentTransactionHash: transactionHash, deploymentBlock: uintString },
+      lendingPool: { address, deploymentTransactionHash: transactionHash, deploymentBlock: uintString },
       collateralVault: { address, deploymentTransactionHash: transactionHash, deploymentBlock: uintString },
       loanManager: { address, deploymentTransactionHash: transactionHash, deploymentBlock: uintString },
       loanMarketplace: { address, deploymentTransactionHash: transactionHash, deploymentBlock: uintString },
       emiManager: { address, deploymentTransactionHash: transactionHash, deploymentBlock: uintString },
+      liquidation: { address, deploymentTransactionHash: transactionHash, deploymentBlock: uintString },
+      loanNFT: { address, deploymentTransactionHash: transactionHash, deploymentBlock: uintString },
     },
     indexedAt: indexedAt(),
   },
@@ -107,7 +110,7 @@ const blockCheckpointSchema = new Schema(
   {
     chainId: uintString,
     deploymentVersion: { type: String, required: true },
-    contractScope: { type: String, required: true, default: 'phase1-lending-p2p' },
+    contractScope: { type: String, required: true, default: 'canonical-lending-v2' },
     lastProcessedBlock: optionalUintString,
     lastProcessedBlockHash: { ...transactionHash, required: false, default: null },
     indexedAt: indexedAt(),
@@ -260,6 +263,106 @@ const liquidationSchema = new Schema(
 );
 liquidationSchema.index({ chainId: 1, 'marketplaceEvidence.contractAddress': 1, loanId: 1 }, { unique: true });
 
+const directLendingPositionSchema = new Schema(
+  {
+    chainId: uintString,
+    lendingPoolAddress: address,
+    borrower: address,
+    collateralETH: uintString,
+    borrowedTokens: uintString,
+    active: { type: Boolean, required: true },
+    latestStateEvidence: { type: chainProvenanceSchema, required: true },
+    indexedAt: indexedAt(),
+  },
+  indexedRecordOptions
+);
+directLendingPositionSchema.index({ chainId: 1, lendingPoolAddress: 1, borrower: 1 }, { unique: true });
+directLendingPositionSchema.index({ chainId: 1, borrower: 1, active: 1 });
+
+// This event ledger is retained independently from the latest position so a
+// wallet's direct-lending history is both auditable and idempotent on replay.
+const directLendingActivitySchema = new Schema(
+  {
+    chainId: uintString,
+    lendingPoolAddress: address,
+    borrower: address,
+    counterparty: { ...address, required: false, default: null },
+    action: { type: String, required: true, enum: ['COLLATERAL_DEPOSIT', 'COLLATERAL_WITHDRAWAL', 'BORROW', 'REPAY', 'LIQUIDATION'] },
+    asset: { type: String, required: true, enum: ['ETH', 'ABCD'] },
+    amount: uintString,
+    relatedCollateralETH: optionalUintString,
+    evidence: { type: chainProvenanceSchema, required: true },
+    indexedAt: indexedAt(),
+  },
+  indexedRecordOptions
+);
+directLendingActivitySchema.index({ chainId: 1, 'evidence.transactionHash': 1, 'evidence.logIndex': 1 }, { unique: true });
+directLendingActivitySchema.index({ chainId: 1, borrower: 1, 'evidence.blockNumber': -1, 'evidence.logIndex': -1 });
+directLendingActivitySchema.index({ chainId: 1, counterparty: 1, 'evidence.blockNumber': -1, 'evidence.logIndex': -1 });
+
+const directLiquidationSchema = new Schema(
+  {
+    chainId: uintString,
+    lendingPoolAddress: address,
+    liquidationAddress: address,
+    borrower: address,
+    liquidator: address,
+    debtCovered: uintString,
+    collateralSeizedETH: uintString,
+    liquidatorBonusETH: uintString,
+    surplusToTreasuryETH: uintString,
+    poolSettlementEvidence: { type: chainProvenanceSchema, required: true },
+    liquidationEvidence: { type: chainProvenanceSchema, required: true },
+    indexedAt: indexedAt(),
+  },
+  indexedRecordOptions
+);
+directLiquidationSchema.index({ chainId: 1, 'liquidationEvidence.contractAddress': 1, 'liquidationEvidence.transactionHash': 1, 'liquidationEvidence.logIndex': 1 }, { unique: true });
+directLiquidationSchema.index({ chainId: 1, borrower: 1, liquidator: 1 });
+
+const loanNftCertificateSchema = new Schema(
+  {
+    chainId: uintString,
+    loanNFTAddress: address,
+    tokenId: uintString,
+    owner: { ...address, required: false, default: null },
+    loanId: uintString,
+    borrower: address,
+    lender: address,
+    loanAmount: uintString,
+    collateral: uintString,
+    interestRateBps: uintString,
+    durationMonths: uintString,
+    status: { type: String, enum: ['ACTIVE', 'COMPLETED', 'DEFAULTED', 'LIQUIDATED'], required: true },
+    mintDate: uintString,
+    ipfsUri: { type: String, default: '' },
+    burned: { type: Boolean, required: true, default: false },
+    mintedEvidence: { type: chainProvenanceSchema, required: true },
+    latestStateEvidence: { type: chainProvenanceSchema, required: true },
+    burnedEvidence: { type: chainProvenanceSchema, default: null },
+    indexedAt: indexedAt(),
+  },
+  indexedRecordOptions
+);
+loanNftCertificateSchema.index({ chainId: 1, loanNFTAddress: 1, tokenId: 1 }, { unique: true });
+loanNftCertificateSchema.index({ chainId: 1, owner: 1, burned: 1 });
+loanNftCertificateSchema.index({ chainId: 1, borrower: 1, lender: 1 });
+
+const loanNftTransferSchema = new Schema(
+  {
+    chainId: uintString,
+    loanNFTAddress: address,
+    tokenId: uintString,
+    from: address,
+    to: address,
+    evidence: { type: chainProvenanceSchema, required: true },
+    indexedAt: indexedAt(),
+  },
+  indexedRecordOptions
+);
+loanNftTransferSchema.index({ chainId: 1, 'evidence.transactionHash': 1, 'evidence.logIndex': 1 }, { unique: true });
+loanNftTransferSchema.index({ chainId: 1, from: 1, to: 1, tokenId: 1 });
+
 const collateralMovementSchema = new Schema(
   {
     chainId: uintString,
@@ -332,6 +435,11 @@ module.exports = {
   Repayment: defineModel('LendingRepayment', repaymentSchema, 'repayments'),
   LoanDefault: defineModel('LendingLoanDefault', loanDefaultSchema, 'loan_defaults'),
   Liquidation: defineModel('LendingLiquidation', liquidationSchema, 'liquidations'),
+  DirectLendingPosition: defineModel('LendingDirectPosition', directLendingPositionSchema, 'direct_lending_positions'),
+  DirectLendingActivity: defineModel('LendingDirectActivity', directLendingActivitySchema, 'direct_lending_activities'),
+  DirectLiquidation: defineModel('LendingDirectLiquidation', directLiquidationSchema, 'direct_liquidations'),
+  LoanNFTCertificate: defineModel('LendingLoanNFTCertificate', loanNftCertificateSchema, 'loan_nft_certificates'),
+  LoanNFTTransfer: defineModel('LendingLoanNFTTransfer', loanNftTransferSchema, 'loan_nft_transfers'),
   CollateralMovement: defineModel('LendingCollateralMovement', collateralMovementSchema, 'collateral_movements'),
   LoanStateTransition: defineModel('LendingLoanStateTransition', loanStateTransitionSchema, 'loan_state_transitions'),
   ReconciliationError: defineModel('LendingReconciliationError', reconciliationErrorSchema, 'lending_reconciliation_errors'),

@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "1.0",
+  "deploymentVersion": "phase3a-manifest-v1",
+  "network": "localhost",
+  "chainId": "31337",
+  "rpcUrl": "http://127.0.0.1:8545",
+  "deploymentBlock": 1,
+  "deploymentTimestamp": "2026-08-26T04:51:25.000Z",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "contracts": {
+    "ABCDToken": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "deploymentTransactionHash": "0xa41a057327ef30c84a6e80f19a34aadb69e4d27fd19d21998f65e9a065d21b2a",
+      "deploymentBlock": 1
+    },
+    "Treasury": {
+      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "deploymentTransactionHash": "0x3a9f0dc0a804e0b324552b43c467e7e026ae57ab06b54e0bf43c4b92697ea081",
+      "deploymentBlock": 2
+    },
+    "TokenVesting": {
+      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "deploymentTransactionHash": "0x9024f2177ee7e949574813e924245d347894ad865b68f1cfad1bf7b8a981417f",
+      "deploymentBlock": 3
+    },
+    "Presale": {
+      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+      "deploymentTransactionHash": "0x4129c57595b7971a3b29d9c26e65260de5edd3817284008fae6218969db6eb5b",
+      "deploymentBlock": 4
+    },
+    "StakingPool": {
+      "address": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+      "deploymentTransactionHash": "0x8a1cd2c24e556dd89bbef6a78d56bf6f2ee3f6b6e3c56204f44153f0e7e13770",
+      "deploymentBlock": 5
+    },
+    "LendingPool": {
+      "address": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+      "deploymentTransactionHash": "0xc11c9bd8b88eafe1efde48ca2052ab3f12c290091064ff977adcfe8b787e01fc",
+      "deploymentBlock": 6
+    },
+    "CollateralVault": {
+      "address": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+      "deploymentTransactionHash": "0x9ee2edcf05431eb58b64c53899c8443e2ec97ce3e9f18c7256078223f0798389",
+      "deploymentBlock": 7
+    },
+    "LoanManager": {
+      "address": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+      "deploymentTransactionHash": "0x67b9043341ac3a8146ad30a421db889c2de34e4b56c92c4e9b302e87257a4bf8",
+      "deploymentBlock": 8
+    },
+    "LoanMarketplace": {
+      "address": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+      "deploymentTransactionHash": "0x354b8e9ee3eec59ee2252237822f1b33534d3754284db3cd9c9c06d16ee5041a",
+      "deploymentBlock": 9
+    },
+    "EMIManager": {
+      "address": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
+      "deploymentTransactionHash": "0x8f37be7642cb37a370db01d1621da6bcb700868357255f70d5c5d8140f35a499",
+      "deploymentBlock": 10
+    },
+    "Liquidation": {
+      "address": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+      "deploymentTransactionHash": "0x16448e023e8896818f469f035699c1b7062ccdd6741bb79da1b9cec6d09f8cb6",
+      "deploymentBlock": 11
+    },
+    "NFTMarketplace": {
+      "address": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+      "deploymentTransactionHash": "0xbfefc46212a9c1607b50b48abe5c3ae2d7a03e4b437b79df7ca09f9e89a68ae4",
+      "deploymentBlock": 12
+    },
+    "ParticipantNFT": {
+      "address": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+      "deploymentTransactionHash": "0x3e7654e45fd3b3cf1406a77be39bf7e691dba4ed4dd1b48dba89f61187c7cdae",
+      "deploymentBlock": 13
+    },
+    "ReputationNFT": {
+      "address": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "deploymentTransactionHash": "0x012a2d54f543fcf0a71f0119f1abc15a6558f93eddb40ecb320c3c318c80e7c0",
+      "deploymentBlock": 14
+    },
+    "GuruNFT": {
+      "address": "0x9A676e781A523b5d0C0e43731313A708CB607508",
+      "deploymentTransactionHash": "0x924d1ae50dfbd1c54499332f341b299895d9a51a1bb76bfe43ed9cd866f5f17a",
+      "deploymentBlock": 15
+    },
+    "LoanNFT": {
+      "address": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
+      "deploymentTransactionHash": "0xf11256e81ae5eb3cdccd896e413799248f8ed56326b2276f7ee422ba2d964e9b",
+      "deploymentBlock": 16
+    },
+    "ReferralManager": {
+      "address": "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1",
+      "deploymentTransactionHash": "0xf84aa37be9d99c0c565cc37187732dec5b3fbfc8cdd8fa57e7e5ee00863a6f3c",
+      "deploymentBlock": 17
+    },
+    "BonusEngine": {
+      "address": "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE",
+      "deploymentTransactionHash": "0xc35718fea8e8627f98dda0579f8f685000235ffd32733bf6ec96c3eb49bfb09b",
+      "deploymentBlock": 18
+    },
+    "BonusManager": {
+      "address": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+      "deploymentTransactionHash": "0xa6a3b984f00217f8dc06d4c875f863ea7fd303d00054573c35ab5d6ec8159fbc",
+      "deploymentBlock": 19
+    }
+  }
+}

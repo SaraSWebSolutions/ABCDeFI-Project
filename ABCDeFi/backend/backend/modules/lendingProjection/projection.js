@@ -2,11 +2,13 @@ const { Contract } = require('ethers');
 
 // Exact order from ILoanManager.LoanStatus: ACTIVE, REPAID, LIQUIDATED, DEFAULTED.
 const LOAN_STATUS = Object.freeze({ 0: 'ACTIVE', 1: 'REPAID', 2: 'LIQUIDATED', 3: 'DEFAULTED' });
+const LOAN_NFT_STATUS = Object.freeze({ 0: 'ACTIVE', 1: 'COMPLETED', 2: 'DEFAULTED', 3: 'LIQUIDATED' });
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 function lower(value) { return typeof value === 'string' ? value.toLowerCase() : value; }
 function decimal(value) { return typeof value === 'bigint' ? value.toString() : String(value); }
 function status(value) { return LOAN_STATUS[Number(value)] || null; }
+function loanNftStatus(value) { return LOAN_NFT_STATUS[Number(value)] || null; }
 function provenance(event) {
   return {
     chainId: String(event.chainId), contractAddress: lower(event.contractAddress), transactionHash: lower(event.transactionHash),
@@ -38,22 +40,39 @@ function normaliseRequest(record) {
 function normaliseInstallment(record) {
   return { installmentId: decimal(record.installmentId), loanId: decimal(record.loanId), dueDate: decimal(record.dueDate), amount: decimal(record.amount), paid: Boolean(record.isPaid), paidAt: decimal(record.paidTimestamp) };
 }
+function normaliseDirectPosition(record) {
+  return { collateralETH: decimal(record.collateralETH), borrowedTokens: decimal(record.borrowedTokens), active: Boolean(record.active) };
+}
+function normaliseLoanNft(tokenId, owner, record) {
+  return {
+    tokenId: decimal(tokenId), owner: lower(owner), loanId: decimal(record.loanId), borrower: lower(record.borrower), lender: lower(record.lender),
+    loanAmount: decimal(record.loanAmount), collateral: decimal(record.collateral), interestRateBps: decimal(record.interestRateBps),
+    durationMonths: decimal(record.durationMonths), status: loanNftStatus(record.status), mintDate: decimal(record.mintDate), ipfsUri: record.ipfsUri || '',
+  };
+}
 
 function createEthersStateReader({ manifest, artifacts, provider }) {
+  const lendingPool = new Contract(manifest.contracts.lendingPool, artifacts.lendingPool.abi, provider);
   const marketplace = new Contract(manifest.contracts.loanMarketplace, artifacts.loanMarketplace.abi, provider);
   const loanManager = new Contract(manifest.contracts.loanManager, artifacts.loanManager.abi, provider);
   const emiManager = new Contract(manifest.contracts.emiManager, artifacts.emiManager.abi, provider);
+  const loanNFT = new Contract(manifest.contracts.loanNFT, artifacts.loanNFT.abi, provider);
   const atBlock = (blockNumber) => ({ blockTag: Number(blockNumber) });
   return {
     async getLoanRequest(requestId, blockNumber) { return normaliseRequest(await marketplace.loanRequests(requestId, atBlock(blockNumber))); },
     async getLoan(loanId, blockNumber) { return normaliseLoan(await loanManager.getLoan(loanId, atBlock(blockNumber))); },
     async getSchedule(loanId, blockNumber) { return (await emiManager.getSchedule(loanId, atBlock(blockNumber))).map(normaliseInstallment); },
     async getNextInstallmentIndex(loanId, blockNumber) { return decimal(await emiManager.nextInstallmentIndex(loanId, atBlock(blockNumber))); },
+    async getDirectPosition(borrower, blockNumber) { return normaliseDirectPosition(await lendingPool.getLoanPosition(borrower, atBlock(blockNumber))); },
+    async getLoanNft(tokenId, blockNumber) {
+      const [owner, details] = await Promise.all([loanNFT.ownerOf(tokenId, atBlock(blockNumber)), loanNFT.getLoanNFTDetails(tokenId, atBlock(blockNumber))]);
+      return normaliseLoanNft(tokenId, owner, details);
+    },
   };
 }
 
 function createMongoProjectionStore(models) {
-  const projectionModels = ['LoanRequest', 'Loan', 'EMISchedule', 'EMIInstallment', 'Repayment', 'LoanDefault', 'Liquidation', 'CollateralMovement', 'LoanStateTransition', 'ReconciliationError'];
+  const projectionModels = ['LoanRequest', 'Loan', 'EMISchedule', 'EMIInstallment', 'Repayment', 'LoanDefault', 'Liquidation', 'DirectLendingPosition', 'DirectLendingActivity', 'DirectLiquidation', 'LoanNFTCertificate', 'LoanNFTTransfer', 'CollateralMovement', 'LoanStateTransition', 'ReconciliationError'];
   const one = (model, filter, update) => models[model].updateOne(filter, { $set: update }, { upsert: true, setDefaultsOnInsert: true });
   return {
     async listCanonicalEvents({ chainId, deploymentBlock, contractAddresses }) {
@@ -70,6 +89,7 @@ function createMongoProjectionStore(models) {
     getRequest(chainId, address, requestId) { return models.LoanRequest.findOne({ chainId: String(chainId), loanMarketplaceAddress: lower(address), requestId: String(requestId) }).lean(); },
     getRequestByLoan(chainId, address, loanId) { return models.LoanRequest.findOne({ chainId: String(chainId), loanMarketplaceAddress: lower(address), loanId: String(loanId) }).lean(); },
     getInstallment(chainId, address, loanId, installmentId) { return models.EMIInstallment.findOne({ chainId: String(chainId), emiManagerAddress: lower(address), loanId: String(loanId), installmentId: String(installmentId) }).lean(); },
+    getLoanNft(chainId, address, tokenId) { return models.LoanNFTCertificate.findOne({ chainId: String(chainId), loanNFTAddress: lower(address), tokenId: String(tokenId) }).lean(); },
     upsertRequest(doc) { return one('LoanRequest', { chainId: doc.chainId, loanMarketplaceAddress: doc.loanMarketplaceAddress, requestId: doc.requestId }, doc); },
     upsertLoan(doc) { return one('Loan', { chainId: doc.chainId, loanManagerAddress: doc.loanManagerAddress, loanId: doc.loanId }, doc); },
     upsertSchedule(doc) { return one('EMISchedule', { chainId: doc.chainId, emiManagerAddress: doc.emiManagerAddress, loanId: doc.loanId }, doc); },
@@ -78,6 +98,11 @@ function createMongoProjectionStore(models) {
     upsertRepayment(doc) { return one('Repayment', { chainId: doc.chainId, transactionHash: doc.transactionHash, 'emiEvidence.logIndex': doc.emiEvidence.logIndex }, doc); },
     upsertDefault(doc) { return one('LoanDefault', { chainId: doc.chainId, 'emiDefaultEvidence.contractAddress': doc.emiDefaultEvidence.contractAddress, loanId: doc.loanId, installmentId: doc.installmentId }, doc); },
     upsertLiquidation(doc) { return one('Liquidation', { chainId: doc.chainId, 'marketplaceEvidence.contractAddress': doc.marketplaceEvidence.contractAddress, loanId: doc.loanId }, doc); },
+    upsertDirectPosition(doc) { return one('DirectLendingPosition', { chainId: doc.chainId, lendingPoolAddress: doc.lendingPoolAddress, borrower: doc.borrower }, doc); },
+    appendDirectActivity(doc) { return one('DirectLendingActivity', { chainId: doc.chainId, 'evidence.transactionHash': doc.evidence.transactionHash, 'evidence.logIndex': doc.evidence.logIndex }, doc); },
+    upsertDirectLiquidation(doc) { return one('DirectLiquidation', { chainId: doc.chainId, 'liquidationEvidence.contractAddress': doc.liquidationEvidence.contractAddress, 'liquidationEvidence.transactionHash': doc.liquidationEvidence.transactionHash, 'liquidationEvidence.logIndex': doc.liquidationEvidence.logIndex }, doc); },
+    upsertLoanNft(doc) { return one('LoanNFTCertificate', { chainId: doc.chainId, loanNFTAddress: doc.loanNFTAddress, tokenId: doc.tokenId }, doc); },
+    appendLoanNftTransfer(doc) { return one('LoanNFTTransfer', { chainId: doc.chainId, 'evidence.transactionHash': doc.evidence.transactionHash, 'evidence.logIndex': doc.evidence.logIndex }, doc); },
     upsertCollateral(doc) { return one('CollateralMovement', { chainId: doc.chainId, transactionHash: doc.transactionHash, logIndex: doc.logIndex }, doc); },
     attributeCollateral(chainId, transactionHash, logIndex, update) { return models.CollateralMovement.updateOne({ chainId: String(chainId), transactionHash: lower(transactionHash), logIndex: Number(logIndex) }, { $set: update }); },
     appendTransition(doc) { return models.LoanStateTransition.updateOne({ chainId: doc.chainId, 'evidence.transactionHash': doc.evidence.transactionHash, 'evidence.logIndex': doc.evidence.logIndex }, { $setOnInsert: doc }, { upsert: true }); },
@@ -113,11 +138,15 @@ class LendingProjectionEngine {
   async processEvent(event, context = this.context(false)) {
     if (event.removed) return;
     switch (event.eventName) {
+      case 'CollateralDeposited': case 'CollateralWithdrawn': case 'TokensBorrowed': case 'LiquidationSettled':
+        await this.directActivity(event); return this.directPosition(event, context);
       case 'RequestCreated': return this.requestCreated(event, context);
       case 'RequestFunded': return this.requestFunded(event, context);
       case 'RequestCancelled': return this.requestCancelled(event, context);
       case 'LoanCreated': return this.loanCreated(event, context);
-      case 'LoanRepaid': return this.loanRepaid(event, context);
+      case 'LoanRepaid':
+        if (lower(event.contractAddress) !== lower(this.manifest.contracts.lendingPool)) return this.loanRepaid(event, context);
+        await this.directActivity(event); return this.directPosition(event, context);
       case 'LoanDefaulted': return this.loanDefaulted(event, context);
       case 'LoanLiquidated': return this.loanLiquidated(event, context);
       case 'EMIScheduleCreated': return this.scheduleCreated(event, context);
@@ -125,8 +154,119 @@ class LendingProjectionEngine {
       case 'EMIDefaulted': return this.emiDefaulted(event, context);
       case 'P2PLoanLiquidated': return this.p2pLiquidated(event, context);
       case 'CollateralETHDeposited': case 'CollateralERC20Deposited': case 'CollateralETHReleased': case 'CollateralERC20Released': case 'CollateralETHLiquidated': case 'CollateralERC20Liquidated': return this.collateral(event, context);
+      case 'PositionLiquidated': return this.directLiquidated(event, context);
+      case 'LoanNFTMinted': return this.loanNftMinted(event, context);
+      case 'LoanStatusUpdated': return this.loanNftStatusUpdated(event, context);
+      case 'LoanNFTBurned': return this.loanNftBurned(event, context);
+      case 'Transfer': return lower(event.contractAddress) === lower(this.manifest.contracts.loanNFT) ? this.loanNftTransfer(event, context) : undefined;
       default: return undefined;
     }
+  }
+  async directPosition(event) {
+    const borrower = lower(event.args.borrower);
+    if (isZeroAddress(borrower)) {
+      await this.error('DIRECT_POSITION_EVENT_WITHOUT_BORROWER', event, { eventName: event.eventName });
+      return;
+    }
+    const position = await this.stateReader.getDirectPosition(borrower, event.blockNumber);
+    await this.store.upsertDirectPosition({
+      chainId: String(event.chainId), lendingPoolAddress: lower(this.manifest.contracts.lendingPool), borrower, ...position,
+      latestStateEvidence: provenance(event),
+    });
+  }
+  async directActivity(event) {
+    const borrower = lower(event.args.borrower);
+    if (isZeroAddress(borrower)) {
+      await this.error('DIRECT_ACTIVITY_EVENT_WITHOUT_BORROWER', event, { eventName: event.eventName });
+      return;
+    }
+    const activityByEvent = {
+      CollateralDeposited: { action: 'COLLATERAL_DEPOSIT', asset: 'ETH', amount: event.args.ethAmount, relatedCollateralETH: null, counterparty: null },
+      CollateralWithdrawn: { action: 'COLLATERAL_WITHDRAWAL', asset: 'ETH', amount: event.args.ethAmount, relatedCollateralETH: null, counterparty: null },
+      TokensBorrowed: { action: 'BORROW', asset: 'ABCD', amount: event.args.tokenAmount, relatedCollateralETH: event.args.collateralETH, counterparty: null },
+      LoanRepaid: { action: 'REPAY', asset: 'ABCD', amount: event.args.tokenAmountRepaid, relatedCollateralETH: event.args.collateralReleased, counterparty: null },
+      LiquidationSettled: { action: 'LIQUIDATION', asset: 'ABCD', amount: event.args.debtCovered, relatedCollateralETH: event.args.collateralToLiquidator, counterparty: lower(event.args.liquidator) },
+    };
+    const activity = activityByEvent[event.eventName];
+    if (!activity || activity.amount === undefined) {
+      await this.error('UNSUPPORTED_DIRECT_ACTIVITY_EVENT', event, { eventName: event.eventName });
+      return;
+    }
+    await this.store.appendDirectActivity({
+      chainId: String(event.chainId), lendingPoolAddress: lower(this.manifest.contracts.lendingPool), borrower,
+      counterparty: activity.counterparty, action: activity.action, asset: activity.asset, amount: String(activity.amount),
+      relatedCollateralETH: activity.relatedCollateralETH === null ? null : String(activity.relatedCollateralETH), evidence: provenance(event),
+    });
+  }
+  async directLiquidated(event) {
+    const events = await this.store.findEventsByTransaction(String(event.chainId), event.transactionHash);
+    const settlement = events.find((item) => item.eventName === 'LiquidationSettled'
+      && lower(item.args.borrower) === lower(event.args.borrower)
+      && String(item.args.debtCovered) === String(event.args.debtCovered));
+    if (!settlement) {
+      await this.error('DIRECT_LIQUIDATION_MISSING_POOL_SETTLEMENT', event, { borrower: event.args.borrower, debtCovered: event.args.debtCovered });
+      return;
+    }
+    await this.store.upsertDirectLiquidation({
+      chainId: String(event.chainId), lendingPoolAddress: lower(this.manifest.contracts.lendingPool), liquidationAddress: lower(event.contractAddress),
+      borrower: lower(event.args.borrower), liquidator: lower(event.args.liquidator), debtCovered: String(event.args.debtCovered),
+      collateralSeizedETH: String(event.args.collateralSeizedETH), liquidatorBonusETH: String(event.args.liquidatorBonusETH),
+      surplusToTreasuryETH: String(event.args.surplusToTreasuryETH), poolSettlementEvidence: provenance(settlement), liquidationEvidence: provenance(event),
+    });
+    await this.directPosition(event);
+  }
+  async loanNftMinted(event) {
+    const certificate = await this.stateReader.getLoanNft(event.args.tokenId, event.blockNumber);
+    if (!certificate.status) {
+      await this.error('UNKNOWN_LOAN_NFT_STATUS', event, { tokenId: String(event.args.tokenId) });
+      return;
+    }
+    const evidence = provenance(event);
+    await this.store.upsertLoanNft({
+      chainId: String(event.chainId), loanNFTAddress: lower(event.contractAddress), ...certificate, burned: false,
+      mintedEvidence: evidence, latestStateEvidence: evidence, burnedEvidence: null,
+    });
+  }
+  async loanNftStatusUpdated(event) {
+    const existing = await this.store.getLoanNft(String(event.chainId), event.contractAddress, event.args.tokenId);
+    if (!existing) {
+      await this.error('LOAN_NFT_STATUS_WITHOUT_MINT', event, { tokenId: String(event.args.tokenId) });
+      return;
+    }
+    const certificate = await this.stateReader.getLoanNft(event.args.tokenId, event.blockNumber);
+    if (!certificate.status) {
+      await this.error('UNKNOWN_LOAN_NFT_STATUS', event, { tokenId: String(event.args.tokenId) });
+      return;
+    }
+    await this.store.upsertLoanNft({ ...existing, ...certificate, burned: false, latestStateEvidence: provenance(event), burnedEvidence: null });
+  }
+  async loanNftBurned(event) {
+    const existing = await this.store.getLoanNft(String(event.chainId), event.contractAddress, event.args.tokenId);
+    if (!existing) {
+      await this.error('LOAN_NFT_BURN_WITHOUT_MINT', event, { tokenId: String(event.args.tokenId) });
+      return;
+    }
+    const evidence = provenance(event);
+    await this.store.upsertLoanNft({ ...existing, owner: null, burned: true, latestStateEvidence: evidence, burnedEvidence: evidence });
+  }
+  async loanNftTransfer(event) {
+    const evidence = provenance(event);
+    await this.store.appendLoanNftTransfer({
+      chainId: String(event.chainId), loanNFTAddress: lower(event.contractAddress), tokenId: String(event.args.tokenId),
+      from: lower(event.args.from), to: lower(event.args.to), evidence,
+    });
+    if (isZeroAddress(event.args.from)) return;
+    const existing = await this.store.getLoanNft(String(event.chainId), event.contractAddress, event.args.tokenId);
+    if (!existing) {
+      await this.error('LOAN_NFT_TRANSFER_WITHOUT_MINT', event, { tokenId: String(event.args.tokenId) });
+      return;
+    }
+    if (isZeroAddress(event.args.to)) {
+      await this.store.upsertLoanNft({ ...existing, owner: null, burned: true, latestStateEvidence: evidence, burnedEvidence: evidence });
+      return;
+    }
+    const certificate = await this.stateReader.getLoanNft(event.args.tokenId, event.blockNumber);
+    await this.store.upsertLoanNft({ ...existing, ...certificate, burned: false, latestStateEvidence: evidence, burnedEvidence: null });
   }
   async requestCreated(event, context) {
     const request = await this.stateReader.getLoanRequest(event.args.requestId, event.blockNumber); const evidence = provenance(event);
@@ -245,4 +385,4 @@ class LendingProjectionEngine {
   }
 }
 
-module.exports = { LOAN_STATUS, provenance, canonicalSort, createEthersStateReader, createMongoProjectionStore, LendingProjectionEngine };
+module.exports = { LOAN_STATUS, LOAN_NFT_STATUS, provenance, canonicalSort, createEthersStateReader, createMongoProjectionStore, LendingProjectionEngine };

@@ -10,10 +10,10 @@ import {
   CreditCard,
   Image as ImageIcon
 } from 'lucide-react';
-import { formatUnits } from 'ethers';
 import { getStakingInfo } from '../Services/staking';
 import { getNftEcosystemSnapshot } from '../Services/nftEcosystem';
 import { getBalanceOf } from '../Services/token';
+import { getCanonicalLendingReadState } from '../Services/lending';
 import { CONTRACTS } from '../Config/contracts';
 
 interface NextGenProtocolDashboardProps {
@@ -23,23 +23,8 @@ interface NextGenProtocolDashboardProps {
   onNavigateTab?: (tab: string) => void;
 }
 
-interface DashboardSummary {
-  portfolio: { totalValue: string; borrowed: string; lent: string; interestEarned: string };
-  protocol: { totalStaked: string; activeDebtVolume: string; onlineUsers: number };
-}
-
-function formatAbcd(value: string | null | undefined) {
-  if (value === null || value === undefined) return 'Unavailable';
-  try {
-    return Number(formatUnits(BigInt(value), 18)).toLocaleString(undefined, { maximumFractionDigits: 4 });
-  } catch {
-    return 'Unavailable';
-  }
-}
-
 function formatAbcdWithUnit(value: string | null | undefined) {
-  const formatted = formatAbcd(value);
-  return formatted === 'Unavailable' ? formatted : `${formatted} ABCD`;
+  return value === null || value === undefined ? 'Unavailable' : `${value} ABCD`;
 }
 
 interface OnChainDashboardData {
@@ -47,6 +32,9 @@ interface OnChainDashboardData {
   pendingRewardsAbcd: string | null;
   supportedNftCount: string | null;
   treasuryAbcd: string | null;
+  borrowedAbcd: string | null;
+  availableToBorrowAbcd: string | null;
+  healthFactor: string | null;
 }
 
 const EMPTY_ON_CHAIN_DATA: OnChainDashboardData = {
@@ -54,10 +42,12 @@ const EMPTY_ON_CHAIN_DATA: OnChainDashboardData = {
   pendingRewardsAbcd: null,
   supportedNftCount: null,
   treasuryAbcd: null,
+  borrowedAbcd: null,
+  availableToBorrowAbcd: null,
+  healthFactor: null,
 };
 
 import { useWallet } from '../Context/WalletContext';
-import { useAuth } from '../Context/AuthContext';
 
 export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> = ({
   userAddress,
@@ -66,7 +56,6 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
   onNavigateTab,
 }) => {
   const wallet = useWallet();
-  const { token, logout } = useAuth();
   // A profile's historically linked address is not proof of a current wallet
   // connection. Use only the explicit WalletContext session address.
   const address = wallet.address || '';
@@ -77,37 +66,9 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
   const isRegistered = isWalletConnected || !!wallet.address;
   const networkName = wallet.networkName || 'Not Connected';
 
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [summaryError, setSummaryError] = useState('');
   const [onChainData, setOnChainData] = useState<OnChainDashboardData>(EMPTY_ON_CHAIN_DATA);
   const [onChainLoading, setOnChainLoading] = useState(false);
   const [onChainError, setOnChainError] = useState('');
-
-  useEffect(() => {
-    if (!token) return;
-    let active = true;
-    const loadSummary = async () => {
-      try {
-        const response = await fetch('/api/dashboard/summary', { headers: { Authorization: `Bearer ${token}` } });
-        const data = await response.json().catch(() => ({}));
-        if (response.status === 401) {
-          logout();
-          return;
-        }
-        if (!response.ok || !data.success) throw new Error(data.message || 'Dashboard summary is unavailable.');
-        if (active) {
-          setSummary(data);
-          setSummaryError('');
-        }
-      } catch (summaryLoadError) {
-        if (active) {
-          setSummaryError(summaryLoadError instanceof Error ? summaryLoadError.message : 'Dashboard summary is unavailable.');
-        }
-      }
-    };
-    void loadSummary();
-    return () => { active = false; };
-  }, [logout, token]);
 
   useEffect(() => {
     if (!wallet.address || !wallet.isCorrectNetwork) {
@@ -123,7 +84,8 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
       getStakingInfo(wallet.address),
       getNftEcosystemSnapshot(wallet.address),
       getBalanceOf(CONTRACTS.treasury),
-    ]).then(([staking, nfts, treasury]) => {
+      getCanonicalLendingReadState(wallet.address),
+    ]).then(([staking, nfts, treasury, lending]) => {
       if (!active) return;
       setOnChainData({
         stakedAbcd: staking.status === 'fulfilled' ? staking.value.stakedAmount : null,
@@ -132,8 +94,11 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
           ? (BigInt(nfts.value.participantBalance) + BigInt(nfts.value.guruBalance) + BigInt(nfts.value.loanBalance) + (nfts.value.reputation ? 1n : 0n)).toString()
           : null,
         treasuryAbcd: treasury.status === 'fulfilled' ? treasury.value : null,
+        borrowedAbcd: lending.status === 'fulfilled' ? lending.value.directPool.borrowed : null,
+        availableToBorrowAbcd: lending.status === 'fulfilled' ? lending.value.directPool.availableToBorrow : null,
+        healthFactor: lending.status === 'fulfilled' ? lending.value.liquidationHealthFactor : null,
       });
-      if ([staking, nfts, treasury].some((result) => result.status === 'rejected')) {
+      if ([staking, nfts, treasury, lending].some((result) => result.status === 'rejected')) {
         setOnChainError('Some on-chain dashboard data is unavailable.');
       }
     }).catch(() => {
@@ -159,10 +124,10 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
             <div>
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 shadow-sm">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  Protocol Status: Healthy
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  Canonical local contract reads
                 </span>
-                <span className="text-xs text-slate-400 font-mono font-semibold">Local indexed-data view</span>
+                <span className="text-xs text-slate-400 font-mono font-semibold">Hardhat Local · chain 31337</span>
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-0.5 bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-indigo-200">
                 ABCDeFi Web3 Financial Operating System
@@ -179,8 +144,8 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
             <div className="text-sm font-black text-slate-300 mt-0.5">{onChainLoading ? 'Loading…' : onChainData.stakedAbcd === null ? 'Unavailable' : `${onChainData.stakedAbcd} ABCD`}</div>
           </div>
           <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
-            <div className="text-[10px] text-slate-400 uppercase font-bold">Active Debt Volume</div>
-            <div className="text-sm font-black text-emerald-400 mt-0.5">{formatAbcdWithUnit(summary?.protocol.activeDebtVolume)}</div>
+            <div className="text-[10px] text-slate-400 uppercase font-bold">Your ABCD debt</div>
+            <div className="text-sm font-black text-emerald-400 mt-0.5">{onChainLoading ? 'Loading…' : formatAbcdWithUnit(onChainData.borrowedAbcd)}</div>
           </div>
           <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
             <div className="text-[10px] text-slate-400 uppercase font-bold">Supported NFT Holdings</div>
@@ -317,22 +282,22 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
           {/* Card 2: Borrowed */}
           <div className="bg-slate-900 border border-slate-800 hover:border-rose-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Borrowed</span>
-            <div className="text-2xl font-black text-rose-400">{formatAbcdWithUnit(summary?.portfolio.borrowed)}</div>
-            <span className="text-[9px] text-slate-400 block">Active indexed loans</span>
+            <div className="text-2xl font-black text-rose-400">{onChainLoading ? 'Loading…' : formatAbcdWithUnit(onChainData.borrowedAbcd)}</div>
+            <span className="text-[9px] text-slate-400 block">LendingPool.getLoanPosition(current wallet)</span>
           </div>
 
           {/* Card 3: Lent */}
           <div className="bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Lent</span>
-            <div className="text-2xl font-black text-indigo-400">{formatAbcdWithUnit(summary?.portfolio.lent)}</div>
-            <span className="text-[9px] text-slate-400 font-bold block">Active indexed loans</span>
+            <div className="text-2xl font-black text-indigo-400">Unavailable</div>
+            <span className="text-[9px] text-slate-400 font-bold block">No lender-history getter in deployed ABI</span>
           </div>
 
           {/* Card 4: Interest Earned */}
           <div className="bg-slate-900 border border-slate-800 hover:border-cyan-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Interest Earned</span>
-            <div className="text-2xl font-black text-cyan-400">{formatAbcdWithUnit(summary?.portfolio.interestEarned)}</div>
-            <span className="text-[9px] text-slate-400 block">Indexed lender repayments</span>
+            <div className="text-2xl font-black text-cyan-400">Unavailable</div>
+            <span className="text-[9px] text-slate-400 block">No canonical aggregate interest read</span>
           </div>
 
           {/* Card 5: EMI Due */}
@@ -345,13 +310,12 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
           {/* Card 6: Health Factor */}
           <div className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Health Factor</span>
-            <div className="text-2xl font-black text-emerald-400">Unavailable</div>
-            <span className="text-[9px] text-slate-400 font-bold block">No canonical health-factor source</span>
+            <div className="text-2xl font-black text-emerald-400">{onChainLoading ? 'Loading…' : onChainData.healthFactor ?? 'Unavailable'}</div>
+            <span className="text-[9px] text-slate-400 font-bold block">Liquidation.checkLiquidationEligibility</span>
           </div>
         </div>
       </div>
 
-      {summaryError && <p className="text-xs text-amber-300">Dashboard summary unavailable: {summaryError}</p>}
       {onChainError && <p className="text-xs text-amber-300">{onChainError}</p>}
 
       {/* 4. QUICK ACTIONS PANEL */}

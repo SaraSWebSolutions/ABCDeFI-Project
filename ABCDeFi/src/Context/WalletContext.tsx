@@ -2,7 +2,9 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { Contract, parseEther, parseUnits, formatUnits } from 'ethers';
 import {
   connectWallet as connectWalletService,
+  requestWalletAccountSelection,
   disconnectWallet as disconnectWalletService,
+  restoreWalletConnection,
   getEthBalance,
   getTokenBalance,
   setupEthereumListeners,
@@ -16,6 +18,7 @@ import {
 } from '../Services/wallet';
 import { AuthService } from '../Services/authService';
 import { CONTRACTS } from '../Config/contracts';
+import { walletAuthenticationNeedsInvalidation } from '../Config/auth';
 import CollateralVaultABI from '../abi/CollateralVault.json';
 
 interface WalletContextType {
@@ -35,7 +38,9 @@ interface WalletContextType {
   isKycApproved: boolean;
   jwtToken: string | null;
   connectWallet: (type?: 'metamask' | 'walletconnect' | 'trust' | 'coinbase') => Promise<string | undefined>;
+  switchWalletAccount: () => Promise<string | undefined>;
   disconnectWallet: () => void;
+  refreshWallet: () => Promise<void>;
   loginWithSignature: () => Promise<string | null>;
   setKycStatus: (approved: boolean) => void;
   refreshBalances: () => Promise<void>;
@@ -48,6 +53,7 @@ interface WalletContextType {
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
+const WALLET_AUTH_ADDRESS_KEY = 'abcdefi_wallet_auth_address';
 
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [address, setAddress] = useState<string | null>(null);
@@ -63,6 +69,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isCorrectNetwork, setIsCorrectNetwork] = useState(false);
   const [isKycApproved, setIsKycApproved] = useState(false);
   const [jwtToken, setJwtToken] = useState<string | null>(() => localStorage.getItem('abcdefi_jwt'));
+
+  const invalidateWalletAuthentication = useCallback(() => {
+    setWalletVerified(false);
+    setJwtToken(null);
+    localStorage.removeItem(WALLET_AUTH_ADDRESS_KEY);
+    window.dispatchEvent(new Event('abcdefi-wallet-auth-invalidated'));
+  }, []);
 
   const refreshNetwork = useCallback(async () => {
     const result = await checkNetwork();
@@ -95,6 +108,39 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     await loadBalancesForAddress(undefined, address);
   }, [address, loadBalancesForAddress]);
 
+  /** Rehydrate only an already-authorized MetaMask account; never opens a permission prompt. */
+  const refreshWallet = useCallback(async () => {
+    const result = await restoreWalletConnection();
+    if (!result) {
+      explicitConnectionRef.current = false;
+      setAddress(null);
+      setBalanceBNB(null);
+      setBalanceABCD(null);
+      setNetworkName('Not Connected');
+      setChainId(null);
+      setIsCorrectNetwork(false);
+      invalidateWalletAuthentication();
+      return;
+    }
+
+    explicitConnectionRef.current = true;
+    setAddress(result.address);
+    const correctNetwork = result.chainId === EXPECTED_CHAIN_ID;
+    if (walletAuthenticationNeedsInvalidation(
+      localStorage.getItem(WALLET_AUTH_ADDRESS_KEY),
+      result.address,
+      correctNetwork,
+    )) {
+      invalidateWalletAuthentication();
+    } else {
+      setWalletVerified(Boolean(localStorage.getItem(WALLET_AUTH_ADDRESS_KEY)));
+    }
+    setChainId(result.chainId);
+    setNetworkName(getNetworkName(result.chainId));
+    setIsCorrectNetwork(correctNetwork);
+    await loadBalancesForAddress(result.provider, result.address);
+  }, [invalidateWalletAuthentication, loadBalancesForAddress]);
+
   const connectWallet = async (type: 'metamask' | 'walletconnect' | 'trust' | 'coinbase' = 'metamask') => {
     // This function is called only from explicit Connect Wallet/SIWE actions.
     // Mark intent before MetaMask can emit accountsChanged during approval.
@@ -105,7 +151,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!result.address) throw new Error('No address returned from wallet provider');
       setAddress(result.address);
       // A connected address is not a verified SIWE session.
-      setWalletVerified(false);
+      if (walletAuthenticationNeedsInvalidation(localStorage.getItem(WALLET_AUTH_ADDRESS_KEY), result.address, result.chainId === EXPECTED_CHAIN_ID)) {
+        invalidateWalletAuthentication();
+      } else {
+        setWalletVerified(Boolean(localStorage.getItem(WALLET_AUTH_ADDRESS_KEY)));
+      }
       setChainId(result.chainId);
       setNetworkName(getNetworkName(result.chainId));
       setIsCorrectNetwork(result.chainId === EXPECTED_CHAIN_ID);
@@ -119,7 +169,35 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setChainId(null);
       setNetworkName('Not Connected');
       setIsCorrectNetwork(false);
-      setWalletVerified(false);
+      invalidateWalletAuthentication();
+      throw error;
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const switchWalletAccount = async () => {
+    // MetaMask account selection is always an explicit user gesture. The
+    // result is stored in this same context and used by every dashboard.
+    explicitConnectionRef.current = true;
+    setIsConnecting(true);
+    try {
+      const result = await requestWalletAccountSelection();
+      if (!result.address) throw new Error('No wallet account returned.');
+      setAddress(result.address);
+      if (walletAuthenticationNeedsInvalidation(localStorage.getItem(WALLET_AUTH_ADDRESS_KEY), result.address, result.chainId === EXPECTED_CHAIN_ID)) {
+        invalidateWalletAuthentication();
+      } else {
+        setWalletVerified(Boolean(localStorage.getItem(WALLET_AUTH_ADDRESS_KEY)));
+      }
+      setChainId(result.chainId);
+      setNetworkName(getNetworkName(result.chainId));
+      setIsCorrectNetwork(result.chainId === EXPECTED_CHAIN_ID);
+      void loadBalancesForAddress(result.provider, result.address);
+      return result.address;
+    } catch (error) {
+      // Retain the current known connection if the account selector is
+      // dismissed; a rejected account change must not fabricate a disconnect.
       throw error;
     } finally {
       setIsConnecting(false);
@@ -135,9 +213,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setNetworkName('Not Connected');
     setChainId(null);
     setIsCorrectNetwork(false);
-    setWalletVerified(false);
-    setJwtToken(null);
-    localStorage.removeItem('abcdefi_connected_wallet');
+    invalidateWalletAuthentication();
   };
 
   const loginWithSignature = async () => {
@@ -147,13 +223,18 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       throw new Error('Wallet not connected');
     }
 
-    const challenge = await AuthService.walletLoginChallenge(currentAddress);
+    const signer = await getSigner();
+    const signerNetwork = await signer.provider?.getNetwork();
+    if (!signerNetwork || signerNetwork.chainId !== EXPECTED_CHAIN_ID) {
+      throw new Error('Switch MetaMask to Hardhat Local (chain 31337) before signing in.');
+    }
+
+    const challenge = await AuthService.walletLoginChallenge(currentAddress, Number(signerNetwork.chainId));
 
     if (!challenge?.nonce || !challenge?.message) {
       throw new Error('Invalid wallet authentication challenge');
     }
 
-    const signer = await getSigner();
     const signature = await signer.signMessage(challenge.message);
 
     const result = await AuthService.walletLogin(
@@ -162,9 +243,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       challenge.nonce
     );
 
-    console.log("[WalletContext] FULL LOGIN RESULT:", result);
-    console.log("[WalletContext] LOGIN KYC:", result?.user?.kycStatus);
-
     if (!result?.token) {
       throw new Error('Backend did not issue an access token');
     }
@@ -172,17 +250,17 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Save JWT
     setJwtToken(result.token);
     localStorage.setItem('abcdefi_jwt', result.token);
+    localStorage.setItem(WALLET_AUTH_ADDRESS_KEY, currentAddress.toLowerCase());
     setWalletVerified(true);
+    window.dispatchEvent(new CustomEvent('abcdefi-wallet-authenticated', {
+      detail: { user: result.user, token: result.token, refreshToken: result.refreshToken },
+    }));
 
     // Sync KYC status from backend
     if (result?.user?.kycStatus) {
       const approved = result.user.kycStatus === "approved";
       setIsKycApproved(approved);
 
-      console.log(
-        "[WalletContext] Backend KYC status:",
-        result.user.kycStatus
-      );
     }
 
     return result.token;
@@ -286,6 +364,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsKycApproved(false);
       setWalletVerified(false);
       setJwtToken(null);
+      localStorage.removeItem(WALLET_AUTH_ADDRESS_KEY);
       explicitConnectionRef.current = false;
       localStorage.removeItem('abcdefi_connected_wallet');
     };
@@ -293,6 +372,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     window.addEventListener('abcdefi-auth-logout', handleAuthLogout);
     return () => window.removeEventListener('abcdefi-auth-logout', handleAuthLogout);
   }, []);
+
+  // Restore a MetaMask permission already granted to this origin. This read is
+  // intentionally passive and cannot display MetaMask's connect prompt.
+  useEffect(() => {
+    void refreshWallet().catch((error) => {
+      console.warn('Unable to restore the authorized MetaMask connection:', error);
+    });
+  }, [refreshWallet]);
 
   useEffect(() => {
     const cleanup = setupEthereumListeners(
@@ -302,21 +389,30 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           disconnectWallet();
           return;
         }
+        // wallet.ts has already cleared its cached signer. Read balances for
+        // the newly reported account directly rather than through the old
+        // address captured by refreshBalances.
+        setBalanceBNB(null);
+        setBalanceABCD(null);
         setAddress(accounts[0]);
-        setWalletVerified(false);
+        const correctNetwork = (await checkNetwork()).isCorrect;
+        if (walletAuthenticationNeedsInvalidation(localStorage.getItem(WALLET_AUTH_ADDRESS_KEY), accounts[0], correctNetwork)) {
+          invalidateWalletAuthentication();
+        } else {
+          setWalletVerified(Boolean(localStorage.getItem(WALLET_AUTH_ADDRESS_KEY)));
+        }
         await refreshNetwork();
-        await refreshBalances();
+        await loadBalancesForAddress(undefined, accounts[0]);
       },
       async (_chainId: string) => {
         if (!explicitConnectionRef.current) return;
-        setChainId(null);
-        setWalletVerified(false);
-        await refreshNetwork();
-        await refreshBalances();
+        // A chain change invalidates the BrowserProvider/signer cache. Re-read
+        // the same already-authorized account without requesting permission.
+        await refreshWallet();
       },
     );
     return cleanup;
-  }, [refreshBalances, refreshNetwork]);
+  }, [invalidateWalletAuthentication, loadBalancesForAddress, refreshNetwork, refreshWallet]);
 
   const shortAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : '';
   const numericAbcd = balanceABCD === null ? null : Number(balanceABCD.replace(/,/g, ''));
@@ -340,7 +436,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isKycApproved,
       jwtToken,
       connectWallet,
+      switchWalletAccount,
       disconnectWallet,
+      refreshWallet,
       loginWithSignature,
       setKycStatus,
       refreshBalances,
