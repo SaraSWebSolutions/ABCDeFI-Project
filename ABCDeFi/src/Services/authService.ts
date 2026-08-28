@@ -1,5 +1,10 @@
 import { api } from "./axiosConfig";
 
+function walletAuthenticationError(error: unknown): Error {
+  const candidate = error as { response?: { data?: { message?: string } }; message?: string };
+  return new Error(candidate.response?.data?.message || candidate.message || 'Wallet authentication request failed.');
+}
+
 export const AuthService = {
 
   // splash screen
@@ -15,17 +20,25 @@ export const AuthService = {
   },
 
   walletLoginChallenge: async (walletAddress: string, chainId: number) => {
-    const response = await api.post("user/wallet-login/nonce", { walletAddress, chainId });
-    return response.data;
+    try {
+      const response = await api.post("user/wallet-login/nonce", { walletAddress, chainId });
+      return response.data;
+    } catch (error) {
+      throw walletAuthenticationError(error);
+    }
   },
 
   // Web3 Wallet authentication is server-verified. No client-side JWT fallback is permitted.
   walletLogin: async (walletAddress: string, signature: string, nonce: string) => {
-    const response = await api.post("user/wallet-login", { walletAddress, signature, nonce });
-    if (response.data?.token) {
-      localStorage.setItem("abcdefi_jwt", response.data.token);
+    try {
+      const response = await api.post("user/wallet-login", { walletAddress, signature, nonce });
+      // AuthContext is the sole owner of persisted application sessions.  This
+      // service returns the backend-authenticated result for WalletContext to
+      // dispatch to AuthContext; it must not persist a competing JWT itself.
+      return response.data;
+    } catch (error) {
+      throw walletAuthenticationError(error);
     }
-    return response.data;
   },
 
   // register

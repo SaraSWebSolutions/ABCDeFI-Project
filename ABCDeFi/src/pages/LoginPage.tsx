@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../Context/AuthContext';
-import { useWallet } from '../Context/WalletContext';
 import { DEVELOPMENT_AUTH_ENABLED } from '../Config/auth';
 import { Lock, Mail, User, Globe, ArrowRight, ShieldCheck, KeyRound, AlertCircle, CheckCircle2, Phone, Tag, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
@@ -18,7 +17,6 @@ export const LoginPage: React.FC = () => {
     pendingAuth,
     setPendingAuth,
   } = useAuth();
-  const { address, isConnecting, isCorrectNetwork, loginWithSignature, switchChain } = useWallet();
 
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
 
@@ -286,56 +284,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleDevelopmentWalletSignIn = async () => {
-    resetFormAlerts();
-    setIsSubmitting(true);
-    try {
-      await loginWithSignature();
-      setSuccessMessage('Wallet signature verified. Opening your local dashboard…');
-    } catch (signInError: unknown) {
-      setError(signInError instanceof Error ? signInError.message : 'Wallet authentication failed.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (DEVELOPMENT_AUTH_ENABLED) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden font-sans">
-        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="w-full max-w-md z-10">
-          <div className="text-center mb-6">
-            <img src="/images/login_logo.svg" alt="ABCDeFi Logo" className="w-16 h-16 object-contain mx-auto drop-shadow-xl mb-3" />
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">ABCDeFi</h1>
-            <p className="text-xs text-slate-400 font-medium mt-1">Local development authentication</p>
-          </div>
-          <div className="glass-panel p-6 sm:p-8 rounded-2xl border border-slate-800/80 shadow-2xl backdrop-blur-xl">
-            <h2 className="text-xl font-bold text-center text-white">Sign in with MetaMask</h2>
-            <p className="text-xs text-slate-400 mt-2 text-center leading-relaxed">
-              Local-only mode. The backend verifies a real wallet signature; no email, SMS, or OTP is sent.
-              This is not production authentication.
-            </p>
-            {address && <p className="mt-4 text-xs text-slate-300 text-center font-mono">Connected: {address}</p>}
-            {error && <p role="alert" className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>}
-            {successMessage && <p className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-300">{successMessage}</p>}
-            {address && !isCorrectNetwork && (
-              <button type="button" onClick={() => void switchChain('Hardhat Local').catch((switchError: unknown) => setError(switchError instanceof Error ? switchError.message : 'Unable to switch network.'))}
-                className="w-full mt-4 py-2.5 px-4 rounded-xl font-bold text-xs border border-amber-400/50 text-amber-200 hover:bg-amber-400/10 transition">
-                Switch to Hardhat Local (31337)
-              </button>
-            )}
-            <button type="button" onClick={() => void handleDevelopmentWalletSignIn()} disabled={isSubmitting || isConnecting}
-              className="w-full mt-5 py-3 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-slate-950 hover:from-emerald-400 hover:to-cyan-400 transition shadow-lg shadow-emerald-500/20 disabled:opacity-50">
-              {isSubmitting || isConnecting ? 'Waiting for MetaMask…' : address ? 'Sign MetaMask Challenge' : 'Connect MetaMask & Sign In'}
-            </button>
-          </div>
-          <p className="text-center text-[11px] text-slate-500 mt-6">ABCDeFi Local Development • Canonical Hardhat chain 31337</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-emerald-500/30 selection:text-emerald-300">
       {/* Background Decorative Gradients */}
@@ -375,7 +323,9 @@ export const LoginPage: React.FC = () => {
               {!pendingAuth && mode === 'forgot' && 'Reset your password'}
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              {pendingAuth?.step === 'LOGIN_2FA' && `We sent a 6-digit authentication code to ${pendingAuth.email}`}
+              {pendingAuth?.step === 'LOGIN_2FA' && (DEVELOPMENT_AUTH_ENABLED
+                ? 'Enter the 6-digit authentication code printed in the local backend terminal.'
+                : `We sent a 6-digit authentication code to ${pendingAuth.email}`)}
               {pendingAuth?.step === 'REGISTER_OTP' && `Please enter the 6-digit code sent to ${pendingAuth.email}`}
               {pendingAuth?.step === 'FORGOT_OTP' && `Check your inbox (${pendingAuth.email}) for the verification code`}
               {pendingAuth?.step === 'RESET_PASSWORD' && 'Enter your strong new password below'}

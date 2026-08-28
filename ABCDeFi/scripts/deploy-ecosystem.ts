@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const MANIFEST_SCHEMA_VERSION = "1.0";
-const DEPLOYMENT_VERSION = process.env.DEPLOYMENT_VERSION || "phase3a-manifest-v1";
+const DEPLOYMENT_VERSION_PREFIX = process.env.DEPLOYMENT_VERSION || "local-ecosystem";
 
 function resolvePublicRpcUrl(chainId: string): string {
   const configured = process.env.PUBLIC_RPC_URL;
@@ -25,6 +25,28 @@ function resolvePublicRpcUrl(chainId: string): string {
     throw new Error("Manifest RPC URLs must be public URLs without credentials, query parameters, or fragments.");
   }
   return parsed.toString().replace(/\/$/, "");
+}
+
+/**
+ * deployments.json is the sole active frontend deployment source. Preserve
+ * unrelated Vite settings (for example VITE_AUTH_MODE), while removing old
+ * address/RPC overrides that could mislead an operator or a legacy import.
+ */
+function removeLegacyFrontendDeploymentOverrides(): void {
+  const frontendEnvPath = path.resolve(".env.local");
+  if (!fs.existsSync(frontendEnvPath)) return;
+
+  const deploymentOverride = /^VITE_(?:CHAIN_ID|RPC_URL|(?:.*(?:ADDRESS|TOKEN|TREASURY|LENDING|PRESALE|STAKING|VAULT|MANAGER|NFT)))=/;
+  const original = fs.readFileSync(frontendEnvPath, "utf8");
+  const retained = original
+    .split(/\r?\n/)
+    .filter((line) => !deploymentOverride.test(line));
+  const normalized = retained.join("\n").replace(/\n+$/, "\n");
+
+  if (normalized !== original) {
+    fs.writeFileSync(frontendEnvPath, normalized);
+    console.log("✓ Removed legacy VITE deployment overrides; frontend resolves deployments.json directly");
+  }
 }
 
 async function main() {
@@ -298,10 +320,14 @@ async function main() {
   const deploymentBlockData = await hh.provider.getBlock(deploymentBlock);
   if (!deploymentBlockData) throw new Error(`Deployment block ${deploymentBlock} is unavailable`);
   const rpcUrl = resolvePublicRpcUrl(chainId);
+  // A local Hardhat reset produces a new genesis/deployment block hash. Keep
+  // indexer checkpoints scoped to that exact deployment rather than treating
+  // an old localhost chain as the same runtime.
+  const deploymentVersion = `${DEPLOYMENT_VERSION_PREFIX}-${deploymentBlockData.hash}`;
 
   const deployment = {
     schemaVersion: MANIFEST_SCHEMA_VERSION,
-    deploymentVersion: DEPLOYMENT_VERSION,
+    deploymentVersion,
     network: networkName,
     chainId,
     rpcUrl,
@@ -312,33 +338,8 @@ async function main() {
   };
   fs.writeFileSync(path.resolve("deployments.json"), JSON.stringify(deployment, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2));
 
-  // Keep the frontend configuration environment-driven. Writing generated static
-  // addresses into src/Config/contracts.ts would make a later deployment silently
-  // bypass its VITE_* configuration and retain stale addresses in the source tree.
-  const viteEnv = Object.entries({
-    VITE_CHAIN_ID: chainId,
-    VITE_RPC_URL: process.env.VITE_RPC_URL || (chainId === "31337" ? "http://127.0.0.1:8545" : ""),
-    VITE_ABCD_TOKEN_ADDRESS: tokenAddress,
-    VITE_PRESALE_ADDRESS: presaleAddress,
-    VITE_TREASURY_ADDRESS: treasuryAddress,
-    VITE_STAKING_ADDRESS: stakingAddress,
-    VITE_LENDING_ADDRESS: lendingAddress,
-    VITE_VESTING_ADDRESS: vestingAddress,
-    VITE_REFERRAL_ADDRESS: deployed.ReferralManager.address,
-    VITE_BONUS_ENGINE_ADDRESS: deployed.BonusEngine.address,
-    VITE_MARKETPLACE_ADDRESS: nftMarketplaceAddress,
-    VITE_COLLATERAL_VAULT_ADDRESS: collateralVaultAddress,
-    VITE_PARTICIPANT_NFT_ADDRESS: deployed.ParticipantNFT.address,
-    VITE_LOAN_MANAGER_ADDRESS: loanManagerAddress,
-    VITE_LOAN_MARKETPLACE_ADDRESS: loanMarketplaceAddress,
-    VITE_EMI_MANAGER_ADDRESS: emiManagerAddress,
-    VITE_LIQUIDATION_ADDRESS: liquidationAddress,
-    VITE_LOAN_NFT_ADDRESS: deployed.LoanNFT.address,
-    VITE_REPUTATION_NFT_ADDRESS: deployed.ReputationNFT.address,
-    VITE_GURU_NFT_ADDRESS: deployed.GuruNFT.address,
-    VITE_BONUS_MANAGER_ADDRESS: deployed.BonusManager.address,
-  }).map(([k, v]) => `${k}=${v}`).join("\n") + "\n";
-  fs.writeFileSync(path.resolve(".env.local"), viteEnv);
+  removeLegacyFrontendDeploymentOverrides();
+  console.log("✓ Frontend contract configuration resolves from deployments.json");
 
   console.log(`Deployment saved for chain ${chainId}`);
 }

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "node --test backend/backend/__tests__/*.test.cjs scripts/test-dashboard-routing.mjs scripts/test-auth-session.mjs",
     "hardhat": "hardhat",
     "compile:contracts": "hardhat compile",
     "test:contracts": "hardhat test",
@@ -16,6 +17,8 @@
     "deploy:bsc-mainnet": "hardhat run scripts/deploy-ecosystem.ts --network bscMainnet",
     "backend": "node backend/backend/server.js",
     "backend:indexer": "npm --prefix backend/backend run indexer",
+    "backend:franchise-indexer": "npm --prefix backend/backend run franchise-indexer",
+    "dev:local": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev-local.ps1",
     "all": "concurrently -n \"backend,frontend\" -c \"cyan,magenta\" \"npm run backend\" \"npm run dev\"",
     "start": "npm run all"
   },

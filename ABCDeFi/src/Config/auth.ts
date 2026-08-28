@@ -12,9 +12,13 @@ export function resolveFrontendAuthMode(
     : 'production';
 }
 
+const viteEnvironment = (import.meta as ImportMeta & {
+  env?: { VITE_AUTH_MODE?: string; DEV?: boolean };
+}).env;
+
 export const AUTH_MODE = resolveFrontendAuthMode(
-  import.meta.env?.VITE_AUTH_MODE,
-  Boolean(import.meta.env?.DEV),
+  viteEnvironment?.VITE_AUTH_MODE,
+  Boolean(viteEnvironment?.DEV),
 );
 
 export const DEVELOPMENT_AUTH_ENABLED = AUTH_MODE === 'development';

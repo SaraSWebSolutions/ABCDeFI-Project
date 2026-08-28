@@ -7,10 +7,13 @@ import ReputationArtifact from '../../artifacts/contracts/nft/ReputationNFT.sol/
 import GuruArtifact from '../../artifacts/contracts/nft/GuruNFT.sol/GuruNFT.json';
 import LoanArtifact from '../../artifacts/contracts/nft/LoanNFT.sol/LoanNFT.json';
 import MarketplaceArtifact from '../../artifacts/contracts/marketplace/NFTMarketplace.sol/NFTMarketplace.json';
+import deploymentManifest from '../../deployments.json';
 
 export interface MarketplaceListing { listingId: string; nftAddress: string; tokenId: string; seller: string; priceEth: string; active: boolean; }
 export interface ReputationSnapshot { tokenId: string; creditScore: string; totalLoansCount: string; totalDefaultsCount: string; metadataUri: string; }
-export interface NftEcosystemSnapshot { participantBalance: string; reputation: ReputationSnapshot | null; guruBalance: string; loanBalance: string; activeListings: MarketplaceListing[]; userListings: MarketplaceListing[]; marketplaceFeeBps: string; }
+export interface ParticipantNftRecord { tokenId: string; owner: string; eventName: string; milestoneLevel: string; issueTime: string; metadataUri: string; }
+export interface GuruNftRecord { tokenId: string; owner: string; tier: string; specialty: string; issueTime: string; metadataUri: string; }
+export interface NftEcosystemSnapshot { participantBalance: string; participants: ParticipantNftRecord[]; participantIssuer: boolean; reputation: ReputationSnapshot | null; guruBalance: string; gurus: GuruNftRecord[]; guruIssuer: boolean; loanBalance: string; activeListings: MarketplaceListing[]; userListings: MarketplaceListing[]; marketplaceFeeBps: string; }
 export interface LoanNftCertificateEvent { name: string; transactionHash: string | null; blockNumber: string | null; logIndex: number | null; }
 export interface LoanNftCertificate {
   tokenId: string;
@@ -47,6 +50,7 @@ const marketplaceAddress = () => requireContractAddress('marketplace');
 const marketplaceInterface = new Interface(MarketplaceArtifact.abi);
 const LOAN_NFT_STATUS = ['ACTIVE', 'COMPLETED', 'DEFAULTED', 'LIQUIDATED'];
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const GURU_TIERS = ['NOVICE', 'BRONZE', 'SILVER', 'GOLD', 'PLATINUM'];
 
 export function waitForNftMarketplaceReceipt(receipt: { status?: number | null } | null, label: string) {
   if (!receipt || receipt.status !== 1) throw new Error(`${label} was reverted or not confirmed on-chain.`);
@@ -179,13 +183,35 @@ async function estimateOrExplain(estimate: Promise<bigint>) {
 }
 
 export async function getNftEcosystemSnapshot(walletAddress: string): Promise<NftEcosystemSnapshot> {
+  if (!isAddress(walletAddress)) throw new Error('Wallet must be a valid Ethereum address.');
+  const network = await canonicalProvider.getNetwork();
+  if (network.chainId !== DEPLOYMENT_CHAIN_ID) throw new Error(`Canonical NFT RPC is not Hardhat Local (chain ${DEPLOYMENT_CHAIN_ID}).`);
+  await Promise.all([
+    assertContractBytecode(participantAddress(), 'ParticipantNFT'), assertContractBytecode(reputationAddress(), 'ReputationNFT'),
+    assertContractBytecode(guruAddress(), 'GuruNFT'), assertLoanNftDeployment(), assertNftMarketplaceBytecode(),
+  ]);
   const participant = new Contract(participantAddress(), ParticipantArtifact.abi, canonicalProvider);
   const reputation = new Contract(reputationAddress(), ReputationArtifact.abi, canonicalProvider);
   const guru = new Contract(guruAddress(), GuruArtifact.abi, canonicalProvider);
   const loan = new Contract(loanAddress(), LoanArtifact.abi, canonicalProvider);
   const marketplace = new Contract(marketplaceAddress(), MarketplaceArtifact.abi, canonicalProvider);
-  const [participantBalance, reputationTokenId, guruBalance, loanBalance, listings, marketplaceFeeBps] = await Promise.all([
+  const [participantBalance, reputationTokenId, guruBalance, loanBalance, listings, marketplaceFeeBps, participantRole, guruRole] = await Promise.all([
     participant.balanceOf(walletAddress), reputation.getUserTokenId(walletAddress), guru.balanceOf(walletAddress), loan.balanceOf(walletAddress), marketplace.getAllActiveListings(), marketplace.marketplaceFeeBps(),
+    participant.MINTER_NFT_ROLE(), guru.MINTER_NFT_ROLE(),
+  ]);
+  const participantBlock = Number(deploymentManifest.contracts.ParticipantNFT.deploymentBlock);
+  const guruBlock = Number(deploymentManifest.contracts.GuruNFT.deploymentBlock);
+  const ownedTokenIds = async (contract: Contract, deploymentBlock: number) => {
+    const received = await contract.queryFilter(contract.filters.Transfer(null, walletAddress), deploymentBlock, 'latest');
+    const ids = [...new Set(received.map((event: any) => BigInt(event.args?.tokenId ?? event.args?.[2]).toString()))].map(BigInt);
+    return (await Promise.all(ids.map(async (tokenId) => ((await contract.ownerOf(tokenId)).toLowerCase() === walletAddress.toLowerCase() ? tokenId : null)))).filter((tokenId): tokenId is bigint => tokenId !== null);
+  };
+  const [participantIds, guruIds, participantIssuer, guruIssuer] = await Promise.all([
+    ownedTokenIds(participant, participantBlock), ownedTokenIds(guru, guruBlock), participant.hasRole(participantRole, walletAddress), guru.hasRole(guruRole, walletAddress),
+  ]);
+  const [participants, gurus] = await Promise.all([
+    Promise.all(participantIds.map(async (tokenId): Promise<ParticipantNftRecord> => { const [owner, detail, metadataUri] = await Promise.all([participant.ownerOf(tokenId), participant.getMilestoneDetails(tokenId), participant.tokenURI(tokenId)]); return { tokenId: tokenId.toString(), owner: String(owner), eventName: String(detail.eventName), milestoneLevel: String(detail.milestoneLevel), issueTime: String(detail.issueTime), metadataUri: String(metadataUri) }; })),
+    Promise.all(guruIds.map(async (tokenId): Promise<GuruNftRecord> => { const [owner, detail, metadataUri] = await Promise.all([guru.ownerOf(tokenId), guru.getGuruDetails(tokenId), guru.tokenURI(tokenId)]); return { tokenId: tokenId.toString(), owner: String(owner), tier: GURU_TIERS[Number(detail.tier)] || 'Unavailable', specialty: String(detail.specialty), issueTime: String(detail.issueTime), metadataUri: String(metadataUri) }; })),
   ]);
   let reputationSnapshot: ReputationSnapshot | null = null;
   if (reputationTokenId !== 0n) {
@@ -194,7 +220,7 @@ export async function getNftEcosystemSnapshot(walletAddress: string): Promise<Nf
   }
   const activeListings = (listings as ListingResult[]).map(toListing);
   const userListings = activeListings.filter((listing) => listing.seller.toLowerCase() === walletAddress.toLowerCase());
-  return { participantBalance: participantBalance.toString(), reputation: reputationSnapshot, guruBalance: guruBalance.toString(), loanBalance: loanBalance.toString(), activeListings, userListings, marketplaceFeeBps: marketplaceFeeBps.toString() };
+  return { participantBalance: participantBalance.toString(), participants, participantIssuer: Boolean(participantIssuer), reputation: reputationSnapshot, guruBalance: guruBalance.toString(), gurus, guruIssuer: Boolean(guruIssuer), loanBalance: loanBalance.toString(), activeListings, userListings, marketplaceFeeBps: marketplaceFeeBps.toString() };
 }
 
 interface IndexedEvidence { transactionHash?: string; blockNumber?: string; logIndex?: number; eventName?: string; }

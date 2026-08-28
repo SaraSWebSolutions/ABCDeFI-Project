@@ -5,6 +5,7 @@ import {
   assertFranchiseSignerNetwork,
   franchiseErrorMessage,
   getFranchiseSnapshot,
+  isAcceptedFranchiseMetadataUri,
   waitForFranchiseReceipt,
 } from '../../src/Services/franchise';
 
@@ -30,13 +31,23 @@ test('FranchiseNFT rejects a failed receipt', () => {
   assert.throws(() => waitForFranchiseReceipt({ status: 0 }, 'Franchise mint'), /Franchise mint was reverted or not confirmed on-chain/);
 });
 
+test('FranchiseNFT accepts only explicit HTTPS or IPFS metadata references', () => {
+  assert.equal(isAcceptedFranchiseMetadataUri('https://metadata.example/franchise-1.json'), true);
+  assert.equal(isAcceptedFranchiseMetadataUri('ipfs://bafybeigdyrzt4examplemetadataaaaa/metadata.json'), true);
+  assert.equal(isAcceptedFranchiseMetadataUri('franchise-1.json'), false);
+  assert.equal(isAcceptedFranchiseMetadataUri('data:application/json,{}'), false);
+});
+
 test('FranchiseNFT snapshot follows the current wallet after an account switch', async () => {
   const first = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
   const second = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
   const deploymentProvider = { getNetwork: async () => ({ chainId: 31337n }), getCode: async () => '0x1234', getBlock: async () => ({ timestamp: 100n }) } as any;
   const contract = {
-    filters: { Transfer: (_from: unknown, to: string) => to },
-    queryFilter: async (recipient: string) => recipient.toLowerCase() === first.toLowerCase() ? [{ args: { tokenId: 1n } }] : [{ args: { tokenId: 2n } }],
+    filters: { Transfer: (from: string | null, to: string | null) => ({ from, to }) },
+    queryFilter: async (filter: { from: string | null; to: string | null }) => {
+      if (filter.from === '0x0000000000000000000000000000000000000000') return [];
+      return filter.to?.toLowerCase() === first.toLowerCase() ? [{ args: { tokenId: 1n } }] : [{ args: { tokenId: 2n } }];
+    },
     ownerOf: async (tokenId: bigint) => tokenId === 1n ? first : second,
     getFranchiseDetails: async (tokenId: bigint) => ({ franchiseName: `F${tokenId}`, territoryCode: `T${tokenId}`, territoryName: 'Territory', level: 5n, legionNFTId: 0n, priceUSD: 0n, commissionBps: 0n, purchaseTimestamp: 1n, lockExpiryTimestamp: 200n, status: 0n, ipfsCID: 'cid' }),
     tokenURI: async () => 'ipfs://metadata', isTransferLocked: async () => true,

@@ -9,6 +9,10 @@ const controller = createLendingReadController({ models, manifest: loadLendingMa
 router.get('/status', controller.status);
 router.get('/requests/open', controller.openRequests);
 router.get('/wallet/:address', controller.walletHistory);
+// Singular aliases are the documented canonical resource paths. Keep the
+// earlier plural route below for existing consumers during this migration.
+router.get('/loan/:loanId/history', controller.loanHistory);
+router.get('/loan/:loanId', controller.loanDetail);
 router.get('/loans/:loanId', controller.loanDetail);
 
 module.exports = router;

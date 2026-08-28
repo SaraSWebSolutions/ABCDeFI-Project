@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useWallet } from '../Context/WalletContext';
 import { useAuth } from '../Context/AuthContext';
+import { DashboardMode } from '../Utils/dashboardMode';
 import {
   Coins,
   ShieldCheck,
@@ -27,9 +28,12 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
   onOpenKyc?: () => void;
   onOpenAuth?: () => void;
+  dashboardMode: DashboardMode;
+  canAccessAdmin: boolean;
+  onSwitchDashboard: (mode: DashboardMode) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenKyc, onOpenAuth }) => {
+export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenKyc, onOpenAuth, dashboardMode, canAccessAdmin, onSwitchDashboard }) => {
   const { isConnected, shortAddress, chain, balances, profile, connectWallet, disconnectWallet, switchChain } = useWallet();
   const { user, logout } = useAuth();
   const [showNetworkMenu, setShowNetworkMenu] = useState(false);
@@ -205,16 +209,18 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenK
                       <span>Security & 2FA Settings</span>
                     </button>
 
-                    <button
-                      onClick={() => {
-                        setActiveTab('admin');
-                        setShowProfileMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-1.5 mb-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition text-xs font-medium cursor-pointer"
-                    >
-                      <User className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Admin User Directory</span>
-                    </button>
+                    {canAccessAdmin && (
+                      <button
+                        onClick={() => {
+                          onSwitchDashboard(dashboardMode === 'admin' ? 'user' : 'admin');
+                          setShowProfileMenu(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 mb-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition text-xs font-medium cursor-pointer"
+                      >
+                        <User className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>{dashboardMode === 'admin' ? 'Open User Dashboard' : 'Open Admin Dashboard'}</span>
+                      </button>
+                    )}
 
                     <button
                       onClick={() => {

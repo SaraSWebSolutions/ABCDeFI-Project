@@ -10,6 +10,8 @@ import ToastContainer, { ToastMessage } from './ToastContainer';
 import Web3ActionModal from './Web3ActionModal';
 import AdminSecurityConfirmationModal from './AdminSecurityConfirmationModal';
 import ICOAdmin from './ICOAdmin';
+import { AdminNftIssuance } from './AdminNftIssuance';
+import { useAuth } from '../Context/AuthContext';
 
 export interface AdminUserRole {
   role: 'Super Admin' | 'Admin' | 'KYC Officer' | 'Support' | 'Finance';
@@ -17,7 +19,53 @@ export interface AdminUserRole {
   name: string;
 }
 
-export const AdminPortalEngine: React.FC = () => {
+/**
+ * Active administrator route. Only ICOAdmin currently has a canonical
+ * deployments.json -> contract -> signer path. The former broad operations
+ * dashboard remains below as isolated legacy code; it must not present its
+ * mock API metrics as live protocol data.
+ */
+export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> = ({ onOpenUserDashboard }) => {
+  const { user, sessionVerified } = useAuth();
+
+  if (!sessionVerified || user?.role !== 'admin') {
+    return (
+      <section className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-5 text-sm text-rose-100">
+        <h1 className="font-bold">Administrator access is required</h1>
+        <p className="mt-1 text-rose-100/80">This authenticated session does not have the application administrator role.</p>
+      </section>
+    );
+  }
+
+  return (
+  <section className="space-y-6">
+    {onOpenUserDashboard && (
+      <div className="flex justify-end">
+        <button onClick={onOpenUserDashboard} className="rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-100 hover:bg-slate-800">
+          Open User Dashboard
+        </button>
+      </div>
+    )}
+    <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 text-sm text-amber-100">
+      <h1 className="font-bold">Canonical admin controls</h1>
+      <p className="mt-1 text-amber-100/80">
+        Presale administration and role-protected Franchise/Legion NFT issuance are available in this local runtime. They read the canonical
+        deployment manifest and use the connected MetaMask account for authorized writes.
+      </p>
+      <p className="mt-2 text-xs text-amber-100/70">
+        TVL, revenue, user counts, KYC, AML, generic analytics, support, and fabricated loan metrics are unavailable
+        because this deployment has no canonical backend or on-chain source for them.
+      </p>
+    </div>
+    <ICOAdmin />
+    <AdminNftIssuance />
+  </section>
+  );
+};
+
+// Legacy mock-backed control-center implementation retained for reference only.
+// It is intentionally not exported or rendered by src/App.tsx.
+const LegacyAdminPortalEngine: React.FC = () => {
   // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
   const [currentRole, setCurrentRole] = useState<AdminUserRole>({

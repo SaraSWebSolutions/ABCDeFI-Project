@@ -61,6 +61,20 @@ function createLendingReadController({ models, manifest }) {
     }
     return state;
   }
+  async function readLoanProjection(loanId) {
+    const loan = await queryLean(models.Loan.findOne({ chainId, loanManagerAddress: lower(manifest.contracts.loanManager), loanId }));
+    if (!loan) return null;
+    const [request, schedule, installments, repayments, defaultRecord, liquidation, certificates] = await Promise.all([
+      queryLean(models.LoanRequest.findOne({ chainId, loanMarketplaceAddress: lower(manifest.contracts.loanMarketplace), loanId })),
+      queryLean(models.EMISchedule.findOne({ chainId, emiManagerAddress: lower(manifest.contracts.emiManager), loanId })),
+      sortedFind(models.EMIInstallment, { chainId, emiManagerAddress: lower(manifest.contracts.emiManager), loanId }, { installmentId: 1 }, 100),
+      sortedFind(models.Repayment, { chainId, loanId }, { 'emiEvidence.blockNumber': 1, 'emiEvidence.logIndex': 1 }, 100),
+      queryLean(models.LoanDefault.findOne({ chainId, loanId })),
+      queryLean(models.Liquidation.findOne({ chainId, loanId })),
+      sortedFind(models.LoanNFTCertificate, { chainId, loanId }, { tokenId: 1 }, 10),
+    ]);
+    return { loan, request, schedule, installments, repayments, default: defaultRecord, liquidation, loanNfts: certificates };
+  }
 
   return {
     status: async (_req, res, next) => {
@@ -111,18 +125,20 @@ function createLendingReadController({ models, manifest }) {
         const loanId = req.params.loanId;
         if (!UINT.test(loanId) || BigInt(loanId) === 0n) return invalid(res, 'Loan ID must be a positive uint256 decimal string.');
         const state = await requireAvailable(res); if (!state) return;
-        const loan = await queryLean(models.Loan.findOne({ chainId, loanManagerAddress: lower(manifest.contracts.loanManager), loanId }));
-        if (!loan) return res.status(404).json({ source: source(manifest), ...state, status: 'NOT_FOUND', data: null });
-        const [request, schedule, installments, repayments, defaultRecord, liquidation, certificates] = await Promise.all([
-          queryLean(models.LoanRequest.findOne({ chainId, loanMarketplaceAddress: lower(manifest.contracts.loanMarketplace), loanId })),
-          queryLean(models.EMISchedule.findOne({ chainId, emiManagerAddress: lower(manifest.contracts.emiManager), loanId })),
-          sortedFind(models.EMIInstallment, { chainId, emiManagerAddress: lower(manifest.contracts.emiManager), loanId }, { installmentId: 1 }, 100),
-          sortedFind(models.Repayment, { chainId, loanId }, { 'emiEvidence.blockNumber': 1, 'emiEvidence.logIndex': 1 }, 100),
-          queryLean(models.LoanDefault.findOne({ chainId, loanId })),
-          queryLean(models.Liquidation.findOne({ chainId, loanId })),
-          sortedFind(models.LoanNFTCertificate, { chainId, loanId }, { tokenId: 1 }, 10),
-        ]);
-        res.json({ source: source(manifest), ...state, data: { loan, request, schedule, installments, repayments, default: defaultRecord, liquidation, loanNfts: certificates } });
+        const data = await readLoanProjection(loanId);
+        if (!data) return res.status(404).json({ source: source(manifest), ...state, status: 'NOT_FOUND', data: null });
+        res.json({ source: source(manifest), ...state, data });
+      } catch (error) { next(error); }
+    },
+    loanHistory: async (req, res, next) => {
+      try {
+        const loanId = req.params.loanId;
+        if (!UINT.test(loanId) || BigInt(loanId) === 0n) return invalid(res, 'Loan ID must be a positive uint256 decimal string.');
+        const state = await requireAvailable(res, { installments: [], repayments: [], transitions: [], loanNfts: [] }); if (!state) return;
+        const data = await readLoanProjection(loanId);
+        if (!data) return res.status(404).json({ source: source(manifest), ...state, status: 'NOT_FOUND', data: null });
+        const transitions = await sortedFind(models.LoanStateTransition, { chainId, loanManagerAddress: lower(manifest.contracts.loanManager), loanId }, { 'evidence.blockNumber': 1, 'evidence.logIndex': 1 }, 100);
+        res.json({ source: source(manifest), ...state, data: { loan: data.loan, installments: data.installments, repayments: data.repayments, default: data.default, liquidation: data.liquidation, loanNfts: data.loanNfts, transitions } });
       } catch (error) { next(error); }
     },
   };

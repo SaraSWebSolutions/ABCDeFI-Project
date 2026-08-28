@@ -71,10 +71,15 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [jwtToken, setJwtToken] = useState<string | null>(() => localStorage.getItem('abcdefi_jwt'));
 
   const invalidateWalletAuthentication = useCallback(() => {
+    // Wallet connection state is intentionally separate from the ABCDeFi
+    // application session. Disconnecting, changing an account, or changing a
+    // chain only removes wallet/SIWE verification; it must never clear the
+    // password/OTP (or previously authenticated wallet) JWT session.
     setWalletVerified(false);
-    setJwtToken(null);
+    // jwtToken is a compatibility mirror for older wallet-dependent hooks;
+    // the application session itself belongs to AuthContext/localStorage.
+    setJwtToken(localStorage.getItem('abcdefi_jwt'));
     localStorage.removeItem(WALLET_AUTH_ADDRESS_KEY);
-    window.dispatchEvent(new Event('abcdefi-wallet-auth-invalidated'));
   }, []);
 
   const refreshNetwork = useCallback(async () => {
@@ -247,9 +252,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       throw new Error('Backend did not issue an access token');
     }
 
-    // Save JWT
+    // AuthContext persists the application session after it verifies this
+    // backend-issued result.  WalletContext only mirrors it for legacy hooks.
     setJwtToken(result.token);
-    localStorage.setItem('abcdefi_jwt', result.token);
     localStorage.setItem(WALLET_AUTH_ADDRESS_KEY, currentAddress.toLowerCase());
     setWalletVerified(true);
     window.dispatchEvent(new CustomEvent('abcdefi-wallet-authenticated', {
@@ -371,6 +376,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     window.addEventListener('abcdefi-auth-logout', handleAuthLogout);
     return () => window.removeEventListener('abcdefi-auth-logout', handleAuthLogout);
+  }, []);
+
+  useEffect(() => {
+    const syncAuthToken = () => setJwtToken(localStorage.getItem('abcdefi_jwt'));
+    window.addEventListener('abcdefi-auth-session-changed', syncAuthToken);
+    return () => window.removeEventListener('abcdefi-auth-session-changed', syncAuthToken);
   }, []);
 
   // Restore a MetaMask permission already granted to this origin. This read is

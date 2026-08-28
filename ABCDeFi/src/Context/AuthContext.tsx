@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
 export interface AuthUser {
   id?: string;
@@ -29,6 +29,7 @@ interface AuthContextType {
   token: string | null;
   refreshToken: string | null;
   loading: boolean;
+  sessionVerified: boolean;
   refreshProfile: () => Promise<void>;
   pendingAuth: PendingAuthState | null;
   setPendingAuth: (state: PendingAuthState | null) => void;
@@ -60,6 +61,20 @@ const STORAGE_KEY_TOKEN = 'abcdefi_jwt';
 const STORAGE_KEY_REFRESH = 'abcdefi_auth_refresh';
 const STORAGE_KEY_METHOD = 'abcdefi_auth_method';
 
+type RefreshedSession = {
+  token: string;
+  refreshToken?: string;
+};
+
+const authDiagnosticsEnabled = Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
+
+function authDiagnostic(event: string, details: Record<string, unknown>) {
+  if (authDiagnosticsEnabled) {
+    // Deliberately log only request state: never credentials, OTPs, or tokens.
+    console.info(`[AUTH] ${event}`, details);
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
@@ -79,6 +94,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [loading, setLoading] = useState(false);
+  const refreshRequestRef = useRef<Promise<RefreshedSession | null> | null>(null);
+  // Saved browser data is not sufficient to grant application-admin access on
+  // a reload.  The authenticated backend profile must confirm the session.
+  const [sessionVerified, setSessionVerified] = useState(() => !localStorage.getItem(STORAGE_KEY_TOKEN));
 
   const [pendingAuth, setPendingAuthState] = useState<PendingAuthState | null>(() => {
     try {
@@ -94,11 +113,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setRefreshTokenState(null);
     setPendingAuth(null);
+    setSessionVerified(true);
     localStorage.removeItem(STORAGE_KEY_USER);
     localStorage.removeItem(STORAGE_KEY_TOKEN);
     localStorage.removeItem(STORAGE_KEY_REFRESH);
     localStorage.removeItem(STORAGE_KEY_METHOD);
     localStorage.removeItem('abcdefi_connected_wallet');
+    window.dispatchEvent(new Event('abcdefi-auth-session-changed'));
     if (disconnectWallet) {
       window.dispatchEvent(new Event('abcdefi-auth-logout'));
     }
@@ -120,27 +141,95 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const refreshAccessToken = useCallback(async (): Promise<RefreshedSession | null> => {
+    const storedRefreshToken = refreshToken || localStorage.getItem(STORAGE_KEY_REFRESH);
+    if (!storedRefreshToken) {
+      authDiagnostic('refresh skipped', { refreshTokenExists: false });
+      return null;
+    }
+
+    if (!refreshRequestRef.current) {
+      refreshRequestRef.current = (async () => {
+        authDiagnostic('refresh attempted', { refreshTokenExists: true });
+        const res = await fetch('/api/user/refresh-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: storedRefreshToken }),
+        });
+        const data = await res.json().catch(() => ({}));
+        authDiagnostic('refresh response', { status: res.status, success: Boolean(res.ok && data.success) });
+        if (!res.ok || !data.success || !data.token) return null;
+
+        const refreshed: RefreshedSession = {
+          token: data.token,
+          refreshToken: data.refreshToken,
+        };
+        setToken(refreshed.token);
+        localStorage.setItem(STORAGE_KEY_TOKEN, refreshed.token);
+        if (refreshed.refreshToken) {
+          setRefreshTokenState(refreshed.refreshToken);
+          localStorage.setItem(STORAGE_KEY_REFRESH, refreshed.refreshToken);
+        }
+        window.dispatchEvent(new Event('abcdefi-auth-session-changed'));
+        return refreshed;
+      })().catch((error) => {
+        authDiagnostic('refresh failed', { message: error instanceof Error ? error.message : 'unknown error' });
+        return null;
+      }).finally(() => {
+        refreshRequestRef.current = null;
+      });
+    }
+
+    return refreshRequestRef.current;
+  }, [refreshToken]);
+
   const refreshProfile = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setSessionVerified(true);
+      return;
+    }
+
+    setSessionVerified(false);
 
     try {
-      const res = await fetch('/api/user/profile', {
+      let accessToken = token;
+      let res = await fetch('/api/user/profile', {
         method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
-      const data = await res.json().catch(() => ({}));
+      let data = await res.json().catch(() => ({}));
+      authDiagnostic('profile response', { status: res.status, authorizationPresent: true });
+
+      if (res.status === 401) {
+        authDiagnostic('profile unauthorized', { refreshAttempted: true });
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          accessToken = refreshed.token;
+          res = await fetch('/api/user/profile', {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          data = await res.json().catch(() => ({}));
+          authDiagnostic('profile retry response', { status: res.status, authorizationPresent: true });
+        }
+      }
+
       if (res.ok && data.success && data.data) {
         setUser(data.data);
         localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(data.data));
+        setSessionVerified(true);
       } else if (res.status === 401) {
-        // A stale session gets one failed request, then the app returns to its
-        // logged-out state instead of repeatedly requesting protected data.
+        // A failed refresh or a failed one-time retry is definitive.  Do not
+        // retry again here, or multiple mounting components could loop.
         clearAuthSession();
+      } else {
+        setSessionVerified(false);
       }
     } catch (error) {
       console.error('Failed to hydrate authenticated profile:', error);
+      setSessionVerified(false);
     }
-  }, [clearAuthSession, token]);
+  }, [clearAuthSession, refreshAccessToken, token]);
 
   useEffect(() => {
     void refreshProfile();
@@ -160,6 +249,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem(STORAGE_KEY_REFRESH);
     }
     localStorage.setItem(STORAGE_KEY_METHOD, method);
+    window.dispatchEvent(new Event('abcdefi-auth-session-changed'));
+    // Login and OTP endpoints only return this session after backend
+    // authentication succeeds, so the returned role is safe for this session.
+    setSessionVerified(true);
   };
 
   // WalletContext owns MetaMask interaction. AuthContext owns the app session;
@@ -171,18 +264,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       saveAuthSession(detail.user, detail.token, detail.refreshToken, 'wallet');
       setPendingAuth(null);
     };
-    const handleWalletInvalidated = () => {
-      if (localStorage.getItem(STORAGE_KEY_METHOD) === 'wallet') {
-        // An account or chain change returns the app to sign-in but must not
-        // disconnect the newly selected MetaMask account.
-        clearAuthSession(false);
-      }
-    };
     window.addEventListener('abcdefi-wallet-authenticated', handleWalletAuthenticated);
-    window.addEventListener('abcdefi-wallet-auth-invalidated', handleWalletInvalidated);
     return () => {
       window.removeEventListener('abcdefi-wallet-authenticated', handleWalletAuthenticated);
-      window.removeEventListener('abcdefi-wallet-auth-invalidated', handleWalletInvalidated);
     };
   }, [clearAuthSession]);
 
@@ -598,6 +682,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         refreshToken,
         loading,
+        sessionVerified,
         refreshProfile,
         pendingAuth,
         setPendingAuth,

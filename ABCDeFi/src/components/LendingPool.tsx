@@ -54,9 +54,11 @@ export const LendingPool: React.FC = () => {
     if (!isCorrectNetwork) { setTxState('error'); setMessage('Switch to Hardhat Local (chain ID 31337) before submitting a lending transaction.'); return; }
     setHash(null); setError(null); setTxState('awaiting-wallet'); setMessage(`Confirm ${label} in MetaMask.`);
     try {
-      await operation((transactionHash, step) => { setHash(transactionHash); setTxState('confirming'); setMessage(`${step || label} submitted. Waiting for on-chain confirmation…`); });
+      const result = await operation((transactionHash, step) => { setHash(transactionHash); setTxState('confirming'); setMessage(`${step || label} submitted. Waiting for on-chain confirmation…`); }) as { blockNumber?: string; requestId?: string | null; loanId?: string | null };
       await Promise.all([refresh(), refreshBalances()]);
-      setTxState('success'); setMessage(`${label} confirmed on-chain.`);
+      const identifier = result?.loanId ? ` Loan #${result.loanId}.` : result?.requestId ? ` Request #${result.requestId}.` : '';
+      const block = result?.blockNumber ? ` Block ${result.blockNumber}.` : '';
+      setTxState('success'); setMessage(`${label} confirmed on-chain.${identifier}${block}`);
     } catch (cause: any) {
       setTxState('error'); setMessage(transactionError(cause, `${label} failed.`));
     }

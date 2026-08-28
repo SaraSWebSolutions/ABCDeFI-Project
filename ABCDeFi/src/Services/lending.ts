@@ -1,4 +1,4 @@
-import { Contract, formatEther, parseEther } from "ethers";
+import { Contract, formatEther, Interface, parseEther, Signer } from "ethers";
 import { CONTRACTS, DEPLOYMENT_CHAIN_ID } from "../Config/contracts";
 import { provider as canonicalProvider } from "./contractProvider";
 import LendingPoolArtifact from "../../artifacts/contracts/lending/LendingPool.sol/LendingPool.json";
@@ -20,6 +20,10 @@ const EMIManagerABI = EMIManagerArtifact.abi;
 const LiquidationABI = LiquidationArtifact.abi;
 const LoanNFTABI = LoanNFTArtifact.abi;
 const LoanMarketplaceABI = LoanMarketplaceArtifact.abi;
+const lendingErrorInterfaces = [
+  new Interface(LendingPoolABI), new Interface(LoanMarketplaceABI), new Interface(EMIManagerABI),
+  new Interface(LiquidationABI), new Interface(ABCDTokenABI),
+];
 
 /** Called only after MetaMask has submitted a transaction, never before it is mined. */
 export type TransactionSubmitted = (hash: string, label?: string) => void;
@@ -220,6 +224,33 @@ function assertConfirmed(receipt: any, action: string) {
     throw new Error(`${action} was reverted or not confirmed on-chain.`);
   }
   return receipt;
+}
+
+function nestedErrorData(error: unknown): string | null {
+  const detail = error as { data?: unknown; error?: { data?: unknown }; info?: { error?: { data?: unknown } } };
+  for (const candidate of [detail?.data, detail?.error?.data, detail?.info?.error?.data]) {
+    if (typeof candidate === 'string' && /^0x[\da-fA-F]+$/.test(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Keeps a revert actionable without ever reporting an unconfirmed transaction as successful. */
+export function lendingErrorMessage(error: unknown): string {
+  const detail = error as { code?: string | number; shortMessage?: string; reason?: string; message?: string; info?: { error?: { code?: string | number; message?: string } } };
+  const code = detail.code ?? detail.info?.error?.code;
+  const message = detail.shortMessage || detail.reason || detail.message || detail.info?.error?.message || 'Lending transaction failed.';
+  if (code === 4001 || code === '4001' || code === 'ACTION_REJECTED' || /user rejected|user denied/i.test(message)) return 'Transaction rejected in MetaMask. No on-chain state was changed.';
+  if (/insufficient funds/i.test(message)) return 'Insufficient ETH to pay network gas.';
+  const data = nestedErrorData(error);
+  if (data) {
+    for (const contractInterface of lendingErrorInterfaces) {
+      try {
+        const parsed = contractInterface.parseError(data);
+        if (parsed) return `Lending contract reverted: ${parsed.name}.`;
+      } catch { /* try the next canonical ABI */ }
+    }
+  }
+  return message;
 }
 
 export interface CreditScoreMetrics {
@@ -563,6 +594,57 @@ async function getCanonicalLendingSigner() {
   return { signer, address };
 }
 
+async function assertEnoughEthForEstimatedGas(signer: Signer, estimatedGas: bigint) {
+  const signerProvider = signer.provider;
+  if (!signerProvider) throw new Error('MetaMask provider is unavailable. Reconnect the wallet and try again.');
+  const [balance, feeData] = await Promise.all([signerProvider.getBalance(await signer.getAddress()), signerProvider.getFeeData()]);
+  const gasPrice = feeData.maxFeePerGas ?? feeData.gasPrice ?? 0n;
+  if (balance < estimatedGas * gasPrice || (balance === 0n && estimatedGas > 0n)) {
+    throw new Error('Insufficient ETH to pay network gas.');
+  }
+}
+
+/**
+ * Performs the same preflight that MetaMask will send: estimate against the
+ * exact signer, submit only if that succeeds, then require a successful
+ * receipt. This is intentionally used for every active lending write.
+ */
+async function submitLendingWrite(
+  contract: any,
+  method: string,
+  args: unknown[],
+  signer: Signer,
+  label: string,
+  onSubmitted?: TransactionSubmitted,
+) {
+  let estimatedGas: bigint;
+  try {
+    estimatedGas = await contract[method].estimateGas(...args);
+  } catch (error) {
+    throw new Error(lendingErrorMessage(error));
+  }
+  await assertEnoughEthForEstimatedGas(signer, estimatedGas);
+  let transaction: any;
+  try {
+    transaction = await contract[method](...args);
+  } catch (error) {
+    throw new Error(lendingErrorMessage(error));
+  }
+  onSubmitted?.(transaction.hash, label);
+  const receipt = assertConfirmed(await transaction.wait(), label);
+  return { receipt, hash: transaction.hash, transactionHash: transaction.hash, blockNumber: String(receipt.blockNumber) };
+}
+
+function parseReceiptEvent(receipt: any, contractInterface: Interface, eventName: string, argumentName: string): string | null {
+  for (const log of receipt?.logs || []) {
+    try {
+      const parsed = contractInterface.parseLog(log);
+      if (parsed?.name === eventName) return BigInt(parsed.args[argumentName]).toString();
+    } catch { /* unrelated log */ }
+  }
+  return null;
+}
+
 async function ensureAbcdAllowance(
   signer: Awaited<ReturnType<typeof getSigner>>,
   owner: string,
@@ -576,9 +658,7 @@ async function ensureAbcdAllowance(
     throw new Error(`Insufficient ABCD balance. Required ${formatEther(requiredAmount)} ABCD.`);
   }
   if ((allowance as bigint) >= requiredAmount) return;
-  const approval = await token.approve(spender, requiredAmount);
-  onSubmitted?.(approval.hash, 'ABCD approval');
-  assertConfirmed(await approval.wait(), 'ABCD approval');
+  await submitLendingWrite(token, 'approve', [spender, requiredAmount], signer, 'ABCD approval', onSubmitted);
 }
 
 /** Explicit approval control for a supported lending spender. */
@@ -597,18 +677,14 @@ export async function approveAbcdForLending(
   }[spender];
   const token = new Contract(CONTRACTS.token, ABCDTokenABI, signer);
   if ((await token.balanceOf(address)) < amount) throw new Error(`Insufficient ABCD balance. Required ${formatEther(amount)} ABCD.`);
-  const tx = await token.approve(target, amount);
-  onSubmitted?.(tx.hash, 'ABCD approval');
-  return assertConfirmed(await tx.wait(), 'ABCD approval');
+  return submitLendingWrite(token, 'approve', [target, amount], signer, 'ABCD approval', onSubmitted);
 }
 
 export async function depositCollateral(amountEthString: string, onSubmitted?: TransactionSubmitted) {
   const amount = parsePositiveTokenAmount(amountEthString, 'ETH collateral');
   const { signer } = await getCanonicalLendingSigner();
   const contract = new Contract(CONTRACTS.lending, LendingPoolABI, signer);
-  const tx = await contract.depositCollateral({ value: amount });
-  onSubmitted?.(tx.hash, 'Collateral deposit');
-  return assertConfirmed(await tx.wait(), "Collateral deposit");
+  return submitLendingWrite(contract, 'depositCollateral', [{ value: amount }], signer, 'Collateral deposit', onSubmitted);
 }
 
 export async function borrowTokens(amountString: string, onSubmitted?: TransactionSubmitted) {
@@ -619,9 +695,7 @@ export async function borrowTokens(amountString: string, onSubmitted?: Transacti
   if (paused) throw new Error('LendingPool is paused.');
   if ((available as bigint) < amount) throw new Error(`Borrow amount exceeds the contract-calculated capacity of ${formatEther(available)} ABCD.`);
   if ((liquidity as bigint) < amount) throw new Error(`Insufficient LendingPool liquidity. Available: ${formatEther(liquidity)} ABCD.`);
-  const tx = await contract.borrowTokens(amount);
-  onSubmitted?.(tx.hash, 'Borrow');
-  return assertConfirmed(await tx.wait(), "Borrow");
+  return submitLendingWrite(contract, 'borrowTokens', [amount], signer, 'Borrow', onSubmitted);
 }
 
 export async function repayLoan(amountString: string, onSubmitted?: TransactionSubmitted) {
@@ -633,9 +707,7 @@ export async function repayLoan(amountString: string, onSubmitted?: TransactionS
   if (debt === 0n) throw new Error('There is no active LendingPool debt to repay.');
   const amount = requested > debt ? debt : requested;
   await ensureAbcdAllowance(signer, address, CONTRACTS.lending, amount, onSubmitted);
-  const tx = await lending.repayLoan(amount);
-  onSubmitted?.(tx.hash, 'Repayment');
-  return assertConfirmed(await tx.wait(), "Repayment");
+  return submitLendingWrite(lending, 'repayLoan', [amount], signer, 'Repayment', onSubmitted);
 }
 
 export async function withdrawCollateral(
@@ -647,9 +719,7 @@ export async function withdrawCollateral(
   const contract = new Contract(CONTRACTS.lending, LendingPoolABI, signer);
   const position = await contract.getLoanPosition(address);
   if ((position.collateralETH as bigint) < amount) throw new Error(`Insufficient collateral. Available: ${formatEther(position.collateralETH)} ETH.`);
-  const tx = await contract.withdrawCollateral(amount);
-  onSubmitted?.(tx.hash, 'Collateral withdrawal');
-  return assertConfirmed(await tx.wait(), "Collateral withdrawal");
+  return submitLendingWrite(contract, 'withdrawCollateral', [amount], signer, 'Collateral withdrawal', onSubmitted);
 }
 
 /** Creates a P2P request using the ABI's actual durationMonths parameter. */
@@ -667,9 +737,10 @@ export async function createCanonicalLoanRequest(
   if (!Number.isInteger(durationMonths) || durationMonths <= 0) throw new Error('Loan duration must be at least one month.');
   const { signer } = await getCanonicalLendingSigner();
   const marketplace = new Contract(CONTRACTS.loanMarketplace, LoanMarketplaceABI, signer);
-  const tx = await marketplace.createLoanRequest(principal, interestRateBps, durationMonths, purpose.trim(), { value: collateral });
-  onSubmitted?.(tx.hash, 'Loan request creation');
-  return assertConfirmed(await tx.wait(), 'Loan request creation');
+  const result = await submitLendingWrite(
+    marketplace, 'createLoanRequest', [principal, interestRateBps, durationMonths, purpose.trim(), { value: collateral }], signer, 'Loan request creation', onSubmitted,
+  );
+  return { ...result, requestId: parseReceiptEvent(result.receipt, new Interface(LoanMarketplaceABI), 'RequestCreated', 'requestId') };
 }
 
 export async function createMarketplaceLoan(
@@ -702,9 +773,8 @@ export async function fundMarketplaceLoan(
   const amount = request.principalAmount as bigint;
   if (principalAmount && parsePositiveTokenAmount(principalAmount, 'ABCD principal') !== amount) throw new Error('The supplied principal does not match the on-chain loan request.');
   await ensureAbcdAllowance(signer, address, CONTRACTS.loanMarketplace, amount, onSubmitted);
-  const tx = await marketplace.fundLoanRequest(requestId);
-  onSubmitted?.(tx.hash, 'Loan funding');
-  return assertConfirmed(await tx.wait(), 'Loan funding');
+  const result = await submitLendingWrite(marketplace, 'fundLoanRequest', [requestId], signer, 'Loan funding', onSubmitted);
+  return { ...result, loanId: parseReceiptEvent(result.receipt, new Interface(LoanMarketplaceABI), 'RequestFunded', 'loanId') };
 }
 
 export async function cancelMarketplaceLoan(
@@ -717,9 +787,7 @@ export async function cancelMarketplaceLoan(
   const request = await marketplace.loanRequests(requestId);
   if (String(request.borrower).toLowerCase() !== address.toLowerCase()) throw new Error('Only the borrower can cancel this loan request.');
   if (Number(request.status) !== 0) throw new Error('Only an open loan request can be cancelled.');
-  const tx = await marketplace.cancelLoanRequest(requestId);
-  onSubmitted?.(tx.hash, 'Loan request cancellation');
-  return assertConfirmed(await tx.wait(), 'Loan request cancellation');
+  return submitLendingWrite(marketplace, 'cancelLoanRequest', [requestId], signer, 'Loan request cancellation', onSubmitted);
 }
 
 export function calculateAutoInterest(
@@ -818,9 +886,7 @@ export async function payLoanEmi(loanId: string, onSubmitted?: TransactionSubmit
   }
 
   await ensureAbcdAllowance(signer, address, CONTRACTS.emiManager, amount, onSubmitted);
-  const tx = await emi.payEMI(loanIdBn);
-  onSubmitted?.(tx.hash, 'EMI payment');
-  return assertConfirmed(await tx.wait(), 'EMI payment');
+  return submitLendingWrite(emi, 'payEMI', [loanIdBn], signer, 'EMI payment', onSubmitted);
 }
 
 export async function getMarketplaceLoan(loanId: string) {
@@ -961,9 +1027,7 @@ export async function executeLiquidation(
   if (!eligibility.isEligible) throw new Error('This LendingPool position is not eligible for liquidation.');
   const amount = requested > (eligibility.debtTokens as bigint) ? eligibility.debtTokens as bigint : requested;
   await ensureAbcdAllowance(signer, address, CONTRACTS.liquidation, amount, onSubmitted);
-  const tx = await liquidation.liquidatePosition(borrower, amount);
-  onSubmitted?.(tx.hash, 'Liquidation');
-  return assertConfirmed(await tx.wait(), 'Liquidation');
+  return submitLendingWrite(liquidation, 'liquidatePosition', [borrower, amount], signer, 'Liquidation', onSubmitted);
 }
 
 /** Anyone may mark a P2P loan defaulted once the contract's due-date grace period has elapsed. */
@@ -972,9 +1036,7 @@ export async function markMarketplaceLoanDefaulted(loanId: string, onSubmitted?:
   const { signer } = await getCanonicalLendingSigner();
   const emi = new Contract(CONTRACTS.emiManager, EMIManagerABI, signer);
   if (!await emi.isDefaulted(id)) throw new Error('The next EMI is not past its on-chain due date and grace period.');
-  const tx = await emi.markDefaulted(id);
-  onSubmitted?.(tx.hash, 'P2P default marking');
-  return assertConfirmed(await tx.wait(), 'P2P default marking');
+  return submitLendingWrite(emi, 'markDefaulted', [id], signer, 'P2P default marking', onSubmitted);
 }
 
 /** Anyone may settle a LoanManager DEFAULTED P2P loan to its recorded lender. */
@@ -987,9 +1049,7 @@ export async function liquidateDefaultedMarketplaceLoan(loanId: string, onSubmit
   if (Number(loan.status) !== 3) throw new Error('Only a LoanManager DEFAULTED loan can use P2P liquidation.');
   const request = await marketplace.loanRequests(requestId);
   if (Number(request.status) !== 1 || (request.collateralETH as bigint) === 0n) throw new Error('The associated P2P collateral is not available for liquidation.');
-  const tx = await marketplace.liquidateDefaultedLoan(id);
-  onSubmitted?.(tx.hash, 'P2P liquidation');
-  return assertConfirmed(await tx.wait(), 'P2P liquidation');
+  return submitLendingWrite(marketplace, 'liquidateDefaultedLoan', [id], signer, 'P2P liquidation', onSubmitted);
 }
 
 export async function topUpCollateral(

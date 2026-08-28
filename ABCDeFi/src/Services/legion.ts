@@ -4,6 +4,7 @@ import { provider as canonicalProvider } from './contractProvider';
 import { getSigner } from './wallet';
 import LegionArtifact from '../../artifacts/contracts/LegionNFT.sol/LegionNFT.json';
 import deploymentManifest from '../../deployments.json';
+import { isAcceptedMetadataUri } from './nftMetadata';
 
 export type LegionLevel = 'Continent' | 'Country' | 'State' | 'District' | 'Unavailable';
 
@@ -45,6 +46,11 @@ export type LegionTransactionSubmitted = (hash: string, stage: string) => void;
 
 const legionInterface = new Interface(LegionArtifact.abi);
 const levelNames: LegionLevel[] = ['Continent', 'Country', 'State', 'District'];
+
+/** A real ERC-721 metadata reference is required; placeholders are not accepted. */
+export function isAcceptedLegionMetadataUri(value: string): boolean {
+  return isAcceptedMetadataUri(value);
+}
 
 function legionAddress() {
   return requireContractAddress('legionNFT');
@@ -176,7 +182,8 @@ export async function getLegionSnapshot(
 
 export async function mintLegion(input: MintLegionInput, onSubmitted?: LegionTransactionSubmitted): Promise<{ transactionHash: string; tokenId: string | null }> {
   if (!isAddress(input.recipient)) throw new Error('Recipient wallet address is invalid.');
-  if (!input.name.trim() || !input.territory.trim() || !input.character.trim() || !input.metadataURI.trim()) throw new Error('Name, territory, character, and a metadata URI are required.');
+  if (!input.name.trim() || !input.territory.trim() || !input.character.trim()) throw new Error('Name, territory, and character are required.');
+  if (!isAcceptedLegionMetadataUri(input.metadataURI.trim())) throw new Error('Metadata URI must be an explicit HTTPS or ipfs:// ERC-721 metadata URI.');
   if (!Number.isInteger(input.level) || input.level < 0 || input.level > 3) throw new Error('Legion level must be between 0 (Continent) and 3 (District).');
   const parentId = toUnsigned(input.parentId, 'Parent token ID');
   if ((input.level === 0 && parentId !== 0n) || (input.level > 0 && parentId === 0n)) throw new Error(input.level === 0 ? 'A Continent Legion must use parent token ID 0.' : 'Country, State, and District Legions require a parent token ID.');
@@ -186,6 +193,10 @@ export async function mintLegion(input: MintLegionInput, onSubmitted?: LegionTra
 
   const signer = await signerForLegion();
   const contract = new Contract(legionAddress(), LegionArtifact.abi, signer);
+  const [minterRole, signerAddress] = await Promise.all([contract.MINTER_ROLE(), signer.getAddress()]);
+  if (!await contract.hasRole(minterRole, signerAddress)) {
+    throw new Error('The connected wallet does not have MINTER_ROLE on LegionNFT.');
+  }
   const args = [input.recipient, input.name.trim(), input.territory.trim(), input.level, parentId, input.character.trim(), input.metadataURI.trim(), population, treasuryShareBps] as const;
   let estimatedGas: bigint;
   try { estimatedGas = await contract.mintLegion.estimateGas(...args); } catch (error) { throw new Error(legionErrorMessage(error)); }

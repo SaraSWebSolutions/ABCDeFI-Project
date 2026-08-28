@@ -1,9 +1,11 @@
-import { Contract, Interface, isAddress, Signer } from 'ethers';
+import { Contract, Interface, isAddress, parseEther, Signer } from 'ethers';
 import { CONTRACTS, DEPLOYMENT_CHAIN_ID, requireContractAddress } from '../Config/contracts';
 import { provider as canonicalProvider } from './contractProvider';
 import { getSigner } from './wallet';
 import FranchiseArtifact from '../../artifacts/contracts/nft/FranchiseNFT.sol/FranchiseNFT.json';
+import MarketplaceArtifact from '../../artifacts/contracts/marketplace/NFTMarketplace.sol/NFTMarketplace.json';
 import deploymentManifest from '../../deployments.json';
+import { isAcceptedMetadataUri } from './nftMetadata';
 
 export type FranchiseStatus = 'Active' | 'Suspended' | 'Revoked' | 'Pending' | 'Unavailable';
 
@@ -24,6 +26,8 @@ export interface FranchiseRecord {
   status: FranchiseStatus;
   tokenUri: string;
   ipfsCID: string;
+  mintTransactionHash: string | null;
+  mintBlockNumber: string | null;
 }
 
 export interface FranchiseSnapshot {
@@ -55,8 +59,20 @@ function franchiseAddress() {
   return requireContractAddress('franchiseNFT');
 }
 
+function marketplaceAddress() {
+  return requireContractAddress('marketplace');
+}
+
 function hasBytecode(code: string) {
   return code !== '0x' && code !== '0x0';
+}
+
+function isValidIpfsCid(value: string): boolean {
+  return /^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z2-7]{20,})$/.test(value);
+}
+
+export function isAcceptedFranchiseMetadataUri(value: string): boolean {
+  return isAcceptedMetadataUri(value);
 }
 
 function nestedErrorData(error: unknown): string | null {
@@ -114,6 +130,13 @@ export async function assertFranchiseDeployment(
   return address;
 }
 
+async function assertMarketplaceDeployment() {
+  const address = marketplaceAddress();
+  const code = await canonicalProvider.getCode(address);
+  if (!hasBytecode(code)) throw new Error(`No NFTMarketplace bytecode exists at ${address} on Hardhat Local (31337). The active local chain does not match deployments.json.`);
+  return address;
+}
+
 export async function assertFranchiseSignerNetwork(signer: Pick<Signer, 'provider'>) {
   const network = await signer.provider?.getNetwork();
   if (!network || network.chainId !== DEPLOYMENT_CHAIN_ID) {
@@ -162,7 +185,12 @@ type FranchiseReadContract = {
   hasRole: (role: string, account: string) => Promise<boolean>;
 };
 
-async function readFranchiseRecord(contract: FranchiseReadContract, tokenId: bigint, latestTimestamp: bigint): Promise<FranchiseRecord | null> {
+async function readFranchiseRecord(
+  contract: FranchiseReadContract,
+  tokenId: bigint,
+  latestTimestamp: bigint,
+  mintEvent?: { transactionHash?: string; blockNumber?: number },
+): Promise<FranchiseRecord | null> {
   const [owner, details, tokenUri, transferLocked] = await Promise.all([
     contract.ownerOf(tokenId).catch(() => null),
     contract.getFranchiseDetails(tokenId).catch(() => null),
@@ -188,6 +216,8 @@ async function readFranchiseRecord(contract: FranchiseReadContract, tokenId: big
     status: statusName(details.status),
     tokenUri,
     ipfsCID: String(details.ipfsCID),
+    mintTransactionHash: mintEvent?.transactionHash || null,
+    mintBlockNumber: mintEvent?.blockNumber?.toString() || null,
   };
 }
 
@@ -208,14 +238,16 @@ export async function getFranchiseSnapshot(
   const address = await assertFranchiseDeployment(deploymentProvider);
   const contract = options.contract || new Contract(address, FranchiseArtifact.abi, canonicalProvider) as unknown as FranchiseReadContract;
   const deploymentBlock = options.deploymentBlock ?? Number(deploymentManifest.contracts.FranchiseNFT.deploymentBlock);
-  const [received, latestBlock, minterRole] = await Promise.all([
+  const [received, mintEvents, latestBlock, minterRole] = await Promise.all([
     contract.queryFilter(contract.filters.Transfer(null, walletAddress, null), deploymentBlock, 'latest'),
+    contract.queryFilter(contract.filters.Transfer(ZERO_ADDRESS, null, null), deploymentBlock, 'latest'),
     deploymentProvider.getBlock('latest'),
     contract.MINTER_ROLE(),
   ]);
   if (!latestBlock) throw new Error('Canonical RPC did not return the latest block for FranchiseNFT state.');
+  const mintsByTokenId = new Map(mintEvents.map((event) => [BigInt(event.args?.tokenId ?? event.args?.[2]).toString(), event]));
   const tokenIds = [...new Set(received.map((event) => BigInt(event.args?.tokenId ?? event.args?.[2]).toString()))].map(BigInt);
-  const records = (await Promise.all(tokenIds.map((tokenId) => readFranchiseRecord(contract, tokenId, BigInt(latestBlock.timestamp))))).filter((record): record is FranchiseRecord => Boolean(record));
+  const records = (await Promise.all(tokenIds.map((tokenId) => readFranchiseRecord(contract, tokenId, BigInt(latestBlock.timestamp), mintsByTokenId.get(tokenId.toString()))))).filter((record): record is FranchiseRecord => Boolean(record));
   const owned = records.filter((record) => record.owner.toLowerCase() === walletAddress.toLowerCase()).sort((a, b) => Number(a.tokenId) - Number(b.tokenId));
   return { contractAddress: address, isMinter: await contract.hasRole(minterRole, walletAddress), franchises: owned };
 }
@@ -224,7 +256,10 @@ export async function mintFranchise(input: MintFranchiseInput, onSubmitted?: Tra
   if (!isAddress(input.franchisee)) throw new Error('Franchisee wallet address is invalid.');
   if (!input.franchiseName.trim() || !input.territoryCode.trim() || !input.territoryName.trim()) throw new Error('Franchise name, territory code, and territory name are required.');
   if (!Number.isInteger(input.level) || input.level < 0 || input.level > 8) throw new Error('Territory level must be between 0 and 8.');
-  if (!input.tokenURI.trim() || !input.ipfsCID.trim()) throw new Error('A real metadata URI and IPFS CID are required.');
+  if (!isAcceptedFranchiseMetadataUri(input.tokenURI.trim())) throw new Error('Metadata URI must come from configured NFT storage.');
+  const localStorageUri = input.tokenURI.startsWith('http://127.0.0.1:5000/uploads/nft-assets/') || input.tokenURI.startsWith('http://localhost:5000/uploads/nft-assets/');
+  if (!localStorageUri && !isValidIpfsCid(input.ipfsCID.trim())) throw new Error('IPFS CID must be returned by configured production storage.');
+  if (localStorageUri && input.ipfsCID.trim()) throw new Error('Local development storage does not provide an IPFS CID.');
   const legionNFTId = toBigIntInput(input.legionNFTId, 'Linked Legion NFT ID');
   const priceUSD = toBigIntInput(input.priceUSD, 'Recorded price USD');
   const commissionBps = toBigIntInput(input.commissionBps, 'Recorded commission BPS');
@@ -233,6 +268,10 @@ export async function mintFranchise(input: MintFranchiseInput, onSubmitted?: Tra
   const signer = await signerForFranchise();
   const address = franchiseAddress();
   const contract = new Contract(address, FranchiseArtifact.abi, signer);
+  const [minterRole, signerAddress] = await Promise.all([contract.MINTER_ROLE(), signer.getAddress()]);
+  if (!await contract.hasRole(minterRole, signerAddress)) {
+    throw new Error('The connected wallet does not have MINTER_ROLE on FranchiseNFT.');
+  }
   const args = [input.franchisee, input.franchiseName.trim(), input.territoryCode.trim(), input.territoryName.trim(), input.level, legionNFTId, priceUSD, commissionBps, input.tokenURI.trim(), input.ipfsCID.trim()] as const;
   let estimatedGas: bigint;
   try {
@@ -259,4 +298,54 @@ export async function mintFranchise(input: MintFranchiseInput, onSubmitted?: Tra
     }
   }
   return { transactionHash: transaction.hash, tokenId };
+}
+
+export async function listFranchiseOnMarketplace(
+  tokenIdInput: string,
+  priceEth: string,
+  onSubmitted?: TransactionSubmitted,
+): Promise<{ transactionHash: string; listingId: string | null }> {
+  if (!/^\d+$/.test(tokenIdInput) || BigInt(tokenIdInput) === 0n) throw new Error('Enter a valid FranchiseNFT token ID.');
+  if (!/^\d+(?:\.\d+)?$/.test(priceEth) || Number(priceEth) <= 0) throw new Error('Enter a positive ETH listing price.');
+
+  const signer = await signerForFranchise();
+  const marketplace = await assertMarketplaceDeployment();
+  const franchise = new Contract(franchiseAddress(), FranchiseArtifact.abi, signer);
+  const market = new Contract(marketplace, MarketplaceArtifact.abi, signer);
+  const tokenId = BigInt(tokenIdInput);
+  const owner = await signer.getAddress();
+  if ((await franchise.ownerOf(tokenId)).toLowerCase() !== owner.toLowerCase()) throw new Error('The connected wallet does not own this FranchiseNFT.');
+  if (await franchise.isTransferLocked(tokenId)) throw new Error('This Franchise NFT is currently under the protocol transfer lock.');
+
+  const [approved, approvedForAll] = await Promise.all([
+    franchise.getApproved(tokenId),
+    franchise.isApprovedForAll(owner, marketplace),
+  ]);
+  if (approved.toLowerCase() !== marketplace.toLowerCase() && !approvedForAll) {
+    let approvalGas: bigint;
+    try { approvalGas = await franchise.approve.estimateGas(marketplace, tokenId); } catch (error) { throw new Error(franchiseErrorMessage(error)); }
+    await assertEnoughEthForGas(signer, approvalGas);
+    let approval: any;
+    try { approval = await franchise.approve(marketplace, tokenId); } catch (error) { throw new Error(franchiseErrorMessage(error)); }
+    onSubmitted?.(approval.hash, 'FranchiseNFT marketplace approval');
+    waitForFranchiseReceipt(await approval.wait(), 'FranchiseNFT marketplace approval');
+  }
+
+  const price = parseEther(priceEth);
+  let listingGas: bigint;
+  try { listingGas = await market.listNFT.estimateGas(franchiseAddress(), tokenId, price); } catch (error) { throw new Error(franchiseErrorMessage(error)); }
+  await assertEnoughEthForGas(signer, listingGas);
+  let transaction: any;
+  try { transaction = await market.listNFT(franchiseAddress(), tokenId, price); } catch (error) { throw new Error(franchiseErrorMessage(error)); }
+  onSubmitted?.(transaction.hash, 'FranchiseNFT marketplace listing');
+  const receipt: any = waitForFranchiseReceipt(await transaction.wait(), 'FranchiseNFT marketplace listing');
+  const marketInterface = new Interface(MarketplaceArtifact.abi);
+  let listingId: string | null = null;
+  for (const log of receipt.logs || []) {
+    try {
+      const parsed = marketInterface.parseLog(log);
+      if (parsed?.name === 'NFTListed') listingId = BigInt(parsed.args.listingId).toString();
+    } catch { /* unrelated log */ }
+  }
+  return { transactionHash: transaction.hash, listingId };
 }

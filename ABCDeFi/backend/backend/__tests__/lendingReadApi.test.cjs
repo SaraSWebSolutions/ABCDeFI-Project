@@ -30,7 +30,7 @@ function models({ available = true, openRequests = [], directActivities = [] } =
     LoanRequest: { find: () => query(openRequests), findOne: emptyOne },
     Loan: { find: emptyFind, findOne: emptyOne }, EMISchedule: { findOne: emptyOne }, EMIInstallment: { find: emptyFind },
     Repayment: { find: emptyFind }, LoanDefault: { find: emptyFind, findOne: emptyOne }, Liquidation: { find: emptyFind, findOne: emptyOne },
-    DirectLendingPosition: { findOne: emptyOne }, DirectLendingActivity: { find: () => query(directActivities) }, DirectLiquidation: { find: emptyFind }, LoanNFTCertificate: { find: emptyFind },
+    DirectLendingPosition: { findOne: emptyOne }, DirectLendingActivity: { find: () => query(directActivities) }, DirectLiquidation: { find: emptyFind }, LoanNFTCertificate: { find: emptyFind }, LoanStateTransition: { find: emptyFind },
   };
 }
 
@@ -72,4 +72,14 @@ test('returns direct LendingPool history only from canonical indexed event recor
   const res = response(); await controller.walletHistory({ params: { address: wallet }, query: {} }, res, (error) => { throw error; });
   assert.equal(res.body.status, 'AVAILABLE');
   assert.deepEqual(res.body.data.directLending.activities, [directActivity]);
+});
+
+test('validates the canonical loan-detail and loan-history resource IDs without creating a synthetic loan', async () => {
+  const controller = createLendingReadController({ models: models(), manifest });
+  for (const action of [controller.loanDetail, controller.loanHistory]) {
+    const res = response(); await action({ params: { loanId: 'invalid' }, query: {} }, res, (error) => { throw error; });
+    assert.equal(res.statusCode, 400); assert.equal(res.body.status, 'INVALID_REQUEST');
+  }
+  const res = response(); await controller.loanHistory({ params: { loanId: '1' }, query: {} }, res, (error) => { throw error; });
+  assert.equal(res.statusCode, 404); assert.equal(res.body.status, 'NOT_FOUND');
 });

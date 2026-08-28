@@ -135,4 +135,36 @@ describe("NFTMarketplace Contract Suite", function () {
       ).to.be.revert(ethers);
     });
   });
+
+  describe("4. Franchise transfer-lock protection", function () {
+    it("rejects escrow listing during the three-year lock and allows the real marketplace flow only after expiry", async function () {
+      const FranchiseFactory = await hardhatEthers.getContractFactory("FranchiseNFT");
+      const franchise = await FranchiseFactory.deploy(admin.address, admin.address);
+      await franchise.waitForDeployment();
+      await franchise.connect(admin).mintFranchise(
+        seller.address,
+        "Hyderabad District Licence",
+        "IN-TG-HYD",
+        "Hyderabad, Telangana, India",
+        5,
+        0,
+        10_000,
+        6,
+        "ipfs://bafybeigdyrzt4metadata/metadata.json",
+        "bafybeigdyrzt4metadata"
+      );
+
+      const marketplaceAddress = await marketplace.getAddress();
+      await franchise.connect(seller).approve(marketplaceAddress, 1);
+      await expect(
+        marketplace.connect(seller).listNFT(await franchise.getAddress(), 1, ethers.parseEther("1"))
+      ).to.be.revertedWith("Franchise NFT locked for 3 years from purchase");
+
+      await hardhatEthers.provider.send("evm_increaseTime", [1095 * 24 * 60 * 60 + 1]);
+      await hardhatEthers.provider.send("evm_mine", []);
+      await expect(marketplace.connect(seller).listNFT(await franchise.getAddress(), 1, ethers.parseEther("1")))
+        .to.emit(marketplace, "NFTListed");
+      expect(await franchise.ownerOf(1)).to.equal(marketplaceAddress);
+    });
+  });
 });

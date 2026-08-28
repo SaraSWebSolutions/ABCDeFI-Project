@@ -61,6 +61,8 @@ export interface UserDashboardProps {
   formatUnits: (amt: bigint) => string;
   formatDuration: (sec: number) => string;
   paused: boolean;
+  canAccessAdmin?: boolean;
+  onOpenAdminDashboard?: () => void;
 }
 
 import { useWallet } from '../Context/WalletContext';
@@ -68,7 +70,7 @@ import { useAuth } from '../Context/AuthContext';
 import { CollateralDepositForm } from './CollateralDepositForm';
 import { WalletSection } from './WalletSection';
 
-export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
+export const UserDashboard: React.FC<UserDashboardProps> = ({ canAccessAdmin = false, onOpenAdminDashboard, ...props }) => {
   const wallet = useWallet();
   const { user } = useAuth();
 
@@ -186,6 +188,14 @@ export const UserDashboard: React.FC<UserDashboardProps> = (props) => {
           </div>
 
           <div className="flex items-center gap-3">
+            {canAccessAdmin && onOpenAdminDashboard && (
+              <button
+                onClick={onOpenAdminDashboard}
+                className="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-xl text-xs transition cursor-pointer"
+              >
+                Open Admin Dashboard
+              </button>
+            )}
             {/* Live Balances Display */}
             <div className="flex items-center gap-4 bg-slate-950/70 border border-slate-800/80 px-4 py-2 rounded-2xl text-xs font-mono">
               <div>

@@ -36,6 +36,12 @@ const REQUIRED_CONTRACTS = [
 
 const frontendPath = (...segments: string[]) => path.resolve("src", ...segments);
 
+function reportRuntimeMismatch(details: Record<string, string | number>): never {
+  console.error("CONTRACT_RUNTIME_MISMATCH");
+  console.error(JSON.stringify(details, null, 2));
+  throw new Error(`CONTRACT_RUNTIME_MISMATCH: ${details.contract} has no deployed bytecode at ${details.address}`);
+}
+
 async function main() {
   const deploymentPath = path.resolve("deployments.json");
   assert.ok(fs.existsSync(deploymentPath), "Fresh deployments.json is required");
@@ -63,10 +69,22 @@ async function main() {
   const { ethers: hh } = await network.connect();
   const [admin, , lender, , , , , , borrower, liquidator] = await hh.getSigners();
   const provider = hh.provider;
-  assert.equal((await provider.getNetwork()).chainId, 31337n, "Connected RPC chain ID does not match the manifest");
+  const runtimeNetwork = await provider.getNetwork();
+  assert.equal(runtimeNetwork.chainId, 31337n, "Connected RPC chain ID does not match the manifest");
+  const currentBlock = await provider.getBlockNumber();
   for (const name of REQUIRED_CONTRACTS) {
     const address = deployment.contracts[name].address;
-    assert.notEqual(await provider.getCode(address), "0x", `${name} has no deployed bytecode`);
+    const bytecode = await provider.getCode(address);
+    if (bytecode === "0x") {
+      reportRuntimeMismatch({
+        contract: name,
+        address,
+        chainId: runtimeNetwork.chainId.toString(),
+        rpc: deployment.rpcUrl,
+        currentBlock,
+        bytecode,
+      });
+    }
     console.log(`✓ ${name} bytecode exists`);
   }
   const addressOf = (name: string) => deployment.contracts[name]?.address;
@@ -128,6 +146,17 @@ async function main() {
   assert.match(walletSource, /CONTRACTS, DEPLOYMENT_CHAIN_ID, DEPLOYMENT_RPC_URL/, "Wallet service must use canonical deployment configuration");
   const activeConfigurationSources = [frontendConfig, contractProviderSource, walletSource].join("\n");
   assert.doesNotMatch(activeConfigurationSources, /VITE_[A-Z0-9_]*(ADDRESS|TOKEN|TREASURY|LENDING|PRESALE|STAKING|VAULT|MANAGER|NFT)/, "Active frontend contract configuration must not use VITE_* deployment addresses");
+  const frontendEnvPath = path.resolve(".env.local");
+  if (fs.existsSync(frontendEnvPath)) {
+    const legacyOverrides = fs.readFileSync(frontendEnvPath, "utf8")
+      .split(/\r?\n/)
+      .filter((line) => /^VITE_(?:CHAIN_ID|RPC_URL|(?:.*(?:ADDRESS|TOKEN|TREASURY|LENDING|PRESALE|STAKING|VAULT|MANAGER|NFT)))=/.test(line));
+    assert.equal(
+      legacyOverrides.length,
+      0,
+      `FRONTEND_CONFIG_MISMATCH: .env.local must not define legacy deployment overrides: ${legacyOverrides.map((line) => line.split("=")[0]).join(", ")}`,
+    );
+  }
   console.log("✓ frontend uses canonical deployments.json");
   console.log("✓ canonical frontend entrypoint verified (src/main.tsx -> src/App.tsx)");
 
@@ -136,11 +165,25 @@ async function main() {
   const backendLending = loadLendingManifest();
   assert.equal(backendLending.chainId, 31337, "Backend manifest chain ID mismatch");
   assert.equal(backendLending.rpcUrl, deployment.rpcUrl, "Backend manifest RPC URL mismatch");
-  assert.equal(backendLending.contracts.abcdToken.toLowerCase(), addresses.token!.toLowerCase());
-  assert.equal(backendLending.contracts.loanManager.toLowerCase(), addresses.loanManager!.toLowerCase());
-  assert.equal(backendLending.contracts.loanMarketplace.toLowerCase(), addresses.loanMarketplace!.toLowerCase());
-  assert.equal(backendLending.contracts.emiManager.toLowerCase(), addresses.emiManager!.toLowerCase());
-  assert.equal(backendLending.contracts.collateralVault.toLowerCase(), addresses.collateralVault!.toLowerCase());
+  const backendContractMappings = {
+    abcdToken: "ABCDToken",
+    lendingPool: "LendingPool",
+    collateralVault: "CollateralVault",
+    loanManager: "LoanManager",
+    loanMarketplace: "LoanMarketplace",
+    emiManager: "EMIManager",
+    liquidation: "Liquidation",
+    loanNFT: "LoanNFT",
+  } as const;
+  for (const [backendName, manifestName] of Object.entries(backendContractMappings)) {
+    const backendAddress = backendLending.contracts[backendName as keyof typeof backendLending.contracts];
+    const manifestAddress = deployment.contracts[manifestName].address;
+    assert.equal(
+      backendAddress.toLowerCase(),
+      manifestAddress.toLowerCase(),
+      `BACKEND_MANIFEST_MISMATCH: ${backendName} does not match deployments.json`,
+    );
+  }
   console.log("✓ backend uses canonical deployment manifest");
   const canonicalAbis = loadCanonicalLendingArtifacts();
   assert.ok(canonicalAbis.loanMarketplace.abi.some((entry: { type: string; name?: string }) => entry.type === "event" && entry.name === "RequestCreated"));

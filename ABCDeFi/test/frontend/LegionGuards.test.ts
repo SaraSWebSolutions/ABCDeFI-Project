@@ -4,6 +4,7 @@ import {
   assertLegionDeployment,
   assertLegionSignerNetwork,
   getLegionSnapshot,
+  isAcceptedLegionMetadataUri,
   legionErrorMessage,
   waitForLegionReceipt,
 } from '../../src/Services/legion';
@@ -25,6 +26,12 @@ test('LegionNFT rejects a manifest address with missing bytecode before reads or
 test('LegionNFT labels rejected MetaMask requests and failed receipts without reporting success', () => {
   assert.equal(legionErrorMessage({ code: 'ACTION_REJECTED', shortMessage: 'user rejected action' }), 'Transaction rejected in MetaMask. No on-chain state was changed.');
   assert.throws(() => waitForLegionReceipt({ status: 0 }, 'Legion certificate mint'), /Legion certificate mint was reverted or not confirmed on-chain/);
+});
+
+test('LegionNFT accepts only explicit HTTPS or IPFS metadata references', () => {
+  assert.equal(isAcceptedLegionMetadataUri('https://metadata.example/legion-1.json'), true);
+  assert.equal(isAcceptedLegionMetadataUri('ipfs://bafybeigdyrzt4examplemetadataaaaa/metadata.json'), true);
+  assert.equal(isAcceptedLegionMetadataUri('legion-1.json'), false);
 });
 
 test('LegionNFT snapshot follows the selected wallet after an account switch', async () => {

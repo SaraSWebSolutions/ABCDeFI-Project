@@ -29,17 +29,13 @@ try {
 
 module.exports = async function sendMail({ to, subject, html }) {
   const environment = String(process.env.NODE_ENV || "").toLowerCase();
-  const isLocalDevelopment = environment === "development" || environment === "local";
-  const smtpConfigured = Boolean(
-    process.env.SMTP_HOST &&
-    process.env.SMTP_USER &&
-    process.env.SMTP_PASS
-  );
+  const developmentAuthentication = environment !== "production"
+    && String(process.env.AUTH_MODE || "").toLowerCase() === "development";
 
-  // Development authentication uses an actual wallet signature instead of an
-  // out-of-band OTP. Never turn a missing SMTP configuration into a logged or
-  // fabricated email delivery path.
-  if (isLocalDevelopment && !smtpConfigured) {
+  // Development login OTPs are printed by the authenticated login controller.
+  // This mailer never sends a development authentication message or fabricates
+  // delivery when SMTP is absent.
+  if (developmentAuthentication) {
     return { suppressed: true };
   }
 

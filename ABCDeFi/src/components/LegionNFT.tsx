@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, MapPinned, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useWallet } from '../Context/WalletContext';
 import { getLegionSnapshot, LegionRecord, LegionSnapshot, legionErrorMessage, mintLegion } from '../Services/legion';
+import { MetadataReadResult, readNftMetadata } from '../Services/nftMetadata';
 
 type TransactionState = 'idle' | 'awaiting-wallet' | 'confirming' | 'success' | 'error';
 
@@ -68,7 +69,14 @@ export const LegionNFT: React.FC = () => {
   </section>;
 };
 
-const LegionCard = ({ legion }: { legion: LegionRecord }) => <article className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs text-slate-200"><div className="flex justify-between gap-3"><div><p className="font-bold text-white">#{legion.tokenId} · {legion.name}</p><p className="mt-1 text-slate-400">{legion.level} · {legion.territory}</p></div><span className="rounded-full border border-slate-700 px-2 py-1 text-slate-300">{legion.character}</span></div><dl className="mt-4 grid gap-x-5 gap-y-2 sm:grid-cols-2"><Field label="Current owner" value={legion.owner} /><Field label="Parent token" value={legion.parentId === '0' ? 'None (root)' : `#${legion.parentId}`} /><Field label="Children" value={legion.children.length ? legion.children.map((id) => `#${id}`).join(', ') : 'None'} /><Field label="Population" value={legion.population} /><Field label="Recorded treasury share" value={`${legion.treasuryShareBps} bps`} /><Field label="Issued" value={formatTimestamp(legion.createdAt)} /><Field label="Metadata URI" value={legion.metadataUri || 'Unavailable'} /></dl></article>;
+const LegionCard = ({ legion }: { legion: LegionRecord }) => <article className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs text-slate-200"><div className="flex justify-between gap-3"><div><p className="font-bold text-white">#{legion.tokenId} · {legion.name}</p><p className="mt-1 text-slate-400">{legion.level} · {legion.territory}</p></div><span className="rounded-full border border-slate-700 px-2 py-1 text-slate-300">{legion.character}</span></div><dl className="mt-4 grid gap-x-5 gap-y-2 sm:grid-cols-2"><Field label="Current owner" value={legion.owner} /><Field label="Parent token" value={legion.parentId === '0' ? 'None (root)' : `#${legion.parentId}`} /><Field label="Children" value={legion.children.length ? legion.children.map((id) => `#${id}`).join(', ') : 'None'} /><Field label="Population" value={legion.population} /><Field label="Recorded treasury share" value={`${legion.treasuryShareBps} bps`} /><Field label="Issued" value={formatTimestamp(legion.createdAt)} /><Field label="Metadata URI" value={legion.metadataUri || 'Unavailable'} /></dl><MetadataPreview uri={legion.metadataUri} /></article>;
+const MetadataPreview = ({ uri }: { uri: string }) => {
+  const [result, setResult] = useState<MetadataReadResult | null>(null);
+  useEffect(() => { let live = true; void readNftMetadata(uri).then((next) => { if (live) setResult(next); }); return () => { live = false; }; }, [uri]);
+  if (!result) return <p className="mt-3 text-[11px] text-slate-500">Reading on-chain metadata URI…</p>;
+  if (result.unavailableReason) return <p className="mt-3 text-[11px] text-slate-500">Metadata unavailable: {result.unavailableReason}</p>;
+  return <div className="mt-3 rounded-lg border border-slate-800 p-2">{result.imageUrl && <img src={result.imageUrl} alt={result.metadata?.name || 'Legion NFT metadata'} className="mb-2 max-h-40 w-full rounded object-cover" />}<p className="font-semibold text-slate-200">{result.metadata?.name || 'Metadata name unavailable'}</p>{result.metadata?.description && <p className="mt-1 text-slate-400">{result.metadata.description}</p>}</div>;
+};
 const Field = ({ label, value }: { label: string; value: string }) => <div><dt className="uppercase tracking-wide text-slate-500">{label}</dt><dd className="mt-1 break-all text-slate-200">{value}</dd></div>;
 const Notice = ({ kind, message, hash }: { kind: 'error' | 'success' | 'pending'; message: string; hash?: string | null }) => <div className={`rounded-2xl border p-4 text-sm ${kind === 'error' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : kind === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-100'}`}><div className="flex items-center gap-2">{kind === 'pending' && <Loader2 className="h-4 w-4 animate-spin" />}{message}</div>{hash && <p className="mt-2 break-all font-mono text-xs">Transaction hash: {hash}</p>}</div>;
 

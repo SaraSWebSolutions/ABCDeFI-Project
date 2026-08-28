@@ -69,26 +69,31 @@ const generateTokens = async (user) => {
     return { accessToken, refreshToken };
 };
 
-function developmentWalletAuthenticationEnabled() {
-    return config.development_auth_enabled === true && config.node_env !== "production";
+function developmentOtpLoggingEnabled() {
+    return config.development_auth_enabled === true
+        && String(config.node_env || "").toLowerCase() !== "production";
 }
 
-async function findOrCreateDevelopmentWalletUser(walletAddress) {
-    let user = await UserAccount.findOne({ walletAddress });
-    if (user) return user;
+/**
+ * Login 2FA delivery remains an out-of-band email in production. Local
+ * development deliberately keeps the exact same OTP storage and browser
+ * verification protocol, but prints the short-lived code in the backend
+ * terminal instead of attempting SMTP.
+ */
+async function deliverLoginOtp(user, otp, isResend = false) {
+    if (developmentOtpLoggingEnabled()) {
+        logger.info(
+            "LOCAL DEVELOPMENT LOGIN OTP%s userId=%s code=%s expiresInMinutes=10",
+            isResend ? " RESEND" : "",
+            user._id,
+            otp
+        );
+        return;
+    }
 
-    // This identity exists only for an explicit local development wallet-sign
-    // in. It has no password, email OTP, or production claim; the signature
-    // below remains the possession proof before a token is issued.
-    user = await UserAccount.create({
-        name: "Local development wallet",
-        walletAddress,
-        status: true,
-        is2FAEnabled: false,
-        country: "Local Development",
-        privacyData: false,
-    });
-    return user;
+    const subject = "🔐 Your ABCDeFi 2FA Login Verification Code";
+    const html = `<p>Your ABCDeFi login verification code is <strong>${otp}</strong>. It expires in 10 minutes.</p>`;
+    await sendMail({ to: user.email, subject, html });
 }
 
 exports.registerUser = async (req, res, next) => {
@@ -480,25 +485,8 @@ exports.userLogin = async (req, res, next) => {
             user.loginOtpExpires = Date.now() + 10 * 60 * 1000;
             await user.save();
 
-            // Branded email send
-            const html = `
-            <div style="font-family: Arial, sans-serif; background-color: #0f172a; padding: 30px; color: #ffffff;">
-              <div style="max-width: 500px; margin: auto; background: #1e293b; border-radius: 12px; padding: 30px; text-align: center; border: 1px solid #334155;">
-                <h2 style="color: #6366f1; margin-bottom: 10px;">ABCDeFi Security Verification</h2>
-                <p style="color: #cbd5e1; font-size: 15px;">Login OTP for <strong>${user.email}</strong></p>
-                <div style="font-size: 36px; font-weight: bold; letter-spacing: 8px; margin: 25px 0; color: #38bdf8; background: #0f172a; padding: 15px; border-radius: 8px; border: 1px dashed #6366f1;">
-                  ${loginOtp}
-                </div>
-                <p style="color: #94a3b8; font-size: 13px;">This code expires in 10 minutes. Do not share it with anyone.</p>
-              </div>
-            </div>
-            `;
             try {
-                await sendMail({
-                    to: user.email,
-                    subject: "🔐 Your ABCDeFi 2FA Login Verification Code",
-                    html
-                });
+                await deliverLoginOtp(user, loginOtp);
             } catch (err) {
                 user.loginOtp = undefined;
                 user.loginOtpExpires = undefined;
@@ -512,7 +500,9 @@ exports.userLogin = async (req, res, next) => {
                 require2FA: true,
                 userId: user._id,
                 email: user.email,
-                message: `Password Verified. OTP sent to ${user.email}`
+                message: developmentOtpLoggingEnabled()
+                    ? "Password verified. Enter the 6-digit OTP printed in the local backend terminal."
+                    : `Password Verified. OTP sent to ${user.email}`
             });
         }
 
@@ -636,11 +626,7 @@ exports.resendLoginOtp = async (req, res, next) => {
         await user.save();
 
         try {
-            await sendMail({
-                to: user.email,
-                subject: "🔐 Your ABCDeFi 2FA Login Verification Code",
-                html: `<p>Your ABCDeFi login verification code is <strong>${newLoginOtp}</strong>. It expires in 10 minutes.</p>`
-            });
+            await deliverLoginOtp(user, newLoginOtp, true);
         } catch (err) {
             user.loginOtp = undefined;
             user.loginOtpExpires = undefined;
@@ -651,7 +637,9 @@ exports.resendLoginOtp = async (req, res, next) => {
 
         res.status(200).json({
             success: true,
-            message: `New Login OTP sent to ${user.email}`
+            message: developmentOtpLoggingEnabled()
+                ? "A new login OTP was printed in the local backend terminal."
+                : `New Login OTP sent to ${user.email}`
         });
     } catch (err) {
         next(err);
@@ -1282,7 +1270,7 @@ exports.adminResetUserPassword = async (req, res, next) => {
 // -----------------------------------------------------------------------------
 exports.walletLoginNonce = async (req, res, next) => {
     try {
-        const { walletAddress, chainId: requestedChainId } = req.body;
+        const { walletAddress } = req.body;
         if (!walletAddress || !ethers.isAddress(walletAddress)) {
             return res.status(400).json({ success: false, message: "Valid wallet address is required" });
         }
@@ -1290,15 +1278,7 @@ exports.walletLoginNonce = async (req, res, next) => {
         const normalized = walletAddress.toLowerCase();
 
         // UserAccount is the primary account-to-wallet relationship.
-        let user = await UserAccount.findOne({ walletAddress: normalized });
-
-        if (!user && developmentWalletAuthenticationEnabled()) {
-            const chainId = Number(requestedChainId);
-            if (!Number.isInteger(chainId) || !config.allowedChains.includes(chainId)) {
-                return res.status(400).json({ success: false, message: "Development wallet authentication requires the configured local chain." });
-            }
-            user = await findOrCreateDevelopmentWalletUser(normalized);
-        }
+        const user = await UserAccount.findOne({ walletAddress: normalized });
 
         if (!user) {
             return res.status(404).json({
@@ -1317,7 +1297,7 @@ exports.walletLoginNonce = async (req, res, next) => {
             verified: true
         });
 
-        if (!linkedWallet && !developmentWalletAuthenticationEnabled()) {
+        if (!linkedWallet) {
             return res.status(403).json({
                 success: false,
                 message: "Wallet is not verified. Please verify and link your wallet first."
@@ -1327,9 +1307,7 @@ exports.walletLoginNonce = async (req, res, next) => {
         const nonce = crypto.randomBytes(32).toString("hex");
         const issuedAt = new Date();
         const expiresAt = new Date(issuedAt.getTime() + 5 * 60 * 1000);
-        const chainId = developmentWalletAuthenticationEnabled()
-            ? Number(requestedChainId)
-            : Number(linkedWallet.chainId);
+        const chainId = Number(linkedWallet.chainId);
         if (!Number.isInteger(chainId)) {
             return res.status(500).json({
                 success: false,
@@ -1375,36 +1353,18 @@ exports.walletLogin = async (req, res, next) => {
         }
 
         // Confirm the wallet is still verified when consuming the challenge.
-        // A local development wallet becomes verified only after this real
-        // signature check succeeds; production never accepts this exception.
         const linkedWallet = await Wallet.findOne({
             userId: user._id,
             walletAddress: normalized,
             verified: true
         });
-        if (!linkedWallet && !developmentWalletAuthenticationEnabled()) {
+        if (!linkedWallet) {
             return res.status(403).json({ success: false, message: "Wallet is not verified" });
         }
 
         const recovered = ethers.verifyMessage(user.walletLoginMessage, signature);
         if (recovered.toLowerCase() !== normalized) {
             return res.status(401).json({ success: false, message: "Wallet signature verification failed" });
-        }
-
-        if (!linkedWallet && developmentWalletAuthenticationEnabled()) {
-            await Wallet.findOneAndUpdate(
-                { userId: user._id },
-                {
-                    userId: user._id,
-                    walletAddress: normalized,
-                    walletType: "MetaMask",
-                    chainId: config.allowedChains[0],
-                    verified: true,
-                    linkedAt: new Date(),
-                    lastConnectedAt: new Date(),
-                },
-                { upsert: true, new: true, setDefaultsOnInsert: true }
-            );
         }
 
         user.walletLoginNonce = null;
