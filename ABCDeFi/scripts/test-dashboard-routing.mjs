@@ -39,6 +39,12 @@ test('an explicit /admin route is identified without granting admin permission',
   assert.equal(dashboard.isAdminDashboardPath('/dashboard'), false);
 });
 
+test('admin login is separate from protected admin dashboard routing', () => {
+  assert.equal(dashboard.isAdminLoginPath('/admin/login'), true);
+  assert.equal(dashboard.isAdminDashboardPath('/admin/login'), false);
+  assert.equal(dashboard.modeFromPathname('/admin/login'), null);
+});
+
 test('App fails closed for a non-admin direct /admin visit', () => {
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert.match(appSource, /Administrator access denied/);

@@ -81,6 +81,14 @@ const UserAccountSchema = new mongoose.Schema({
     },
     loginOtp: String,
     loginOtpExpires: Date,
+    // Binds the shared hashed login OTP to the entry point that created it.
+    // This prevents a user-login OTP from being presented to the admin OTP
+    // endpoint (and vice versa) without duplicating the OTP subsystem.
+    loginOtpPurpose: {
+        type: String,
+        enum: ["user", "admin"],
+        default: null
+    },
     isSuspended: {
         type: Boolean,
         default: false

@@ -27,8 +27,9 @@ const {
     submitKyc,
     refreshToken,
     logout,
-  walletLoginNonce,
-  walletLogin
+    walletLoginNonce,
+  walletLogin,
+  adminAuthDebug
 } = require("./userAccount.controller");
 
 const upload = require("../../../middleware/fileUpload");
@@ -91,5 +92,7 @@ router.get("/admin/users", auth, requireAdmin, adminGetUsers);
 router.post("/admin/users/status", auth, requireAdmin, adminUpdateUserStatus);
 router.post("/admin/users/kyc", auth, requireAdmin, adminUpdateUserKyc);
 router.post("/admin/users/reset-password", auth, requireAdmin, adminResetUserPassword);
+// Never available in production; controller also enforces development mode.
+router.get("/admin/auth-debug/:userId", auth, requireAdmin, adminAuthDebug);
 
 module.exports = router;

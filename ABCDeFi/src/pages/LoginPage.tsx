@@ -3,11 +3,14 @@ import { useAuth } from '../Context/AuthContext';
 import { DEVELOPMENT_AUTH_ENABLED } from '../Config/auth';
 import { Lock, Mail, User, Globe, ArrowRight, ShieldCheck, KeyRound, AlertCircle, CheckCircle2, Phone, Tag, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
-export const LoginPage: React.FC = () => {
+export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 'user' }) => {
   const {
     loginStep1,
     verifyLoginOtp,
     resendLoginOtp,
+    adminLoginStep1,
+    verifyAdminLoginOtp,
+    resendAdminLoginOtp,
     register,
     verifyRegisterOtp,
     resendRegisterOtp,
@@ -42,11 +45,18 @@ export const LoginPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const isAdministratorLogin = variant === 'admin';
 
   const resetFormAlerts = () => {
     setError(null);
     setSuccessMessage(null);
     setOtpCode('');
+  };
+
+  const navigateAfterSuccessfulLogin = () => {
+    const destination = isAdministratorLogin ? '/admin' : '/dashboard';
+    window.history.replaceState({}, '', destination);
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -60,12 +70,16 @@ export const LoginPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const result = await loginStep1(email, password);
+      const result = await (isAdministratorLogin
+        ? adminLoginStep1(email, password)
+        : loginStep1(email, password));
 
       if (!result.success) {
         setError(result.message || 'Login failed. Please check your credentials.');
       } else if (result.require2FA) {
         setSuccessMessage(result.message || 'Verification OTP sent to your email.');
+      } else {
+        navigateAfterSuccessfulLogin();
       }
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : 'Authentication server unavailable. Please try again.');
@@ -90,11 +104,15 @@ export const LoginPage: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    const result = await verifyLoginOtp(pendingAuth.userId, otpCode);
+    const result = await (pendingAuth.step === 'ADMIN_LOGIN_2FA'
+      ? verifyAdminLoginOtp(pendingAuth.userId, otpCode)
+      : verifyLoginOtp(pendingAuth.userId, otpCode));
     setIsSubmitting(false);
 
     if (!result.success) {
       setError(result.message || 'Invalid 2FA code. Please check and try again.');
+    } else {
+      navigateAfterSuccessfulLogin();
     }
   };
 
@@ -271,7 +289,9 @@ export const LoginPage: React.FC = () => {
     if (!pendingAuth?.userId) return;
     setIsSubmitting(true);
     let res;
-    if (pendingAuth.step === 'LOGIN_2FA') {
+    if (pendingAuth.step === 'ADMIN_LOGIN_2FA') {
+      res = await resendAdminLoginOtp(pendingAuth.userId);
+    } else if (pendingAuth.step === 'LOGIN_2FA') {
       res = await resendLoginOtp(pendingAuth.userId);
     } else {
       res = await resendRegisterOtp(pendingAuth.userId);
@@ -315,10 +335,11 @@ export const LoginPage: React.FC = () => {
           <div className="mb-5 text-center">
             <h2 className="text-xl font-bold text-white">
               {pendingAuth?.step === 'LOGIN_2FA' && '2FA Security Check'}
+              {pendingAuth?.step === 'ADMIN_LOGIN_2FA' && 'Administrator 2FA Verification'}
               {pendingAuth?.step === 'REGISTER_OTP' && 'Verify Email OTP'}
               {pendingAuth?.step === 'FORGOT_OTP' && 'Verify Password Reset Code'}
               {pendingAuth?.step === 'RESET_PASSWORD' && 'Set New Password'}
-              {!pendingAuth && mode === 'login' && 'Sign in to ABCDeFi'}
+              {!pendingAuth && mode === 'login' && (isAdministratorLogin ? 'ABCDeFi Administrator Login' : 'Sign in to ABCDeFi')}
               {!pendingAuth && mode === 'register' && 'Create your account'}
               {!pendingAuth && mode === 'forgot' && 'Reset your password'}
             </h2>
@@ -326,10 +347,13 @@ export const LoginPage: React.FC = () => {
               {pendingAuth?.step === 'LOGIN_2FA' && (DEVELOPMENT_AUTH_ENABLED
                 ? 'Enter the 6-digit authentication code printed in the local backend terminal.'
                 : `We sent a 6-digit authentication code to ${pendingAuth.email}`)}
+              {pendingAuth?.step === 'ADMIN_LOGIN_2FA' && (DEVELOPMENT_AUTH_ENABLED
+                ? 'Enter the 6-digit administrator authentication code printed in the local backend terminal.'
+                : `We sent a 6-digit authentication code to ${pendingAuth.email}`)}
               {pendingAuth?.step === 'REGISTER_OTP' && `Please enter the 6-digit code sent to ${pendingAuth.email}`}
               {pendingAuth?.step === 'FORGOT_OTP' && `Check your inbox (${pendingAuth.email}) for the verification code`}
               {pendingAuth?.step === 'RESET_PASSWORD' && 'Enter your strong new password below'}
-              {!pendingAuth && mode === 'login' && 'Enter your credentials to access your dashboard'}
+              {!pendingAuth && mode === 'login' && (isAdministratorLogin ? 'Enter administrator credentials to access the protected admin dashboard.' : 'Enter your credentials to access your dashboard')}
               {!pendingAuth && mode === 'register' && 'Fill in your details to start borrowing, lending and staking'}
               {!pendingAuth && mode === 'forgot' && 'Enter your registered email to receive password reset OTP'}
             </p>
@@ -372,7 +396,7 @@ export const LoginPage: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-semibold text-slate-300">Password</label>
-                  <button
+                  {!isAdministratorLogin && <button
                     type="button"
                     onClick={() => {
                       setMode('forgot');
@@ -381,7 +405,7 @@ export const LoginPage: React.FC = () => {
                     className="text-[11px] text-emerald-400 hover:underline cursor-pointer"
                   >
                     Forgot password?
-                  </button>
+                  </button>}
                 </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -413,13 +437,13 @@ export const LoginPage: React.FC = () => {
                   <span>Signing In...</span>
                 ) : (
                   <>
-                    <span>Sign In</span>
+                    <span>{isAdministratorLogin ? 'Sign In as Administrator' : 'Sign In'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
 
-              <div className="text-center pt-4 border-t border-slate-800/80 text-xs text-slate-400">
+              {!isAdministratorLogin && <div className="text-center pt-4 border-t border-slate-800/80 text-xs text-slate-400">
                 Don&apos;t have an account?{' '}
                 <button
                   type="button"
@@ -431,7 +455,7 @@ export const LoginPage: React.FC = () => {
                 >
                   Create Account
                 </button>
-              </div>
+              </div>}
             </form>
           )}
 

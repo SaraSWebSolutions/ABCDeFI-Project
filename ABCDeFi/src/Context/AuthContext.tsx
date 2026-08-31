@@ -21,7 +21,7 @@ export interface AuthUser {
 export interface PendingAuthState {
   userId?: string;
   email?: string;
-  step?: 'LOGIN_2FA' | 'REGISTER_OTP' | 'FORGOT_OTP' | 'RESET_PASSWORD';
+  step?: 'LOGIN_2FA' | 'ADMIN_LOGIN_2FA' | 'REGISTER_OTP' | 'FORGOT_OTP' | 'RESET_PASSWORD';
 }
 
 interface AuthContextType {
@@ -37,6 +37,9 @@ interface AuthContextType {
   loginStep1: (email: string, password: string) => Promise<{ success: boolean; require2FA?: boolean; userId?: string; email?: string; message?: string }>;
   verifyLoginOtp: (userId: string, otp: string) => Promise<{ success: boolean; message?: string }>;
   resendLoginOtp: (userId: string) => Promise<{ success: boolean; message?: string }>;
+  adminLoginStep1: (email: string, password: string) => Promise<{ success: boolean; require2FA?: boolean; userId?: string; email?: string; message?: string }>;
+  verifyAdminLoginOtp: (userId: string, otp: string) => Promise<{ success: boolean; message?: string }>;
+  resendAdminLoginOtp: (userId: string) => Promise<{ success: boolean; message?: string }>;
 
   register: (data: { name: string; email: string; mobileNumber?: string; country?: string; password: string; refId?: string; privacyData: boolean }) => Promise<{ success: boolean; userId?: string; email?: string; message?: string }>;
   verifyRegisterOtp: (userId: string, otp: string) => Promise<{ success: boolean; message?: string }>;
@@ -271,12 +274,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [clearAuthSession]);
 
   // Login Step 1
-  const loginStep1 = async (email: string, password: string) => {
+  const loginStep1ForEndpoint = async (
+    endpoint: string,
+    loginStep: 'LOGIN_2FA' | 'ADMIN_LOGIN_2FA',
+    email: string,
+    password: string,
+  ) => {
     setLoading(true);
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
     try {
-      const res = await fetch('/api/user/login', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -306,7 +314,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setPendingAuth({
             userId: data.userId,
             email: data.email || email,
-            step: 'LOGIN_2FA'
+            step: loginStep
           });
           return {
             success: true,
@@ -335,11 +343,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginStep1 = (email: string, password: string) =>
+    loginStep1ForEndpoint('/api/user/login', 'LOGIN_2FA', email, password);
+
+  const adminLoginStep1 = (email: string, password: string) =>
+    loginStep1ForEndpoint('/api/admin/login', 'ADMIN_LOGIN_2FA', email, password);
+
   // Verify Login OTP (2FA Step 2)
-  const verifyLoginOtp = async (userId: string, otp: string) => {
+  const verifyLoginOtpForEndpoint = async (endpoint: string, userId: string, otp: string) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/user/verify-login-otp', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, otp }),
@@ -369,9 +383,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const resendLoginOtp = async (userId: string) => {
+  const verifyLoginOtp = (userId: string, otp: string) =>
+    verifyLoginOtpForEndpoint('/api/user/verify-login-otp', userId, otp);
+
+  const verifyAdminLoginOtp = (userId: string, otp: string) =>
+    verifyLoginOtpForEndpoint('/api/admin/verify-login-otp', userId, otp);
+
+  const resendLoginOtpForEndpoint = async (endpoint: string, userId: string) => {
     try {
-      const res = await fetch('/api/user/resend-login-otp', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
@@ -382,6 +402,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: e?.message || 'Unable to resend login OTP.' };
     }
   };
+
+  const resendLoginOtp = (userId: string) =>
+    resendLoginOtpForEndpoint('/api/user/resend-login-otp', userId);
+
+  const resendAdminLoginOtp = (userId: string) =>
+    resendLoginOtpForEndpoint('/api/admin/resend-login-otp', userId);
 
   // Register New User
   const register = async (data: { name: string; email: string; mobileNumber?: string; country?: string; password: string; refId?: string; privacyData: boolean }) => {
@@ -689,6 +715,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginStep1,
         verifyLoginOtp,
         resendLoginOtp,
+        adminLoginStep1,
+        verifyAdminLoginOtp,
+        resendAdminLoginOtp,
         register,
         verifyRegisterOtp,
         resendRegisterOtp,

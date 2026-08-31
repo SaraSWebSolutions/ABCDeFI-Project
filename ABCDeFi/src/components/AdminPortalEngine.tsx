@@ -11,6 +11,7 @@ import Web3ActionModal from './Web3ActionModal';
 import AdminSecurityConfirmationModal from './AdminSecurityConfirmationModal';
 import ICOAdmin from './ICOAdmin';
 import { AdminNftIssuance } from './AdminNftIssuance';
+import { AdminAuthenticationDiagnostics } from './AdminAuthenticationDiagnostics';
 import { useAuth } from '../Context/AuthContext';
 
 export interface AdminUserRole {
@@ -57,6 +58,7 @@ export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> =
         because this deployment has no canonical backend or on-chain source for them.
       </p>
     </div>
+    <AdminAuthenticationDiagnostics />
     <ICOAdmin />
     <AdminNftIssuance />
   </section>

@@ -6,12 +6,18 @@ export interface DashboardSessionUser {
 
 export const USER_DASHBOARD_PATH = '/dashboard';
 export const ADMIN_DASHBOARD_PATH = '/admin';
+export const ADMIN_LOGIN_PATH = '/admin/login';
+
+export function isAdminLoginPath(pathname: string): boolean {
+  return pathname === ADMIN_LOGIN_PATH;
+}
 
 export function isApplicationAdmin(user: DashboardSessionUser | null, sessionVerified: boolean): boolean {
   return sessionVerified && user?.role === 'admin';
 }
 
 export function modeFromPathname(pathname: string): DashboardMode | null {
+  if (isAdminLoginPath(pathname)) return null;
   if (pathname === ADMIN_DASHBOARD_PATH || pathname.startsWith(`${ADMIN_DASHBOARD_PATH}/`)) return 'admin';
   if (pathname === USER_DASHBOARD_PATH || pathname.startsWith(`${USER_DASHBOARD_PATH}/`)) return 'user';
   return null;
@@ -19,7 +25,8 @@ export function modeFromPathname(pathname: string): DashboardMode | null {
 
 /** True only for an explicit administrator URL; it does not grant access. */
 export function isAdminDashboardPath(pathname: string): boolean {
-  return pathname === ADMIN_DASHBOARD_PATH || pathname.startsWith(`${ADMIN_DASHBOARD_PATH}/`);
+  return !isAdminLoginPath(pathname)
+    && (pathname === ADMIN_DASHBOARD_PATH || pathname.startsWith(`${ADMIN_DASHBOARD_PATH}/`));
 }
 
 export function pathForDashboardMode(mode: DashboardMode): string {

@@ -215,6 +215,47 @@ test('production cannot enable development OTP logging and never logs a login OT
   }
 });
 
+test('login rejects an unknown email and invalid password without generating a login OTP', async () => {
+  const original = {
+    nodeEnv: config.node_env,
+    developmentEnabled: config.development_auth_enabled,
+    findOne: UserAccount.findOne,
+    dbReadyState: UserAccount.db.readyState,
+  };
+  const user = await loginUser();
+  try {
+    config.node_env = 'development';
+    config.development_auth_enabled = true;
+    UserAccount.db.readyState = 1;
+    UserAccount.findOne = async (query) => query.email === user.email ? user : null;
+
+    const unknownResponse = response();
+    await controller.userLogin(
+      { body: { email: 'unknown@example.test', password: 'StrongPass1!' }, ip: '127.0.0.1', headers: {} },
+      unknownResponse,
+      (error) => { throw error; },
+    );
+    assert.equal(unknownResponse.statusCode, 404);
+    assert.match(unknownResponse.body.message, /account does not exist/i);
+
+    const invalidPasswordResponse = response();
+    await controller.userLogin(
+      { body: { email: user.email, password: 'WrongPassword1!' }, ip: '127.0.0.1', headers: {} },
+      invalidPasswordResponse,
+      (error) => { throw error; },
+    );
+    assert.equal(invalidPasswordResponse.statusCode, 401);
+    assert.match(invalidPasswordResponse.body.message, /invalid credentials/i);
+    assert.equal(user.loginOtp, undefined);
+    assert.equal(user.loginOtpExpires, undefined);
+  } finally {
+    config.node_env = original.nodeEnv;
+    config.development_auth_enabled = original.developmentEnabled;
+    UserAccount.findOne = original.findOne;
+    UserAccount.db.readyState = original.dbReadyState;
+  }
+});
+
 process.on('exit', () => {
   require.cache[mailerPath].exports = originalMailer;
 });

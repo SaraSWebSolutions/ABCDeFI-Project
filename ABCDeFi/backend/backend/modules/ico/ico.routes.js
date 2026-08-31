@@ -12,11 +12,13 @@ const {
   importIcoData
 } = require("./ico.controller");
 const express = require("express");
+const auth = require("../../middleware/authMiddleware");
+const { requireAdmin } = require("../../middleware/authMiddleware");
 
 const router = express.Router();
 
 // Existing start date routes
-router.post("/add", setStartDate);
+router.post("/add", auth, requireAdmin, setStartDate);
 router.get("/", showIcoStartDate);
 
 // Standard ICO / Presale routes
@@ -29,7 +31,7 @@ router.get("/referrals/:walletAddress", getReferralsByWallet);
 router.get("/vesting/:walletAddress", getVestingByWallet);
 
 // Admin Import/Export routes
-router.get("/admin/export", exportIcoData);
-router.post("/admin/import", importIcoData);
+router.get("/admin/export", auth, requireAdmin, exportIcoData);
+router.post("/admin/import", auth, requireAdmin, importIcoData);
 
 module.exports = router;

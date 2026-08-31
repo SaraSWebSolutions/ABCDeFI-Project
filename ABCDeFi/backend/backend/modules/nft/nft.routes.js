@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const nftController = require('./nft.controller');
 const auth = require("../../middleware/authMiddleware");
+const { requireAdmin } = require("../../middleware/authMiddleware");
 
 // Public NFT Catalog Endpoints (No Auth Required for Marketplace Browsing)
 router.get('/all', nftController.getAllNftsPublic);
@@ -16,11 +17,11 @@ router.get('/', auth, nftController.getAllNfts);
 router.get('/:tokenId', nftController.getNftByTokenId);
 
 // Creation / Minting Endpoints
-router.post('/', nftController.createNft);
-router.post('/loan', nftController.createLoanNft);
-router.post('/franchise', nftController.createFranchiseNft);
-router.post('/mint-franchise', nftController.createFranchiseNft);
-router.post('/legion', nftController.createLegionNft);
-router.post('/mint-legion', nftController.createLegionNft);
+router.post('/', auth, requireAdmin, nftController.createNft);
+router.post('/loan', auth, requireAdmin, nftController.createLoanNft);
+router.post('/franchise', auth, requireAdmin, nftController.createFranchiseNft);
+router.post('/mint-franchise', auth, requireAdmin, nftController.createFranchiseNft);
+router.post('/legion', auth, requireAdmin, nftController.createLegionNft);
+router.post('/mint-legion', auth, requireAdmin, nftController.createLegionNft);
 
 module.exports = router;

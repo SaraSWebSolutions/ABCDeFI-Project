@@ -30,7 +30,7 @@ const privacyRouter = require("./modules/user/privacyPolicy/privacyPolicy.routes
 const rewardRouter = require("./modules/user/rewards/rewards.routes");
 const AdminUserRouter = require("./modules/admin/userManagement/userManagement.routes");
 const TermsRouter = require("./modules/user/terms/terms.routes");
-const AdminRouter = require("./modules/admin/admin/admin.routes");
+const AdminAuthRouter = require("./modules/user/userAccount/adminAuth.routes");
 const FaqRouter = require("./modules/user/faq/faq.routes");
 const AboutRouter = require("./modules/user/about/about.routes");
 const UserNotificationRouter = require("./modules/user/notification/notification.routes");
@@ -78,7 +78,10 @@ app.use("/api/privacyPolicy", privacyRouter);
 app.use("/api/reward", rewardRouter);
 app.use("/api/admin/user", AdminUserRouter);
 app.use("/api/terms", TermsRouter);
-app.use("/api/admin", AdminRouter);
+// Canonical admin authentication shares the UserAccount database and requires
+// bcrypt password verification plus the existing login OTP flow. The legacy
+// standalone Admin model is intentionally not mounted.
+app.use("/api/admin", AdminAuthRouter);
 app.use("/api/faq", FaqRouter);
 app.use("/api/about", AboutRouter);
 app.use("/api/user/notification", UserNotificationRouter);

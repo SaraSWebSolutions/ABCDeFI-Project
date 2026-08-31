@@ -14,11 +14,17 @@ const sendPushNotification = require("../../../utils/sendPush");
 const Referral = require("../referral/referral.model");
 const { ethers } = require("ethers");
 const logger = require("../../../logger");
+const {
+    developmentDiagnosticsEnabled,
+    recordDevelopmentLoginOtp,
+    getDevelopmentLoginOtp,
+    clearDevelopmentLoginOtp,
+} = require("./developmentLoginOtpDiagnostics.cjs");
 
 const AUTH_DATABASE_TIMEOUT_MS = 10_000;
 const PROFILE_SECRET_FIELDS = [
     "password", "otp", "otpExpires", "otpLastSent",
-    "loginOtp", "loginOtpExpires",
+    "loginOtp", "loginOtpExpires", "loginOtpPurpose",
     "refreshToken", "refreshTokenExpiry",
     "resetPasswordToken", "resetPasswordExpires",
     "walletLoginNonce", "walletLoginNonceExpires", "walletLoginMessage",
@@ -83,8 +89,7 @@ const generateTokens = async (user) => {
 };
 
 function developmentOtpLoggingEnabled() {
-    return config.development_auth_enabled === true
-        && String(config.node_env || "").toLowerCase() !== "production";
+    return developmentDiagnosticsEnabled(config);
 }
 
 /**
@@ -422,6 +427,7 @@ exports.resendOtp = async (req, res, next) => {
 
 exports.userLogin = async (req, res, next) => {
     const { email, mobileNumber, password } = req.body;
+    const isAdminLogin = req.adminLogin === true;
     try {
         if (!password || (!email && !mobileNumber)) {
             return res.status(400).json({ success: false, message: "Email or Phone number and Password required" });
@@ -436,9 +442,9 @@ exports.userLogin = async (req, res, next) => {
 
         const user = await withinAuthenticationDatabaseTimeout(UserAccount.findOne(query));
         if (!user) {
-            return res.status(404).json({
+            return res.status(isAdminLogin ? 401 : 404).json({
                 success: false,
-                message: "Account does not exist"
+                message: isAdminLogin ? "Invalid administrator credentials" : "Account does not exist"
             });
         }
         if (user.isSuspended) {
@@ -485,18 +491,36 @@ exports.userLogin = async (req, res, next) => {
             return res.status(401).json({ success: false, message: "Invalid credentials" });
         }
 
+        // This check deliberately happens only after the normal bcrypt check.
+        // A frontend path, wallet address, or JWT cache cannot elevate a user.
+        if (isAdminLogin && user.role !== "admin") {
+            return res.status(403).json({
+                success: false,
+                message: "Administrator access is required"
+            });
+        }
+
         // If 2FA is enabled (default behavior for fintech security), generate Login OTP
         if (user.is2FAEnabled !== false) {
             const loginOtp = crypto.randomInt(100000, 1000000).toString(); // 6 digits
             const hashedOtp = crypto.createHash("sha256").update(loginOtp).digest("hex");
 
+            const loginOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
             user.loginOtp = hashedOtp;
-            user.loginOtpExpires = Date.now() + 10 * 60 * 1000;
+            user.loginOtpExpires = loginOtpExpires;
+            user.loginOtpPurpose = isAdminLogin ? "admin" : "user";
             await user.save();
 
             try {
+                recordDevelopmentLoginOtp({
+                    userId: user._id,
+                    otp: loginOtp,
+                    expiresAt: loginOtpExpires,
+                    config,
+                });
                 await deliverLoginOtp(user, loginOtp);
             } catch (err) {
+                clearDevelopmentLoginOtp(user._id);
                 user.loginOtp = undefined;
                 user.loginOtpExpires = undefined;
                 await user.save();
@@ -510,8 +534,8 @@ exports.userLogin = async (req, res, next) => {
                 userId: user._id,
                 email: user.email,
                 message: developmentOtpLoggingEnabled()
-                    ? "Password verified. Enter the 6-digit OTP printed in the local backend terminal."
-                    : `Password Verified. OTP sent to ${user.email}`
+                    ? `${isAdminLogin ? "Administrator password" : "Password"} verified. Enter the 6-digit OTP printed in the local backend terminal.`
+                    : `${isAdminLogin ? "Administrator password" : "Password"} verified. OTP sent to ${user.email}`
             });
         }
 
@@ -553,8 +577,16 @@ exports.userLogin = async (req, res, next) => {
     }
 };
 
+// Canonical administrator entry point. It reuses the exact UserAccount
+// password/OTP logic above and merely requires the persisted admin role.
+exports.adminLogin = (req, res, next) => {
+    req.adminLogin = true;
+    return exports.userLogin(req, res, next);
+};
+
 exports.verifyLoginOtp = async (req, res, next) => {
     const { userId, otp } = req.body;
+    const expectedLoginOtpPurpose = req.adminLogin === true ? "admin" : "user";
     try {
         if (!userId || !otp) {
             return res.status(400).json({ success: false, message: "User ID and OTP are required" });
@@ -571,9 +603,20 @@ exports.verifyLoginOtp = async (req, res, next) => {
             return res.status(400).json({ success: false, message: "Invalid or expired Login OTP code" });
         }
 
+        // Existing records created before this field default to the normal
+        // user path; admin OTPs must always be explicitly tagged.
+        if ((user.loginOtpPurpose || "user") !== expectedLoginOtpPurpose) {
+            return res.status(400).json({ success: false, message: "Invalid or expired Login OTP code" });
+        }
+        if (expectedLoginOtpPurpose === "admin" && user.role !== "admin") {
+            return res.status(403).json({ success: false, message: "Administrator access is required" });
+        }
+
         // Clear 2FA OTP
         user.loginOtp = undefined;
         user.loginOtpExpires = undefined;
+        user.loginOtpPurpose = undefined;
+        clearDevelopmentLoginOtp(user._id);
 
         // Update login history & active sessions
         const sessionId = "sess_" + Date.now();
@@ -615,12 +658,25 @@ exports.verifyLoginOtp = async (req, res, next) => {
     }
 };
 
+exports.verifyAdminLoginOtp = (req, res, next) => {
+    req.adminLogin = true;
+    return exports.verifyLoginOtp(req, res, next);
+};
+
 exports.resendLoginOtp = async (req, res, next) => {
     const { userId } = req.body;
+    const expectedLoginOtpPurpose = req.adminLogin === true ? "admin" : "user";
     try {
         const user = await UserAccount.findById(userId);
         if (!user) {
             return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        if ((user.loginOtpPurpose || "user") !== expectedLoginOtpPurpose) {
+            return res.status(400).json({ success: false, message: "No matching login OTP request is active." });
+        }
+        if (expectedLoginOtpPurpose === "admin" && user.role !== "admin") {
+            return res.status(403).json({ success: false, message: "Administrator access is required" });
         }
 
         if (user.otpLastSent && Date.now() - user.otpLastSent.getTime() < 60000) {
@@ -630,13 +686,23 @@ exports.resendLoginOtp = async (req, res, next) => {
         const newLoginOtp = crypto.randomInt(100000, 1000000).toString();
         const hashedOtp = crypto.createHash("sha256").update(newLoginOtp).digest("hex");
         user.loginOtp = hashedOtp;
-        user.loginOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        const loginOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
+        user.loginOtpExpires = loginOtpExpires;
+        user.loginOtpPurpose = expectedLoginOtpPurpose;
         user.otpLastSent = new Date();
         await user.save();
 
         try {
+            recordDevelopmentLoginOtp({
+                userId: user._id,
+                otp: newLoginOtp,
+                expiresAt: loginOtpExpires,
+                isResend: true,
+                config,
+            });
             await deliverLoginOtp(user, newLoginOtp, true);
         } catch (err) {
+            clearDevelopmentLoginOtp(user._id);
             user.loginOtp = undefined;
             user.loginOtpExpires = undefined;
             await user.save();
@@ -649,6 +715,66 @@ exports.resendLoginOtp = async (req, res, next) => {
             message: developmentOtpLoggingEnabled()
                 ? "A new login OTP was printed in the local backend terminal."
                 : `New Login OTP sent to ${user.email}`
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+exports.resendAdminLoginOtp = (req, res, next) => {
+    req.adminLogin = true;
+    return exports.resendLoginOtp(req, res, next);
+};
+
+/**
+ * Development-only, administrator-protected inspector. It intentionally
+ * reports operational state rather than database secrets. The optional
+ * plaintext OTP can only originate from this process's short-lived runtime
+ * map; it is never read from or reconstructed from MongoDB.
+ */
+exports.adminAuthDebug = async (req, res, next) => {
+    try {
+        if (!developmentOtpLoggingEnabled()) {
+            return res.status(404).json({
+                success: false,
+                message: "Authentication diagnostics are unavailable outside local development."
+            });
+        }
+
+        const userId = String(req.params.userId || "").trim();
+        if (!userId) {
+            return res.status(400).json({ success: false, message: "User ID is required" });
+        }
+
+        const user = await UserAccount.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const now = Date.now();
+        const runtimeOtp = getDevelopmentLoginOtp(user._id, { config, now });
+        const otpExpiresAt = user.loginOtpExpires ? new Date(user.loginOtpExpires) : null;
+        const otpExists = Boolean(user.loginOtp)
+            && Boolean(otpExpiresAt)
+            && otpExpiresAt.getTime() > now;
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                userId: String(user._id),
+                email: user.email,
+                role: user.role,
+                accountStatus: user.isSuspended ? "suspended" : (user.status ? "active" : "unverified"),
+                emailVerified: Boolean(user.status),
+                twoFactorEnabled: user.is2FAEnabled !== false,
+                otpExists,
+                otpExpiresAt: otpExpiresAt?.toISOString() || null,
+                otpRemainingSeconds: otpExpiresAt ? Math.max(0, Math.ceil((otpExpiresAt.getTime() - now) / 1000)) : 0,
+                lastOtpGeneratedAt: runtimeOtp?.generatedAt?.toISOString() || null,
+                lastOtpDeliveryMethod: runtimeOtp?.deliveryMethod || null,
+                resendCount: runtimeOtp?.resendCount || 0,
+                developmentOtp: runtimeOtp?.otp || null,
+            }
         });
     } catch (err) {
         next(err);
