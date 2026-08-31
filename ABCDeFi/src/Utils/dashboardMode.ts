@@ -17,6 +17,11 @@ export function modeFromPathname(pathname: string): DashboardMode | null {
   return null;
 }
 
+/** True only for an explicit administrator URL; it does not grant access. */
+export function isAdminDashboardPath(pathname: string): boolean {
+  return pathname === ADMIN_DASHBOARD_PATH || pathname.startsWith(`${ADMIN_DASHBOARD_PATH}/`);
+}
+
 export function pathForDashboardMode(mode: DashboardMode): string {
   return mode === 'admin' ? ADMIN_DASHBOARD_PATH : USER_DASHBOARD_PATH;
 }

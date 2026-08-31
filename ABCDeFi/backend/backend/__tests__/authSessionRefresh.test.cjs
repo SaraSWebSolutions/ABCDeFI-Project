@@ -36,7 +36,10 @@ test('a valid refresh token restores a profile-capable access token and preserve
     refreshToken: null,
     refreshTokenExpiry: new Date(Date.now() + 60_000),
     save: async () => {},
-    toObject: () => ({ _id: 'refresh-user', email: 'refresh@example.test', name: 'Refresh User', role: 'admin' }),
+    toObject: () => ({
+      _id: 'refresh-user', email: 'refresh@example.test', name: 'Refresh User', role: 'admin',
+      password: 'bcrypt-hash', loginOtp: 'hashed-otp', refreshToken: 'hashed-refresh-token',
+    }),
   };
 
   config.jwt = 'test-access-secret';
@@ -70,6 +73,9 @@ test('a valid refresh token restores a profile-capable access token and preserve
     assert.equal(profile.statusCode, 200);
     assert.equal(profile.body.success, true);
     assert.equal(profile.body.data.role, 'admin');
+    assert.equal(Object.hasOwn(profile.body.data, 'password'), false);
+    assert.equal(Object.hasOwn(profile.body.data, 'loginOtp'), false);
+    assert.equal(Object.hasOwn(profile.body.data, 'refreshToken'), false);
   } finally {
     config.jwt = original.jwt;
     config.refresh_secret = original.refresh;

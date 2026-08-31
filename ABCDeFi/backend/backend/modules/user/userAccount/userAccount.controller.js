@@ -16,6 +16,19 @@ const { ethers } = require("ethers");
 const logger = require("../../../logger");
 
 const AUTH_DATABASE_TIMEOUT_MS = 10_000;
+const PROFILE_SECRET_FIELDS = [
+    "password", "otp", "otpExpires", "otpLastSent",
+    "loginOtp", "loginOtpExpires",
+    "refreshToken", "refreshTokenExpiry",
+    "resetPasswordToken", "resetPasswordExpires",
+    "walletLoginNonce", "walletLoginNonceExpires", "walletLoginMessage",
+];
+
+function safeProfile(userData) {
+    const profile = userData.toObject();
+    for (const field of PROFILE_SECRET_FIELDS) delete profile[field];
+    return profile;
+}
 
 function authenticationDatabaseUnavailable(res) {
     if (UserAccount.db.readyState === 1) return false;
@@ -82,12 +95,8 @@ function developmentOtpLoggingEnabled() {
  */
 async function deliverLoginOtp(user, otp, isResend = false) {
     if (developmentOtpLoggingEnabled()) {
-        logger.info(
-            "LOCAL DEVELOPMENT LOGIN OTP%s userId=%s code=%s expiresInMinutes=10",
-            isResend ? " RESEND" : "",
-            user._id,
-            otp
-        );
+        const resendLabel = isResend ? " RESEND" : "";
+        console.info(`LOCAL DEVELOPMENT LOGIN OTP${resendLabel} userId=${user._id} code=${otp} expiresInMinutes=10`);
         return;
     }
 
@@ -660,7 +669,7 @@ exports.userProfile = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "User not found" });
         }
 
-        const profile = userData.toObject();
+        const profile = safeProfile(userData);
         // Legacy accounts were created with `pending` as the schema default.
         // A pending state is authoritative only after a KYC submission exists.
         if (!profile.kycSubmittedAt && !profile.kycProviderReference && !profile.isKYC && profile.kycStatus === "pending") {

@@ -1,7 +1,7 @@
 import { Contract, formatEther, isAddress, keccak256, parseEther, toUtf8Bytes } from "ethers";
 import { CONTRACTS, DEPLOYMENT_CHAIN_ID } from "../Config/contracts";
 import ABCDTokenArtifact from "../../artifacts/contracts/token/ABCDToken.sol/ABCDToken.json";
-import { provider as canonicalProvider } from "./contractProvider";
+import { getCanonicalReadContract } from "./contractProvider";
 import { getSigner, getWalletAddress } from "./wallet";
 
 const MINTER_ROLE = keccak256(toUtf8Bytes("MINTER_ROLE"));
@@ -33,7 +33,7 @@ function requireAddress(address: string, label: string) {
 }
 
 export async function getTokenContract(withSigner: boolean = false) {
-  if (!withSigner) return new Contract(CONTRACTS.token, ABCDTokenABI, canonicalProvider);
+  if (!withSigner) return getCanonicalReadContract('ABCDToken', CONTRACTS.token, ABCDTokenABI);
 
   const signer = await getSigner();
   const network = await signer.provider?.getNetwork();

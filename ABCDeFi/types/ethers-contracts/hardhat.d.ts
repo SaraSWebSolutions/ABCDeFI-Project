@@ -14,6 +14,8 @@ declare module "@nomicfoundation/hardhat-ethers/types" {
 getContractFactory(name: 'RewardPool', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.RewardPool__factory>
 getContractFactory(name: 'BonusEngine', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.BonusEngine__factory>
 getContractFactory(name: 'BonusManager', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.BonusManager__factory>
+getContractFactory(name: 'ABCDeFiGovernor', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ABCDeFiGovernor__factory>
+getContractFactory(name: 'IERC20Votes', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IERC20Votes__factory>
 getContractFactory(name: 'Governance', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.Governance__factory>
 getContractFactory(name: 'AllocationManager', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.AllocationManager__factory>
 getContractFactory(name: 'ICOManager', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ICOManager__factory>
@@ -24,8 +26,6 @@ getContractFactory(name: 'IBarterNFT', signerOrOptions?: ethers.Signer | Factory
 getContractFactory(name: 'IBonusManager', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IBonusManager__factory>
 getContractFactory(name: 'ICollateralVault', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ICollateralVault__factory>
 getContractFactory(name: 'IEMIManager', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IEMIManager__factory>
-getContractFactory(name: 'ABCDeFiGovernor', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ABCDeFiGovernor__factory>
-getContractFactory(name: 'IERC20Votes', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IERC20Votes__factory>
 getContractFactory(name: 'IGuruNFT', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IGuruNFT__factory>
 getContractFactory(name: 'ILendingPool', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ILendingPool__factory>
 getContractFactory(name: 'ILiquidation', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ILiquidation__factory>
@@ -79,12 +79,12 @@ getContractFactory(name: 'FinanceResourceVault', signerOrOptions?: ethers.Signer
 getContractFactory(name: 'MarketingVault', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.MarketingVault__factory>
 getContractFactory(name: 'ReserveVault', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ReserveVault__factory>
 getContractFactory(name: 'TokenVesting', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.TokenVesting__factory>
-getContractFactory(name: 'CollateralVaultV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.CollateralVaultV2__factory>
 getContractFactory(name: 'EMIManagerV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.EMIManagerV2__factory>
 getContractFactory(name: 'InsuranceReserveV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.InsuranceReserveV2__factory>
+getContractFactory(name: 'CollateralVaultV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.CollateralVaultV2__factory>
 getContractFactory(name: 'LendingPoolV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LendingPoolV2__factory>
-getContractFactory(name: 'LiquidationV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LiquidationV2__factory>
 getContractFactory(name: 'LoanManagerV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LoanManagerV2__factory>
+getContractFactory(name: 'LiquidationV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LiquidationV2__factory>
 getContractFactory(name: 'LoanMarketplaceV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LoanMarketplaceV2__factory>
 getContractFactory(name: 'IAggregatorV3V2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.IAggregatorV3V2__factory>
 getContractFactory(name: 'OracleAdapterV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.OracleAdapterV2__factory>
@@ -93,6 +93,8 @@ getContractFactory(name: 'OracleAdapterV2', signerOrOptions?: ethers.Signer | Fa
 getContractAt(name: 'RewardPool', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.RewardPool>
 getContractAt(name: 'BonusEngine', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.BonusEngine>
 getContractAt(name: 'BonusManager', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.BonusManager>
+getContractAt(name: 'ABCDeFiGovernor', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ABCDeFiGovernor>
+getContractAt(name: 'IERC20Votes', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IERC20Votes>
 getContractAt(name: 'Governance', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.Governance>
 getContractAt(name: 'AllocationManager', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.AllocationManager>
 getContractAt(name: 'ICOManager', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ICOManager>
@@ -103,8 +105,6 @@ getContractAt(name: 'IBarterNFT', address: string | ethers.Addressable, signer?:
 getContractAt(name: 'IBonusManager', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IBonusManager>
 getContractAt(name: 'ICollateralVault', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ICollateralVault>
 getContractAt(name: 'IEMIManager', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IEMIManager>
-getContractAt(name: 'ABCDeFiGovernor', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ABCDeFiGovernor>
-getContractAt(name: 'IERC20Votes', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IERC20Votes>
 getContractAt(name: 'IGuruNFT', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IGuruNFT>
 getContractAt(name: 'ILendingPool', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ILendingPool>
 getContractAt(name: 'ILiquidation', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ILiquidation>
@@ -158,12 +158,12 @@ getContractAt(name: 'FinanceResourceVault', address: string | ethers.Addressable
 getContractAt(name: 'MarketingVault', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.MarketingVault>
 getContractAt(name: 'ReserveVault', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ReserveVault>
 getContractAt(name: 'TokenVesting', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.TokenVesting>
-getContractAt(name: 'CollateralVaultV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.CollateralVaultV2>
 getContractAt(name: 'EMIManagerV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.EMIManagerV2>
 getContractAt(name: 'InsuranceReserveV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.InsuranceReserveV2>
+getContractAt(name: 'CollateralVaultV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.CollateralVaultV2>
 getContractAt(name: 'LendingPoolV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LendingPoolV2>
-getContractAt(name: 'LiquidationV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LiquidationV2>
 getContractAt(name: 'LoanManagerV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LoanManagerV2>
+getContractAt(name: 'LiquidationV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LiquidationV2>
 getContractAt(name: 'LoanMarketplaceV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LoanMarketplaceV2>
 getContractAt(name: 'IAggregatorV3V2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.IAggregatorV3V2>
 getContractAt(name: 'OracleAdapterV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.OracleAdapterV2>
@@ -172,6 +172,8 @@ getContractAt(name: 'OracleAdapterV2', address: string | ethers.Addressable, sig
 deployContract(name: 'RewardPool', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.RewardPool>
 deployContract(name: 'BonusEngine', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.BonusEngine>
 deployContract(name: 'BonusManager', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.BonusManager>
+deployContract(name: 'ABCDeFiGovernor', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ABCDeFiGovernor>
+deployContract(name: 'IERC20Votes', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20Votes>
 deployContract(name: 'Governance', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Governance>
 deployContract(name: 'AllocationManager', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.AllocationManager>
 deployContract(name: 'ICOManager', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ICOManager>
@@ -182,8 +184,6 @@ deployContract(name: 'IBarterNFT', signerOrOptions?: ethers.Signer | DeployContr
 deployContract(name: 'IBonusManager', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IBonusManager>
 deployContract(name: 'ICollateralVault', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ICollateralVault>
 deployContract(name: 'IEMIManager', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IEMIManager>
-deployContract(name: 'ABCDeFiGovernor', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ABCDeFiGovernor>
-deployContract(name: 'IERC20Votes', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20Votes>
 deployContract(name: 'IGuruNFT', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IGuruNFT>
 deployContract(name: 'ILendingPool', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ILendingPool>
 deployContract(name: 'ILiquidation', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ILiquidation>
@@ -237,12 +237,12 @@ deployContract(name: 'FinanceResourceVault', signerOrOptions?: ethers.Signer | D
 deployContract(name: 'MarketingVault', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MarketingVault>
 deployContract(name: 'ReserveVault', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ReserveVault>
 deployContract(name: 'TokenVesting', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.TokenVesting>
-deployContract(name: 'CollateralVaultV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.CollateralVaultV2>
 deployContract(name: 'EMIManagerV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.EMIManagerV2>
 deployContract(name: 'InsuranceReserveV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.InsuranceReserveV2>
+deployContract(name: 'CollateralVaultV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.CollateralVaultV2>
 deployContract(name: 'LendingPoolV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPoolV2>
-deployContract(name: 'LiquidationV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LiquidationV2>
 deployContract(name: 'LoanManagerV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LoanManagerV2>
+deployContract(name: 'LiquidationV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LiquidationV2>
 deployContract(name: 'LoanMarketplaceV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LoanMarketplaceV2>
 deployContract(name: 'IAggregatorV3V2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IAggregatorV3V2>
 deployContract(name: 'OracleAdapterV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.OracleAdapterV2>
@@ -251,6 +251,8 @@ deployContract(name: 'OracleAdapterV2', signerOrOptions?: ethers.Signer | Deploy
 deployContract(name: 'RewardPool', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.RewardPool>
 deployContract(name: 'BonusEngine', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.BonusEngine>
 deployContract(name: 'BonusManager', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.BonusManager>
+deployContract(name: 'ABCDeFiGovernor', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ABCDeFiGovernor>
+deployContract(name: 'IERC20Votes', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20Votes>
 deployContract(name: 'Governance', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Governance>
 deployContract(name: 'AllocationManager', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.AllocationManager>
 deployContract(name: 'ICOManager', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ICOManager>
@@ -261,8 +263,6 @@ deployContract(name: 'IBarterNFT', args: any[], signerOrOptions?: ethers.Signer 
 deployContract(name: 'IBonusManager', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IBonusManager>
 deployContract(name: 'ICollateralVault', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ICollateralVault>
 deployContract(name: 'IEMIManager', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IEMIManager>
-deployContract(name: 'ABCDeFiGovernor', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ABCDeFiGovernor>
-deployContract(name: 'IERC20Votes', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IERC20Votes>
 deployContract(name: 'IGuruNFT', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IGuruNFT>
 deployContract(name: 'ILendingPool', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ILendingPool>
 deployContract(name: 'ILiquidation', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ILiquidation>
@@ -316,12 +316,12 @@ deployContract(name: 'FinanceResourceVault', args: any[], signerOrOptions?: ethe
 deployContract(name: 'MarketingVault', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MarketingVault>
 deployContract(name: 'ReserveVault', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ReserveVault>
 deployContract(name: 'TokenVesting', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.TokenVesting>
-deployContract(name: 'CollateralVaultV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.CollateralVaultV2>
 deployContract(name: 'EMIManagerV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.EMIManagerV2>
 deployContract(name: 'InsuranceReserveV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.InsuranceReserveV2>
+deployContract(name: 'CollateralVaultV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.CollateralVaultV2>
 deployContract(name: 'LendingPoolV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LendingPoolV2>
-deployContract(name: 'LiquidationV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LiquidationV2>
 deployContract(name: 'LoanManagerV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LoanManagerV2>
+deployContract(name: 'LiquidationV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LiquidationV2>
 deployContract(name: 'LoanMarketplaceV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LoanMarketplaceV2>
 deployContract(name: 'IAggregatorV3V2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.IAggregatorV3V2>
 deployContract(name: 'OracleAdapterV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.OracleAdapterV2>

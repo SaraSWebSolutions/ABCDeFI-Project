@@ -6,7 +6,6 @@ const crypto = require('crypto');
 const config = require('../config/default');
 const { resolveAuthMode } = require('../config/authMode.cjs');
 const UserAccount = require('../modules/user/userAccount/userAccount.model');
-const logger = require('../logger');
 const mailerPath = require.resolve('../utils/mailer');
 const originalMailer = require(mailerPath);
 let smtpCalls = 0;
@@ -65,7 +64,7 @@ test('development login 2FA logs a hashed-only OTP flow without SMTP or API OTP 
     refresh: config.refresh_secret,
     findOne: UserAccount.findOne,
     findById: UserAccount.findById,
-    loggerInfo: logger.info,
+    consoleInfo: console.info,
     dbReadyState: UserAccount.db.readyState,
   };
   const logEntries = [];
@@ -78,7 +77,7 @@ test('development login 2FA logs a hashed-only OTP flow without SMTP or API OTP 
   UserAccount.db.readyState = 1;
   UserAccount.findOne = installUserLookup(user);
   UserAccount.findById = async (userId) => (userId === user._id ? user : null);
-  logger.info = (...args) => logEntries.push(args);
+  console.info = (...args) => logEntries.push(args);
   smtpCalls = 0;
 
   try {
@@ -99,7 +98,9 @@ test('development login 2FA logs a hashed-only OTP flow without SMTP or API OTP 
 
     const log = logEntries.find(([message]) => String(message).includes('LOCAL DEVELOPMENT LOGIN OTP'));
     assert.ok(log, 'the local backend terminal must receive the development OTP');
-    const otp = String(log[3]);
+    const logLine = String(log[0]);
+    assert.match(logLine, /^LOCAL DEVELOPMENT LOGIN OTP userId=local-otp-user code=\d{6} expiresInMinutes=10$/);
+    const otp = logLine.match(/code=(\d{6})/)[1];
     assert.match(otp, /^\d{6}$/);
     assert.equal(user.loginOtp, crypto.createHash('sha256').update(otp).digest('hex'));
     assert.notEqual(user.loginOtp, otp);
@@ -117,11 +118,9 @@ test('development login 2FA logs a hashed-only OTP flow without SMTP or API OTP 
     assert.match(resendResponse.body.message, /local backend terminal/i);
     assert.equal(smtpCalls, 0);
 
-    const resendLog = logEntries.find(([message, suffix]) => (
-      String(message).includes('LOCAL DEVELOPMENT LOGIN OTP') && suffix === ' RESEND'
-    ));
+    const resendLog = logEntries.find(([message]) => String(message).startsWith('LOCAL DEVELOPMENT LOGIN OTP RESEND '));
     assert.ok(resendLog, 'the resent OTP must be printed only in the local backend terminal');
-    const resentOtp = String(resendLog[3]);
+    const resentOtp = String(resendLog[0]).match(/code=(\d{6})/)[1];
     assert.match(resentOtp, /^\d{6}$/);
     assert.notEqual(resentOtp, otp);
     assert.equal(user.loginOtp, crypto.createHash('sha256').update(resentOtp).digest('hex'));
@@ -165,7 +164,7 @@ test('development login 2FA logs a hashed-only OTP flow without SMTP or API OTP 
     UserAccount.findOne = original.findOne;
     UserAccount.findById = original.findById;
     UserAccount.db.readyState = original.dbReadyState;
-    logger.info = original.loggerInfo;
+    console.info = original.consoleInfo;
   }
 });
 
@@ -181,7 +180,7 @@ test('production cannot enable development OTP logging and never logs a login OT
     jwt: config.jwt,
     refresh: config.refresh_secret,
     findOne: UserAccount.findOne,
-    loggerInfo: logger.info,
+    consoleInfo: console.info,
     dbReadyState: UserAccount.db.readyState,
   };
   const user = await loginUser();
@@ -192,7 +191,7 @@ test('production cannot enable development OTP logging and never logs a login OT
   config.refresh_secret = 'test-refresh-secret';
   UserAccount.db.readyState = 1;
   UserAccount.findOne = installUserLookup(user);
-  logger.info = (...args) => logEntries.push(args);
+  console.info = (...args) => logEntries.push(args);
   smtpCalls = 0;
   try {
     const loginResponse = response();
@@ -212,7 +211,7 @@ test('production cannot enable development OTP logging and never logs a login OT
     config.refresh_secret = original.refresh;
     UserAccount.findOne = original.findOne;
     UserAccount.db.readyState = original.dbReadyState;
-    logger.info = original.loggerInfo;
+    console.info = original.consoleInfo;
   }
 });
 

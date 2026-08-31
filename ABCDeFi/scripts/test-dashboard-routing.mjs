@@ -33,6 +33,26 @@ test('only a verified admin can select the admin dashboard', () => {
   assert.equal(dashboard.resolveDashboardMode('/admin', admin, false), null);
 });
 
+test('an explicit /admin route is identified without granting admin permission', () => {
+  assert.equal(dashboard.isAdminDashboardPath('/admin'), true);
+  assert.equal(dashboard.isAdminDashboardPath('/admin/operations'), true);
+  assert.equal(dashboard.isAdminDashboardPath('/dashboard'), false);
+});
+
+test('App fails closed for a non-admin direct /admin visit', () => {
+  const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(appSource, /Administrator access denied/);
+  assert.match(appSource, /adminAccessDenied/);
+  assert.match(appSource, /Verifying authenticated session/);
+});
+
+test('top-level incomplete navigation renders an explicit state instead of a blank page', () => {
+  const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(appSource, /Security controls/);
+  assert.match(appSource, /AI Copilot/);
+  assert.match(appSource, /not implemented in the active canonical runtime/);
+});
+
 test('a refresh preserves an authorised selected dashboard and blocks unauthorised URLs', () => {
   assert.equal(dashboard.resolveDashboardMode('/admin', admin, true), 'admin');
   assert.equal(dashboard.resolveDashboardMode('/admin', user, true), 'user');

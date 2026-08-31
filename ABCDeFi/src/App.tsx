@@ -15,6 +15,7 @@ import { KYCModal } from './components/KycModal';
 import { AuthModal } from './components/AuthModal';
 import {
   DashboardMode,
+  isAdminDashboardPath,
   isApplicationAdmin,
   pathForDashboardMode,
   resolveDashboardMode,
@@ -39,6 +40,7 @@ export function AppContent() {
 
   const dashboardMode = resolveDashboardMode(pathname, user, sessionVerified);
   const canAccessAdmin = isApplicationAdmin(user, sessionVerified);
+  const adminAccessDenied = Boolean(user && token && sessionVerified && isAdminDashboardPath(pathname) && !canAccessAdmin);
 
   const navigateDashboard = useCallback((mode: DashboardMode, replace = false) => {
     const destination = pathForDashboardMode(mode);
@@ -56,18 +58,24 @@ export function AppContent() {
   }, []);
 
   useEffect(() => {
-    if (!user || !token || !dashboardMode) return;
+    if (!user || !token || !dashboardMode || adminAccessDenied) return;
     const canonicalPath = pathForDashboardMode(dashboardMode);
     if (window.location.pathname !== canonicalPath) {
       navigateDashboard(dashboardMode, true);
     }
-  }, [dashboardMode, navigateDashboard, token, user]);
+  }, [adminAccessDenied, dashboardMode, navigateDashboard, token, user]);
 
   // Production web app: authenticated users only.
   // Guest/demo access is intentionally disabled so the UI cannot imply that
   // simulated protocol actions are real user activity.
   if (!user || !token) {
     return <LoginPage />;
+  }
+
+  // A cached browser profile never authorizes /admin. Hold the route closed
+  // until the authenticated backend profile confirms the session role.
+  if (!sessionVerified) {
+    return <div className="min-h-screen bg-slate-950 text-slate-100 grid place-items-center p-6"><p className="text-sm text-slate-300">Verifying authenticated session…</p></div>;
   }
 
   // Show Navbar, Dashboard and platform views once authenticated or exploring as guest
@@ -93,7 +101,13 @@ export function AppContent() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {dashboardMode === 'admin' ? (
+        {adminAccessDenied ? (
+          <section className="mx-auto max-w-xl rounded-2xl border border-rose-500/40 bg-rose-500/10 p-6 text-center">
+            <h1 className="text-lg font-bold text-rose-100">Administrator access denied</h1>
+            <p className="mt-2 text-sm text-rose-100/80">Your authenticated ABCDeFi account does not have the administrator role.</p>
+            <button onClick={() => navigateDashboard('user', true)} className="mt-5 rounded-xl border border-slate-700 px-4 py-2 text-sm font-bold text-slate-100 hover:bg-slate-800">Open User Dashboard</button>
+          </section>
+        ) : dashboardMode === 'admin' ? (
           <AdminPortalEngine onOpenUserDashboard={() => navigateDashboard('user')} />
         ) : activeTab === 'dashboard' && (
           <UserDashboard
@@ -116,6 +130,12 @@ export function AppContent() {
         {dashboardMode === 'user' && activeTab === 'presale' && <PresaleICO />}
         {dashboardMode === 'user' && activeTab === 'staking' && <StakingPools />}
         {dashboardMode === 'user' && (activeTab === 'reports' || activeTab === 'portfolio') && <PortfolioDashboard />}
+        {dashboardMode === 'user' && (activeTab === 'security' || activeTab === 'ai-copilot') && (
+          <section className="mx-auto max-w-2xl rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center">
+            <h1 className="text-lg font-bold text-white">{activeTab === 'security' ? 'Security controls' : 'AI Copilot'}</h1>
+            <p className="mt-2 text-sm text-slate-400">This dashboard view is not implemented in the active canonical runtime.</p>
+          </section>
+        )}
       </main>
 
       {/* Auth Modal for Login & Registration */}

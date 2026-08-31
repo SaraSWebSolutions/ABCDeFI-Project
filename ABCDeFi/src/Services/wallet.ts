@@ -1,6 +1,7 @@
-import { BrowserProvider, Contract, formatEther, Signer, Provider } from 'ethers';
+import { BrowserProvider, Contract, formatEther, Signer } from 'ethers';
 import ABCDTokenABI from '../abi/ABCDToken.json';
 import { CONTRACTS, DEPLOYMENT_CHAIN_ID, DEPLOYMENT_RPC_URL } from '../Config/contracts';
+import { assertCanonicalContractDeployment, assertCanonicalReadChain, provider as canonicalReadProvider } from './contractProvider';
 
 declare global {
   interface Window {
@@ -139,34 +140,19 @@ export async function signAuthChallenge(_userAddress: string, message: string): 
   return signer.signMessage(message);
 }
 
-export async function getEthBalance(provider?: BrowserProvider, address?: string): Promise<string | null> {
+export async function getEthBalance(_walletProvider?: BrowserProvider, address?: string): Promise<string | null> {
   try {
-    const p = provider || await getProvider();
     const addr = address || await getWalletAddress();
-    return formatEther(await p.getBalance(addr));
+    await assertCanonicalReadChain();
+    return formatEther(await canonicalReadProvider.getBalance(addr));
   } catch (error) {
     console.warn('[getEthBalance] Failed to fetch native balance:', error);
     return null;
   }
 }
 
-export async function getTokenBalance(providerOrSigner?: BrowserProvider | Signer, userAddress?: string, tokenAddress?: string): Promise<string | null> {
+export async function getTokenBalance(_walletProviderOrSigner?: BrowserProvider | Signer, userAddress?: string, tokenAddress?: string): Promise<string | null> {
   try {
-    let provider: Provider | null = null;
-    if (providerOrSigner) {
-      if ('provider' in providerOrSigner && providerOrSigner.provider) {
-        provider = providerOrSigner.provider;
-      } else if ('getNetwork' in providerOrSigner) {
-        provider = providerOrSigner as Provider;
-      }
-    }
-    if (!provider) {
-      provider = await getProvider();
-    }
-
-    const network = await provider.getNetwork();
-    console.log('[getTokenBalance] Connected chain ID:', network.chainId.toString());
-
     const addr = userAddress || await getWalletAddress();
     const targetAddress = tokenAddress || CONTRACTS.token;
     if (!targetAddress || targetAddress === '0x0000000000000000000000000000000000000000') {
@@ -174,13 +160,8 @@ export async function getTokenBalance(providerOrSigner?: BrowserProvider | Signe
       return null;
     }
 
-    const code = await provider.getCode(targetAddress);
-    if (!code || code === '0x' || code === '0x0') {
-      console.warn(`[getTokenBalance] No contract found at ${targetAddress} on chain ${network.chainId}`);
-      return null;
-    }
-
-    const token = new Contract(targetAddress, ABCDTokenABI, providerOrSigner || provider);
+    await assertCanonicalContractDeployment('ABCDToken', targetAddress);
+    const token = new Contract(targetAddress, ABCDTokenABI, canonicalReadProvider);
     return formatEther(await token.balanceOf(addr));
   } catch (error) {
     console.error('Token balance loading failed:', error);

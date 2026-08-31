@@ -2,7 +2,7 @@ import { Contract, formatEther, isAddress, keccak256, parseEther, toUtf8Bytes } 
 import { CONTRACTS, DEPLOYMENT_CHAIN_ID } from "../Config/contracts";
 import TreasuryArtifact from "../../artifacts/contracts/treasury/Treasury.sol/Treasury.json";
 import ABCDTokenArtifact from "../../artifacts/contracts/token/ABCDToken.sol/ABCDToken.json";
-import { provider as canonicalProvider } from "./contractProvider";
+import { getCanonicalReadContract } from "./contractProvider";
 import { getSigner, getWalletAddress } from "./wallet";
 
 const TREASURY_ADMIN_ROLE = keccak256(toUtf8Bytes("TREASURY_ADMIN_ROLE"));
@@ -59,8 +59,8 @@ async function requireRole(role: string, roleName: string) {
 }
 
 export async function getTreasuryContract(withSigner = false) {
-  const providerOrSigner = withSigner ? await getSignerOnDeploymentChain() : canonicalProvider;
-  return new Contract(CONTRACTS.treasury, TreasuryABI, providerOrSigner);
+  if (!withSigner) return getCanonicalReadContract('Treasury', CONTRACTS.treasury, TreasuryABI);
+  return new Contract(CONTRACTS.treasury, TreasuryABI, await getSignerOnDeploymentChain());
 }
 
 /** Reads only the canonical localhost deployment; no wallet connection is required. */

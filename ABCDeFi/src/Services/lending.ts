@@ -1,6 +1,6 @@
 import { Contract, formatEther, Interface, parseEther, Signer } from "ethers";
 import { CONTRACTS, DEPLOYMENT_CHAIN_ID } from "../Config/contracts";
-import { provider as canonicalProvider } from "./contractProvider";
+import { assertCanonicalContractDeployment, provider as canonicalProvider } from "./contractProvider";
 import LendingPoolArtifact from "../../artifacts/contracts/lending/LendingPool.sol/LendingPool.json";
 import ABCDTokenArtifact from "../../artifacts/contracts/token/ABCDToken.sol/ABCDToken.json";
 import CollateralVaultArtifact from "../../artifacts/contracts/vault/CollateralVault.sol/CollateralVault.json";
@@ -207,11 +207,16 @@ export async function verifyCanonicalLendingDeployment(): Promise<LendingDeploym
     throw new Error(`Canonical lending RPC is on chain ${network.chainId}, expected ${DEPLOYMENT_CHAIN_ID}.`);
   }
 
-  const deployment = await Promise.all(Object.entries(lendingDeploymentAddresses).map(async ([name, address]) => ({
-    name,
-    address,
-    hasCode: (await canonicalProvider.getCode(address)) !== '0x',
-  })));
+  const deployment = await Promise.all(Object.entries(lendingDeploymentAddresses).map(async ([name, address]) => {
+    try {
+      await assertCanonicalContractDeployment(name, address);
+      return { name, address, hasCode: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown deployment check error.';
+      if (!message.includes('No deployed bytecode')) throw error;
+      return { name, address, hasCode: false };
+    }
+  }));
   const missing = deployment.filter(({ hasCode }) => !hasCode);
   if (missing.length > 0) {
     throw new Error(`Missing deployed bytecode for: ${missing.map(({ name }) => name).join(', ')}.`);
