@@ -6,6 +6,7 @@ export type { BarterNFT } from './BarterNFT.js';
 export type { FranchiseNFT } from './FranchiseNFT.js';
 export type { GuruNFT } from './GuruNFT.js';
 export type { LoanNFT } from './LoanNFT.js';
+export type { LoanNFTV2 } from './LoanNFTV2.js';
 export type { ParticipantNFT } from './ParticipantNFT.js';
 export type { RWABarterNFT } from './RWABarterNFT.js';
 export type { ReputationNFT } from './ReputationNFT.js';

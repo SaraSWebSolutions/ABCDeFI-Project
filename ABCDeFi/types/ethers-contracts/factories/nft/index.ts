@@ -6,6 +6,7 @@ export { BarterNFT__factory } from './BarterNFT__factory.js';
 export { FranchiseNFT__factory } from './FranchiseNFT__factory.js';
 export { GuruNFT__factory } from './GuruNFT__factory.js';
 export { LoanNFT__factory } from './LoanNFT__factory.js';
+export { LoanNFTV2__factory } from './LoanNFTV2__factory.js';
 export { ParticipantNFT__factory } from './ParticipantNFT__factory.js';
 export { RWABarterNFT__factory } from './RWABarterNFT__factory.js';
 export { ReputationNFT__factory } from './ReputationNFT__factory.js';

@@ -44,6 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenK
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Layers },
     { id: 'lending', label: 'P2P Loans', icon: Repeat },
+    { id: 'lending-v2', label: 'Lending V2', icon: Repeat },
     { id: 'presale', label: 'ICO Presale', icon: Sparkles },
     { id: 'staking', label: 'Staking Pools', icon: Coins },
     { id: 'nfts', label: 'NFT Ecosystem', icon: ShieldCheck },

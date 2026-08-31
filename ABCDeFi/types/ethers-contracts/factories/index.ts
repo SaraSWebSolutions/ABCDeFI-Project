@@ -8,6 +8,7 @@ export * as interfaces from './interfaces/index.js';
 export * as lending from './lending/index.js';
 export * as libraries from './libraries/index.js';
 export * as marketplace from './marketplace/index.js';
+export * as mocks from './mocks/index.js';
 export * as nft from './nft/index.js';
 export * as oracle from './oracle/index.js';
 export * as reputation from './reputation/index.js';

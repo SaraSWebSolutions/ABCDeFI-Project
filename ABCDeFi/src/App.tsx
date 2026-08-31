@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { Navbar } from './components/Navbar';
 import { UserDashboard } from './components/UserDashboard';
 import { LendingPool } from './components/LendingPool';
+import { LendingV2 } from './components/LendingV2';
 import { NFTEcosystem } from './components/NFTEcosystem';
 import { PresaleICO } from './components/PresaleICO';
 import { StakingPools } from './components/StakingPools';
@@ -110,6 +111,7 @@ export function AppContent() {
           />
         )}
         {dashboardMode === 'user' && activeTab === 'lending' && <LendingPool />}
+        {dashboardMode === 'user' && activeTab === 'lending-v2' && <LendingV2 />}
         {dashboardMode === 'user' && (activeTab === 'nft' || activeTab === 'nfts') && <NFTEcosystem />}
         {dashboardMode === 'user' && activeTab === 'presale' && <PresaleICO />}
         {dashboardMode === 'user' && activeTab === 'staking' && <StakingPools />}

@@ -41,6 +41,7 @@ const NftRouter = require("./modules/nft/nft.routes");
 const DashboardRouter = require("./modules/dashboard/dashboard.routes");
 const TransactionRouter = require("./modules/transactions/transaction.routes");
 const LendingReadRouter = require("./modules/lendingProjection/lendingRead.routes");
+const LendingV2ReadRouter = require("./modules/lendingV2Projection/lendingV2Read.routes.cjs");
 const FranchiseReadRouter = require("./modules/franchiseProjection/franchiseRead.routes");
 const NftStorageRouter = require("./modules/nftStorage/nftStorage.routes");
 
@@ -87,6 +88,7 @@ const PresaleRouter = require("./routes/presale");
 
 app.use("/api/loans", LoanRouter);
 app.use("/api/lending", LendingReadRouter);
+app.use("/api/lending-v2", LendingV2ReadRouter);
 app.use("/api/franchise", FranchiseReadRouter);
 app.use("/api/nft-storage", NftStorageRouter);
 app.use("/api/nfts", NftRouter);
