@@ -46,6 +46,9 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const isAdministratorLogin = variant === 'admin';
+  // User and administrator password login share the same OTP form. The
+  // verification handler selects the canonical endpoint from pendingAuth.
+  const isLoginOtpStep = pendingAuth?.step === 'LOGIN_2FA' || pendingAuth?.step === 'ADMIN_LOGIN_2FA';
 
   const resetFormAlerts = () => {
     setError(null);
@@ -654,7 +657,7 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
           )}
 
           {/* 4. LOGIN 2FA OTP FORM */}
-          {pendingAuth?.step === 'LOGIN_2FA' && (
+          {isLoginOtpStep && (
             <form onSubmit={handleVerify2FAOtp} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1.5">6-Digit Security OTP</label>
@@ -704,7 +707,9 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
                 disabled={isSubmitting || otpCode.length !== 6}
                 className="w-full py-3 px-4 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 text-slate-950 hover:from-emerald-400 hover:to-cyan-400 transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
-                {isSubmitting ? 'Verifying...' : 'Verify & Access Dashboard'}
+                {isSubmitting ? 'Verifying...' : pendingAuth?.step === 'ADMIN_LOGIN_2FA'
+                  ? 'Verify & Access Admin Dashboard'
+                  : 'Verify & Access Dashboard'}
               </button>
             </form>
           )}

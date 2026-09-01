@@ -1,0 +1,16 @@
+{
+  "name": "Test Franchise",
+  "description": "territory is a description",
+  "external_url": "http://localhost:5173",
+  "attributes": [
+    {
+      "trait_type": "Tier",
+      "value": "District"
+    },
+    {
+      "trait_type": "Territory",
+      "value": "Test Territory"
+    }
+  ],
+  "image": "http://127.0.0.1:5000/uploads/nft-assets/21ddad0f-01b6-4c15-a8b7-3a0be34e48d4.png"
+}

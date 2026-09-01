@@ -1,0 +1,7 @@
+{
+  "name": "Test Legion",
+  "description": "Local development test Legion",
+  "external_url": "http://localhost:5173",
+  "attributes": [],
+  "image": "http://127.0.0.1:5000/uploads/nft-assets/68becaae-62c4-4be7-b72f-6abecbf96bbd.png"
+}

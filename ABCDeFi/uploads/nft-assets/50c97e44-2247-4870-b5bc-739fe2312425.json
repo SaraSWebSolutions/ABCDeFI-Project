@@ -1,0 +1,20 @@
+{
+  "name": "Test Continent Legion",
+  "description": "Local development test Legion",
+  "external_url": "http://localhost:5173",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "Continent"
+    },
+    {
+      "trait_type": "Territory",
+      "value": "Test Territory"
+    },
+    {
+      "trait_type": "Population",
+      "value": "1000"
+    }
+  ],
+  "image": "http://127.0.0.1:5000/uploads/nft-assets/50c97e44-2247-4870-b5bc-739fe2312425.png"
+}

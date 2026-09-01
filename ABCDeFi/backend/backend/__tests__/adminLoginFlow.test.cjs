@@ -133,3 +133,57 @@ test('administrator login rejects a non-admin and invalid credentials before iss
     UserAccount.db.readyState = original.ready;
   }
 });
+
+test('administrator OTP rejects invalid and expired codes, while resend keeps the OTP out of the response', async () => {
+  const original = {
+    nodeEnv: config.node_env, developmentEnabled: config.development_auth_enabled,
+    findOne: UserAccount.findOne, findById: UserAccount.findById, ready: UserAccount.db.readyState, info: console.info,
+  };
+  const user = await makeUser('admin');
+  try {
+    config.node_env = 'development';
+    config.development_auth_enabled = true;
+    UserAccount.db.readyState = 1;
+    UserAccount.findById = async (id) => id === user._id ? user : null;
+    console.info = () => {};
+
+    user.loginOtp = 'not-a-real-otp-hash';
+    user.loginOtpExpires = new Date(Date.now() + 60_000);
+    user.loginOtpPurpose = 'admin';
+    UserAccount.findOne = installLookup(user);
+    const invalid = response();
+    await controller.verifyAdminLoginOtp(
+      { body: { userId: user._id, otp: '000000' }, ip: '127.0.0.1', headers: {} },
+      invalid, (error) => { throw error; },
+    );
+    assert.equal(invalid.statusCode, 400);
+    assert.equal(invalid.body.message, 'Invalid or expired Login OTP code');
+
+    user.loginOtpExpires = new Date(Date.now() - 1);
+    const expired = response();
+    await controller.verifyAdminLoginOtp(
+      { body: { userId: user._id, otp: '000000' }, ip: '127.0.0.1', headers: {} },
+      expired, (error) => { throw error; },
+    );
+    assert.equal(expired.statusCode, 400);
+
+    user.loginOtpExpires = new Date(Date.now() + 60_000);
+    user.otpLastSent = undefined;
+    const resent = response();
+    await controller.resendAdminLoginOtp(
+      { body: { userId: user._id }, ip: '127.0.0.1', headers: {} },
+      resent, (error) => { throw error; },
+    );
+    assert.equal(resent.statusCode, 200);
+    assert.equal(resent.body.success, true);
+    assert.equal(Object.hasOwn(resent.body, 'otp'), false);
+    assert.equal(user.loginOtpPurpose, 'admin');
+  } finally {
+    config.node_env = original.nodeEnv;
+    config.development_auth_enabled = original.developmentEnabled;
+    UserAccount.findOne = original.findOne;
+    UserAccount.findById = original.findById;
+    UserAccount.db.readyState = original.ready;
+    console.info = original.info;
+  }
+});

@@ -1,0 +1,20 @@
+{
+  "name": "Test Country Legion",
+  "description": "Local development Country Legion test",
+  "external_url": "http://localhost:5173",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "Country"
+    },
+    {
+      "trait_type": "Territory",
+      "value": "Test Country"
+    },
+    {
+      "trait_type": "Population",
+      "value": "100000"
+    }
+  ],
+  "image": "http://127.0.0.1:5000/uploads/nft-assets/05d19584-ddfb-4194-a2d0-e6411a713669.png"
+}

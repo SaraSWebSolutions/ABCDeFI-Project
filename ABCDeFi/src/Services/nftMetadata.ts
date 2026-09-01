@@ -17,20 +17,15 @@ export interface MetadataReadResult {
 }
 
 /**
- * The project has no approved IPFS gateway or upload provider. `ipfs://` is a
- * legitimate on-chain URI but cannot be silently rewritten to an arbitrary
- * gateway. HTTPS metadata can be read directly; all other values stay
- * explicitly unavailable instead of becoming a fabricated preview.
+ * `ipfs://` is a legitimate on-chain URI but cannot be silently rewritten to
+ * an arbitrary gateway. Only explicit HTTPS and IPFS references are accepted
+ * for canonical NFT metadata; local HTTP storage is development-only staging
+ * data and must never be minted as a Legion certificate URI.
  */
 export function isAcceptedMetadataUri(uri: string): boolean {
   try {
     const parsed = new URL(uri);
-    const localDevelopmentAsset = Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV)
-      && parsed.protocol === 'http:'
-      && (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost')
-      && parsed.port === '5000'
-      && parsed.pathname.startsWith('/uploads/nft-assets/');
-    return localDevelopmentAsset || parsed.protocol === 'https:' || (parsed.protocol === 'ipfs:' && /^[a-zA-Z0-9]+$/.test(parsed.hostname));
+    return parsed.protocol === 'https:' || (parsed.protocol === 'ipfs:' && /^[a-zA-Z0-9]+$/.test(parsed.hostname));
   } catch {
     return /^ipfs:\/\/[a-zA-Z0-9]+(?:\/[^\s]*)?$/.test(uri);
   }
@@ -60,7 +55,7 @@ export async function readNftMetadata(
   }
 
   const metadataUrl = safeMetadataUrl(uri);
-  if (!metadataUrl) return { metadata: null, imageUrl: null, unavailableReason: 'Metadata URI must use HTTPS or IPFS, or configured local development storage.' };
+  if (!metadataUrl) return { metadata: null, imageUrl: null, unavailableReason: 'Metadata URI must use explicit HTTPS or IPFS.' };
 
   try {
     const response = await fetcher(metadataUrl);

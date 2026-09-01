@@ -40,3 +40,36 @@ test('production refuses local/unconfigured NFT storage rather than inventing a 
     if (oldJwt === undefined) delete process.env.PINATA_JWT; else process.env.PINATA_JWT = oldJwt;
   }
 });
+
+test('Pinata storage returns real IPFS URI references and ERC-721 JSON with an IPFS image', async () => {
+  const oldEnvironment = process.env.NODE_ENV; const oldProvider = process.env.NFT_STORAGE_PROVIDER; const oldJwt = process.env.PINATA_JWT; const originalFetch = global.fetch;
+  try {
+    process.env.NODE_ENV = 'production'; process.env.NFT_STORAGE_PROVIDER = 'pinata'; process.env.PINATA_JWT = 'test-only-pinata-jwt';
+    const ids = ['bafybeigdyrzt4imagecidexample', 'bafybeigdyrzt4metadatacidexample'];
+    global.fetch = async () => new Response(JSON.stringify({ IpfsHash: ids.shift() }), { status: 200, headers: { 'content-type': 'application/json' } });
+    const result = await storeNftAsset({ buffer: PNG }, metadata);
+    assert.equal(result.provider, 'pinata');
+    assert.equal(result.imageUri, 'ipfs://bafybeigdyrzt4imagecidexample');
+    assert.equal(result.metadataUri, 'ipfs://bafybeigdyrzt4metadatacidexample');
+    assert.equal(result.ipfsCid, 'bafybeigdyrzt4metadatacidexample');
+  } finally {
+    global.fetch = originalFetch;
+    if (oldEnvironment === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = oldEnvironment;
+    if (oldProvider === undefined) delete process.env.NFT_STORAGE_PROVIDER; else process.env.NFT_STORAGE_PROVIDER = oldProvider;
+    if (oldJwt === undefined) delete process.env.PINATA_JWT; else process.env.PINATA_JWT = oldJwt;
+  }
+});
+
+test('Pinata failures preserve only the provider safe reason', async () => {
+  const oldEnvironment = process.env.NODE_ENV; const oldProvider = process.env.NFT_STORAGE_PROVIDER; const oldJwt = process.env.PINATA_JWT; const originalFetch = global.fetch;
+  try {
+    process.env.NODE_ENV = 'production'; process.env.NFT_STORAGE_PROVIDER = 'pinata'; process.env.PINATA_JWT = 'test-only-pinata-jwt';
+    global.fetch = async () => new Response(JSON.stringify({ error: { reason: 'NO_SCOPES_FOUND' } }), { status: 403, headers: { 'content-type': 'application/json' } });
+    await assert.rejects(() => storeNftAsset({ buffer: PNG }, metadata), /Pinata storage failed \(403\): NO_SCOPES_FOUND/);
+  } finally {
+    global.fetch = originalFetch;
+    if (oldEnvironment === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = oldEnvironment;
+    if (oldProvider === undefined) delete process.env.NFT_STORAGE_PROVIDER; else process.env.NFT_STORAGE_PROVIDER = oldProvider;
+    if (oldJwt === undefined) delete process.env.PINATA_JWT; else process.env.PINATA_JWT = oldJwt;
+  }
+});
