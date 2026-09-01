@@ -68,7 +68,10 @@ function hasBytecode(code: string) {
 }
 
 function isValidIpfsCid(value: string): boolean {
-  return /^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|bafy[a-z2-7]{20,})$/.test(value);
+  // CIDv1 base32 values use the `b` multibase prefix. Pinata may return
+  // bafy..., bafk..., or another valid CIDv1 codec prefix; do not restrict
+  // this check to one codec while retaining strict CID formatting.
+  return /^(?:Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{20,})$/.test(value);
 }
 
 export function isAcceptedFranchiseMetadataUri(value: string): boolean {

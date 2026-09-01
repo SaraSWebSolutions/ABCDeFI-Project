@@ -63,10 +63,52 @@ const STORAGE_KEY_USER = 'abcdefi_auth_user';
 const STORAGE_KEY_TOKEN = 'abcdefi_jwt';
 const STORAGE_KEY_REFRESH = 'abcdefi_auth_refresh';
 const STORAGE_KEY_METHOD = 'abcdefi_auth_method';
+const STORAGE_KEY_PENDING_AUTH = 'abcdefi_pending_auth';
+
+const PENDING_AUTH_STEPS = new Set<NonNullable<PendingAuthState['step']>>([
+  'LOGIN_2FA',
+  'ADMIN_LOGIN_2FA',
+  'REGISTER_OTP',
+  'FORGOT_OTP',
+  'RESET_PASSWORD',
+]);
+
+function readPendingAuth(): PendingAuthState | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_PENDING_AUTH);
+    if (!raw) return null;
+    const candidate: unknown = JSON.parse(raw);
+    if (!candidate || typeof candidate !== 'object') {
+      sessionStorage.removeItem(STORAGE_KEY_PENDING_AUTH);
+      return null;
+    }
+    const value = candidate as PendingAuthState;
+    if (!value.userId || typeof value.userId !== 'string' || !value.step || !PENDING_AUTH_STEPS.has(value.step)) {
+      sessionStorage.removeItem(STORAGE_KEY_PENDING_AUTH);
+      return null;
+    }
+    return {
+      userId: value.userId,
+      email: typeof value.email === 'string' ? value.email : undefined,
+      step: value.step,
+    };
+  } catch {
+    try { sessionStorage.removeItem(STORAGE_KEY_PENDING_AUTH); } catch { /* storage is unavailable */ }
+    return null;
+  }
+}
 
 type RefreshedSession = {
   token: string;
   refreshToken?: string;
+};
+
+type LoginStepResult = {
+  success: boolean;
+  require2FA?: boolean;
+  userId?: string;
+  email?: string;
+  message?: string;
 };
 
 const authDiagnosticsEnabled = Boolean((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV);
@@ -98,18 +140,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [loading, setLoading] = useState(false);
   const refreshRequestRef = useRef<Promise<RefreshedSession | null> | null>(null);
+  // React state updates do not synchronously disable two submit events. This
+  // ref is the authoritative browser-side in-flight lock for password login.
+  const loginRequestRef = useRef<Promise<LoginStepResult> | null>(null);
   // Saved browser data is not sufficient to grant application-admin access on
   // a reload.  The authenticated backend profile must confirm the session.
   const [sessionVerified, setSessionVerified] = useState(() => !localStorage.getItem(STORAGE_KEY_TOKEN));
 
-  const [pendingAuth, setPendingAuthState] = useState<PendingAuthState | null>(() => {
-    try {
-      const saved = sessionStorage.getItem('abcdefi_pending_auth');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [pendingAuth, setPendingAuthState] = useState<PendingAuthState | null>(readPendingAuth);
 
   const clearAuthSession = useCallback((disconnectWallet = true) => {
     setUser(null);
@@ -133,9 +171,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const next = typeof val === 'function' ? val(prev) : val;
       try {
         if (next) {
-          sessionStorage.setItem('abcdefi_pending_auth', JSON.stringify(next));
+          sessionStorage.setItem(STORAGE_KEY_PENDING_AUTH, JSON.stringify(next));
         } else {
-          sessionStorage.removeItem('abcdefi_pending_auth');
+          sessionStorage.removeItem(STORAGE_KEY_PENDING_AUTH);
         }
       } catch {
         // ignore
@@ -187,7 +225,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [refreshToken]);
 
   const refreshProfile = useCallback(async () => {
-    if (!token) {
+    const storedRefreshToken = refreshToken || localStorage.getItem(STORAGE_KEY_REFRESH);
+    if (!token && !storedRefreshToken) {
       setSessionVerified(true);
       return;
     }
@@ -196,6 +235,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       let accessToken = token;
+      // A browser may retain the refresh token while its short-lived access
+      // token was cleared. Restore that legitimate session before requesting
+      // the backend-authoritative profile.
+      if (!accessToken) {
+        const refreshed = await refreshAccessToken();
+        accessToken = refreshed?.token || null;
+      }
+
+      if (!accessToken) {
+        clearAuthSession(false);
+        return;
+      }
+
       let res = await fetch('/api/user/profile', {
         method: 'GET',
         headers: { Authorization: `Bearer ${accessToken}` },
@@ -221,25 +273,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(data.data);
         localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(data.data));
         setSessionVerified(true);
-      } else if (res.status === 401) {
-        // A failed refresh or a failed one-time retry is definitive.  Do not
-        // retry again here, or multiple mounting components could loop.
-        clearAuthSession();
       } else {
-        setSessionVerified(false);
+        // A failed refresh, a rejected profile, or an unavailable profile
+        // endpoint cannot leave a stale browser profile authorized. Do not
+        // retry here: mounting components must not create auth loops.
+        clearAuthSession(false);
       }
     } catch (error) {
-      console.error('Failed to hydrate authenticated profile:', error);
-      setSessionVerified(false);
+      authDiagnostic('profile hydration failed', { message: error instanceof Error ? error.message : 'unknown error' });
+      clearAuthSession(false);
     }
-  }, [clearAuthSession, refreshAccessToken, token]);
+  }, [clearAuthSession, refreshAccessToken, refreshToken, token]);
 
   useEffect(() => {
     void refreshProfile();
   }, [refreshProfile]);
 
 
-  const saveAuthSession = (userData: AuthUser, accessToken: string, refToken?: string, method: 'password' | 'wallet' = 'password') => {
+  const saveAuthSession = (
+    userData: AuthUser,
+    accessToken: string,
+    refToken?: string,
+    method: 'password' | 'wallet' = 'password',
+    verified = true,
+  ) => {
     setUser(userData);
     setToken(accessToken);
     localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userData));
@@ -255,7 +312,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.dispatchEvent(new Event('abcdefi-auth-session-changed'));
     // Login and OTP endpoints only return this session after backend
     // authentication succeeds, so the returned role is safe for this session.
-    setSessionVerified(true);
+    setSessionVerified(verified);
   };
 
   // WalletContext owns MetaMask interaction. AuthContext owns the app session;
@@ -274,73 +331,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [clearAuthSession]);
 
   // Login Step 1
-  const loginStep1ForEndpoint = async (
+  const loginStep1ForEndpoint = (
     endpoint: string,
     loginStep: 'LOGIN_2FA' | 'ADMIN_LOGIN_2FA',
     email: string,
     password: string,
-  ) => {
-    setLoading(true);
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-        signal: controller.signal,
-      });
-      const data = await res.json().catch(() => ({}));
-      
-      if (!res.ok) {
-        if (data?.requireEmailVerify && data?.userId) {
-          setPendingAuth({
-            userId: data.userId,
-            email: data.email || email,
-            step: 'REGISTER_OTP'
-          });
-          return {
-            success: true,
-            userId: data.userId,
-            email: data.email || email,
-            message: data.message || 'Please enter the verification code to activate your account.'
-          };
-        }
-        return { success: false, message: data?.message || `Login failed (${res.status})` };
-      }
+  ): Promise<LoginStepResult> => {
+    // One form interaction maps to one request. Returning the same promise
+    // also prevents a stale rapid second submit from replacing the OTP state.
+    if (loginRequestRef.current) return loginRequestRef.current;
 
-      if (data.success) {
-        if (data.require2FA) {
-          setPendingAuth({
-            userId: data.userId,
-            email: data.email || email,
-            step: loginStep
-          });
-          return {
-            success: true,
-            require2FA: true,
-            userId: data.userId,
-            email: data.email || email,
-            message: data.message
-          };
-        } else if (data.token && data.user) {
-          saveAuthSession(data.user, data.token, data.refreshToken);
-          return { success: true, require2FA: false };
+    const request = (async (): Promise<LoginStepResult> => {
+      setLoading(true);
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 15_000);
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+          signal: controller.signal,
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          if (data?.requireEmailVerify && data?.userId) {
+            setPendingAuth({
+              userId: data.userId,
+              email: data.email || email,
+              step: 'REGISTER_OTP'
+            });
+            return {
+              success: true,
+              userId: data.userId,
+              email: data.email || email,
+              message: data.message || 'Please enter the verification code to activate your account.'
+            };
+          }
+          return { success: false, message: data?.message || `Login failed (${res.status})` };
         }
+
+        if (data.success) {
+          if (data.require2FA) {
+            setPendingAuth({
+              userId: data.userId,
+              email: data.email || email,
+              step: loginStep
+            });
+            return {
+              success: true,
+              require2FA: true,
+              userId: data.userId,
+              email: data.email || email,
+              message: data.message
+            };
+          } else if (data.token && data.user) {
+            saveAuthSession(data.user, data.token, data.refreshToken);
+            return { success: true, require2FA: false };
+          }
+        }
+
+        return { success: false, message: data.message || 'Invalid credentials' };
+      } catch (err: any) {
+        return {
+          success: false,
+          message: err instanceof DOMException && err.name === 'AbortError'
+            ? 'Sign-in request timed out. The authentication service did not respond. Please try again later.'
+            : err?.message || 'Authentication server unavailable. Please try again.'
+        };
+      } finally {
+        window.clearTimeout(timeoutId);
+        setLoading(false);
       }
-      
-      return { success: false, message: data.message || 'Invalid email or password' };
-    } catch (err: any) {
-      return {
-        success: false,
-        message: err instanceof DOMException && err.name === 'AbortError'
-          ? 'Sign-in request timed out. The authentication service did not respond. Please try again later.'
-          : err?.message || 'Authentication server unavailable. Please try again.'
-      };
-    } finally {
-      window.clearTimeout(timeoutId);
-      setLoading(false);
-    }
+    })();
+
+    loginRequestRef.current = request;
+    void request.finally(() => {
+      if (loginRequestRef.current === request) loginRequestRef.current = null;
+    });
+    return request;
   };
 
   const loginStep1 = (email: string, password: string) =>
@@ -368,12 +437,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!data.token) {
           return { success: false, message: 'Authentication server did not return an access token.' };
         }
-        saveAuthSession(data.user, data.token, data.refreshToken);
+        // Do not open either dashboard on the OTP response alone. Persist the
+        // token, then re-read the backend-authoritative profile (including the
+        // role) before marking this session verified.
+        saveAuthSession(data.user, data.token, data.refreshToken, 'password', false);
+        const profileResponse = await fetch('/api/user/profile', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${data.token}` },
+        });
+        const profilePayload = await profileResponse.json().catch(() => ({}));
+        const expectsAdmin = endpoint === '/api/admin/verify-login-otp';
+        if (!profileResponse.ok || !profilePayload?.success || !profilePayload?.data
+          || (expectsAdmin && profilePayload.data.role !== 'admin')) {
+          clearAuthSession(false);
+          return {
+            success: false,
+            message: expectsAdmin ? 'Administrator access denied.' : 'Authenticated profile verification failed. Please sign in again.',
+          };
+        }
+        setUser(profilePayload.data);
+        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(profilePayload.data));
+        setSessionVerified(true);
         setPendingAuth(null);
         return { success: true, message: data.message };
       }
       return { success: false, message: data.message || 'Invalid Login OTP code' };
     } catch (err: any) {
+      clearAuthSession(false);
       return {
         success: false,
         message: err?.message || 'Authentication server unavailable. Please try again.'

@@ -27,6 +27,11 @@ test('admin can switch back to the user dashboard in the same session', () => {
   assert.equal(dashboard.resolveDashboardMode('/dashboard', admin, true), 'user');
 });
 
+test('/dashboard always resolves to the user dashboard, including for an administrator', () => {
+  assert.equal(dashboard.resolveDashboardMode('/dashboard', user, true), 'user');
+  assert.equal(dashboard.resolveDashboardMode('/dashboard', admin, true), 'user');
+});
+
 test('only a verified admin can select the admin dashboard', () => {
   assert.equal(dashboard.resolveDashboardMode('/admin', admin, true), 'admin');
   assert.equal(dashboard.resolveDashboardMode('/admin', user, true), 'user');
@@ -52,6 +57,42 @@ test('App fails closed for a non-admin direct /admin visit', () => {
   assert.match(appSource, /Verifying authenticated session/);
 });
 
+test('the active user dashboard has no admin-only component dependency', () => {
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+  for (const adminOnlyComponent of [
+    'AdminPortalEngine',
+    'AdminNftIssuance',
+    'ICOAdmin',
+    'AdminAuthenticationDiagnostics',
+  ]) {
+    assert.doesNotMatch(userDashboardSource, new RegExp(`\\b${adminOnlyComponent}\\b`));
+  }
+});
+
+test('user-facing Franchise and Legion views cannot issue administrator certificates', () => {
+  const franchiseSource = fs.readFileSync(new URL('../src/components/FranchiseNFT.tsx', import.meta.url), 'utf8');
+  const legionSource = fs.readFileSync(new URL('../src/components/LegionNFT.tsx', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(franchiseSource, /\bmintFranchise\b/);
+  assert.doesNotMatch(franchiseSource, /Issue a Franchise certificate/);
+  assert.doesNotMatch(legionSource, /\bmintLegion\b/);
+  assert.doesNotMatch(legionSource, /Issue a Legion certificate/);
+  assert.doesNotMatch(legionSource, /Mint Legion certificate/);
+});
+
+test('administrator issuance remains structurally isolated in AdminPortalEngine', () => {
+  const adminSource = fs.readFileSync(new URL('../src/components/AdminPortalEngine.tsx', import.meta.url), 'utf8');
+  assert.match(adminSource, /<AdminNftIssuance\s*\/>/);
+  assert.match(adminSource, /<ICOAdmin\s*\/>/);
+  assert.match(adminSource, /<AdminAuthenticationDiagnostics\s*\/>/);
+});
+
+test('App mounts admin controls only for the explicit admin route branch', () => {
+  const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(appSource, /dashboardMode === 'admin' \? \(\s*<AdminPortalEngine/s);
+  assert.match(appSource, /activeTab === 'dashboard' && \(\s*<UserDashboard/s);
+});
+
 test('top-level incomplete navigation renders an explicit state instead of a blank page', () => {
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert.match(appSource, /Security controls/);
@@ -67,6 +108,13 @@ test('a refresh preserves an authorised selected dashboard and blocks unauthoris
 test('a cleared session resolves no dashboard after logout', () => {
   assert.equal(dashboard.resolveDashboardMode('/admin', null, false), null);
   assert.equal(dashboard.resolveDashboardMode('/dashboard', null, false), null);
+});
+
+test('unauthenticated route guards replace protected browser URLs with the correct login route', () => {
+  const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(appSource, /Route guards must update the actual browser location/);
+  assert.match(appSource, /isAdminDashboardPath\(pathname\) \|\| isAdminLoginPath\(pathname\)/);
+  assert.match(appSource, /window\.history\.replaceState\(\{\}, '', destination\)/);
 });
 
 test('wallet disconnect clears wallet verification but cannot dispatch an application logout', () => {

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Building2, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Building2, Loader2, RefreshCw } from 'lucide-react';
 import { useWallet } from '../Context/WalletContext';
 import {
   FranchiseRecord,
@@ -7,7 +7,6 @@ import {
   franchiseErrorMessage,
   getFranchiseSnapshot,
   listFranchiseOnMarketplace,
-  mintFranchise,
 } from '../Services/franchise';
 import { MetadataReadResult, readNftMetadata } from '../Services/nftMetadata';
 
@@ -27,10 +26,6 @@ const formatRemaining = (seconds: string) => {
   return `${days} day(s), ${hours} hour(s) remaining`;
 };
 
-const emptyMintForm = {
-  franchisee: '', franchiseName: '', territoryCode: '', territoryName: '', level: '5', legionNFTId: '0', priceUSD: '', commissionBps: '', tokenURI: '', ipfsCID: '',
-};
-
 export const FranchiseNFT: React.FC = () => {
   const { address, isConnected, isCorrectNetwork } = useWallet();
   const [snapshot, setSnapshot] = useState<FranchiseSnapshot | null>(null);
@@ -39,7 +34,6 @@ export const FranchiseNFT: React.FC = () => {
   const [transactionState, setTransactionState] = useState<TransactionState>('idle');
   const [transactionMessage, setTransactionMessage] = useState('');
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyMintForm);
   const [listingPrices, setListingPrices] = useState<Record<string, string>>({});
 
   const refresh = useCallback(async () => {
@@ -65,44 +59,7 @@ export const FranchiseNFT: React.FC = () => {
     setTransactionState('idle');
     setTransactionHash(null);
     setTransactionMessage('');
-    setForm((current) => ({ ...current, franchisee: address || '' }));
   }, [address]);
-
-  const submitMint = async () => {
-    if (transactionState === 'awaiting-wallet' || transactionState === 'confirming') return;
-    if (!address || !isConnected) {
-      setTransactionState('error');
-      setTransactionMessage('Connect the authorized Franchise minter wallet first.');
-      return;
-    }
-    if (!isCorrectNetwork) {
-      setTransactionState('error');
-      setTransactionMessage('Switch to Hardhat Local (31337) before minting.');
-      return;
-    }
-    if (!snapshot?.isMinter) {
-      setTransactionState('error');
-      setTransactionMessage('The connected wallet does not have MINTER_ROLE on FranchiseNFT.');
-      return;
-    }
-    setTransactionState('awaiting-wallet');
-    setTransactionHash(null);
-    setTransactionMessage('Confirm the Franchise certificate mint in MetaMask.');
-    try {
-      const result = await mintFranchise({ ...form, level: Number(form.level) }, (hash, stage) => {
-        setTransactionHash(hash);
-        setTransactionState('confirming');
-        setTransactionMessage(`${stage} submitted. Waiting for confirmation…`);
-      });
-      await refresh();
-      setTransactionState('success');
-      setTransactionMessage(`Franchise certificate #${result.tokenId || 'confirmed'} minted on-chain.`);
-      setForm({ ...emptyMintForm, franchisee: address });
-    } catch (reason) {
-      setTransactionState('error');
-      setTransactionMessage(franchiseErrorMessage(reason));
-    }
-  };
 
   const submitListing = async (franchise: FranchiseRecord) => {
     if (transactionState === 'awaiting-wallet' || transactionState === 'confirming') return;
@@ -135,23 +92,12 @@ export const FranchiseNFT: React.FC = () => {
     {error && <Notice kind="error" message={error} />}
 
     <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold text-white">Your Franchise certificates</h3><p className="mt-1 text-xs text-slate-400">Contract: <span className="break-all font-mono">{snapshot?.contractAddress || 'Unavailable'}</span></p></div>{snapshot?.isMinter && <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300"><ShieldCheck className="h-3.5 w-3.5" /> MINTER_ROLE</span>}</div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold text-white">Your Franchise certificates</h3><p className="mt-1 text-xs text-slate-400">Contract: <span className="break-all font-mono">{snapshot?.contractAddress || 'Unavailable'}</span></p></div></div>
       {loading && <p className="mt-4 flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Reading canonical FranchiseNFT state…</p>}
       {!loading && snapshot?.franchises.length === 0 && <p className="mt-4 text-sm text-slate-500">No Franchise NFTs are owned by this wallet on the current deployment.</p>}
       <div className="mt-4 grid gap-4 lg:grid-cols-2">{snapshot?.franchises.map((franchise) => <FranchiseCard key={franchise.tokenId} franchise={franchise} listingPrice={listingPrices[franchise.tokenId] || ''} onListingPriceChange={(value) => setListingPrices((current) => ({ ...current, [franchise.tokenId]: value }))} onList={() => void submitListing(franchise)} listingBusy={transactionState === 'awaiting-wallet' || transactionState === 'confirming'} />)}</div>
     </section>
 
-    {/* Issuance belongs to the authenticated Admin dashboard so backend-admin
-        authorization and real asset storage are both enforced. */}
-    {false && snapshot?.isMinter && <section className="rounded-2xl border border-emerald-500/20 bg-slate-900 p-5">
-      <h3 className="font-bold text-white">Issue a Franchise certificate</h3><p className="mt-1 text-xs text-slate-400">This is role-protected issuance. Recorded price and commission fields are contract metadata only; no payment or revenue is created by this transaction.</p>
-      <div className="mt-4 grid gap-3 md:grid-cols-2">{[
-        ['franchisee', 'Franchisee wallet'], ['franchiseName', 'Franchise name'], ['territoryCode', 'Unique territory code'], ['territoryName', 'Territory name'], ['legionNFTId', 'Linked Legion NFT ID (0 if none)'], ['priceUSD', 'Recorded price USD'], ['commissionBps', 'Recorded commission BPS'], ['tokenURI', 'Metadata URI'], ['ipfsCID', 'IPFS CID'],
-      ].map(([field, label]) => <label key={field} className="text-xs text-slate-400">{label}<input value={(form as Record<string, string>)[field]} onChange={(event) => setForm((current) => ({ ...current, [field]: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100" /></label>)}
-        <label className="text-xs text-slate-400">Territory level<select value={form.level} onChange={(event) => setForm((current) => ({ ...current, level: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100">{['World', 'Continent', 'Country', 'State', 'Zone', 'District', 'Pincode', 'Area', 'Locality'].map((name, index) => <option key={name} value={index}>{index}: {name}</option>)}</select></label>
-      </div>
-      <button onClick={() => void submitMint()} disabled={transactionState === 'awaiting-wallet' || transactionState === 'confirming'} className="mt-4 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Mint Franchise certificate</button>
-    </section>}
     {transactionState !== 'idle' && <Notice kind={transactionState === 'error' ? 'error' : transactionState === 'success' ? 'success' : 'pending'} message={transactionMessage} hash={transactionHash} />}
   </section>;
 };

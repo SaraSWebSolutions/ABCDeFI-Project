@@ -101,7 +101,8 @@ function developmentOtpLoggingEnabled() {
 async function deliverLoginOtp(user, otp, isResend = false) {
     if (developmentOtpLoggingEnabled()) {
         const resendLabel = isResend ? " RESEND" : "";
-        console.info(`LOCAL DEVELOPMENT LOGIN OTP${resendLabel} userId=${user._id} code=${otp} expiresInMinutes=10`);
+        const type = user.loginOtpPurpose === "admin" ? "ADMIN_LOGIN" : "USER_LOGIN";
+        console.info(`LOCAL DEVELOPMENT LOGIN OTP${resendLabel} userId=${user._id} type=${type} expiresInMinutes=10 code=${otp}`);
         return;
     }
 
@@ -444,7 +445,7 @@ exports.userLogin = async (req, res, next) => {
         if (!user) {
             return res.status(isAdminLogin ? 401 : 404).json({
                 success: false,
-                message: isAdminLogin ? "Invalid administrator credentials" : "Account does not exist"
+                message: isAdminLogin ? "Invalid credentials" : "Account does not exist"
             });
         }
         if (user.isSuspended) {
@@ -496,12 +497,14 @@ exports.userLogin = async (req, res, next) => {
         if (isAdminLogin && user.role !== "admin") {
             return res.status(403).json({
                 success: false,
-                message: "Administrator access is required"
+                message: "Administrator access denied"
             });
         }
 
         // If 2FA is enabled (default behavior for fintech security), generate Login OTP
-        if (user.is2FAEnabled !== false) {
+        // Admin authentication always requires the canonical OTP challenge,
+        // even if a legacy user record has user-level 2FA disabled.
+        if (user.is2FAEnabled !== false || isAdminLogin) {
             const loginOtp = crypto.randomInt(100000, 1000000).toString(); // 6 digits
             const hashedOtp = crypto.createHash("sha256").update(loginOtp).digest("hex");
 
@@ -593,13 +596,29 @@ exports.verifyLoginOtp = async (req, res, next) => {
         }
 
         const hashedOtp = crypto.createHash("sha256").update(String(otp)).digest("hex");
+        const now = new Date();
         const user = await UserAccount.findOne({
             _id: userId,
             loginOtp: hashedOtp,
-            loginOtpExpires: { $gt: Date.now() }
+            loginOtpExpires: { $gt: now }
         });
 
         if (!user) {
+            // Clear an expired matching OTP. The OTP value must match before any
+            // state is changed so an arbitrary invalid attempt cannot invalidate
+            // a currently active login challenge.
+            const expiredUser = await UserAccount.findOne({
+                _id: userId,
+                loginOtp: hashedOtp,
+                loginOtpExpires: { $lte: now }
+            });
+            if (expiredUser && (expiredUser.loginOtpPurpose || "user") === expectedLoginOtpPurpose) {
+                expiredUser.loginOtp = undefined;
+                expiredUser.loginOtpExpires = undefined;
+                expiredUser.loginOtpPurpose = undefined;
+                clearDevelopmentLoginOtp(expiredUser._id);
+                await expiredUser.save();
+            }
             return res.status(400).json({ success: false, message: "Invalid or expired Login OTP code" });
         }
 
@@ -609,7 +628,7 @@ exports.verifyLoginOtp = async (req, res, next) => {
             return res.status(400).json({ success: false, message: "Invalid or expired Login OTP code" });
         }
         if (expectedLoginOtpPurpose === "admin" && user.role !== "admin") {
-            return res.status(403).json({ success: false, message: "Administrator access is required" });
+            return res.status(403).json({ success: false, message: "Administrator access denied" });
         }
 
         // Clear 2FA OTP
@@ -632,6 +651,11 @@ exports.verifyLoginOtp = async (req, res, next) => {
             ip: req.ip || "127.0.0.1",
             lastActive: new Date()
         });
+
+        // Persist consumption before issuing tokens. Without this save, the OTP
+        // clear only affected the in-memory document and could be reused from
+        // the database until its expiry.
+        await user.save();
 
         // Generate JWT Access and Refresh Tokens
         const tokens = await generateTokens(user);
@@ -676,7 +700,7 @@ exports.resendLoginOtp = async (req, res, next) => {
             return res.status(400).json({ success: false, message: "No matching login OTP request is active." });
         }
         if (expectedLoginOtpPurpose === "admin" && user.role !== "admin") {
-            return res.status(403).json({ success: false, message: "Administrator access is required" });
+            return res.status(403).json({ success: false, message: "Administrator access denied" });
         }
 
         if (user.otpLastSent && Date.now() - user.otpLastSent.getTime() < 60000) {

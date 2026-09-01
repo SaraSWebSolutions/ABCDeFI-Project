@@ -57,7 +57,12 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
   };
 
   const navigateAfterSuccessfulLogin = () => {
-    const destination = isAdministratorLogin ? '/admin' : '/dashboard';
+    // The pending challenge—not a potentially stale page variant—selects the
+    // destination after OTP verification. This keeps an admin OTP refresh
+    // bound to /admin and a user OTP bound to /dashboard.
+    const destination = pendingAuth?.step === 'ADMIN_LOGIN_2FA' || isAdministratorLogin
+      ? '/admin'
+      : '/dashboard';
     window.history.replaceState({}, '', destination);
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
@@ -107,15 +112,18 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
     }
 
     setIsSubmitting(true);
-    const result = await (pendingAuth.step === 'ADMIN_LOGIN_2FA'
-      ? verifyAdminLoginOtp(pendingAuth.userId, otpCode)
-      : verifyLoginOtp(pendingAuth.userId, otpCode));
-    setIsSubmitting(false);
+    try {
+      const result = await (pendingAuth.step === 'ADMIN_LOGIN_2FA'
+        ? verifyAdminLoginOtp(pendingAuth.userId, otpCode)
+        : verifyLoginOtp(pendingAuth.userId, otpCode));
 
-    if (!result.success) {
-      setError(result.message || 'Invalid 2FA code. Please check and try again.');
-    } else {
-      navigateAfterSuccessfulLogin();
+      if (!result.success) {
+        setError(result.message || 'Invalid 2FA code. Please check and try again.');
+      } else {
+        navigateAfterSuccessfulLogin();
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -291,19 +299,22 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
   const handleResendOtp = async () => {
     if (!pendingAuth?.userId) return;
     setIsSubmitting(true);
-    let res;
-    if (pendingAuth.step === 'ADMIN_LOGIN_2FA') {
-      res = await resendAdminLoginOtp(pendingAuth.userId);
-    } else if (pendingAuth.step === 'LOGIN_2FA') {
-      res = await resendLoginOtp(pendingAuth.userId);
-    } else {
-      res = await resendRegisterOtp(pendingAuth.userId);
-    }
-    setIsSubmitting(false);
-    if (res?.success) {
-      setSuccessMessage(res.message || 'A new verification OTP has been sent.');
-    } else {
-      setError('Failed to resend OTP.');
+    try {
+      let res;
+      if (pendingAuth.step === 'ADMIN_LOGIN_2FA') {
+        res = await resendAdminLoginOtp(pendingAuth.userId);
+      } else if (pendingAuth.step === 'LOGIN_2FA') {
+        res = await resendLoginOtp(pendingAuth.userId);
+      } else {
+        res = await resendRegisterOtp(pendingAuth.userId);
+      }
+      if (res?.success) {
+        setSuccessMessage(res.message || 'A new verification OTP has been sent.');
+      } else {
+        setError(res?.message || 'Failed to resend OTP.');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

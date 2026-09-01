@@ -60,6 +60,20 @@ export function AppContent() {
   }, []);
 
   useEffect(() => {
+    // Route guards must update the actual browser location, not merely render
+    // a login form under a protected URL. Wait while a persisted session is
+    // being verified so a refresh token has the opportunity to restore it.
+    if (user || token || !sessionVerified) return;
+    const destination = isAdminDashboardPath(pathname) || isAdminLoginPath(pathname)
+      ? '/admin/login'
+      : '/login';
+    if (window.location.pathname !== destination) {
+      window.history.replaceState({}, '', destination);
+      setPathname(destination);
+    }
+  }, [pathname, sessionVerified, token, user]);
+
+  useEffect(() => {
     if (!user || !token || !dashboardMode || adminAccessDenied || onAdminLoginRoute) return;
     const canonicalPath = pathForDashboardMode(dashboardMode);
     if (window.location.pathname !== canonicalPath) {

@@ -49,8 +49,8 @@ getContractFactory(name: 'Liquidation', signerOrOptions?: ethers.Signer | Factor
 getContractFactory(name: 'LoanManager', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LoanManager__factory>
 getContractFactory(name: 'LoanMarketplace', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.LoanMarketplace__factory>
 getContractFactory(name: 'ReserveManager', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ReserveManager__factory>
-getContractFactory(name: 'Errors', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.Errors__factory>
 getContractFactory(name: 'Constants', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.Constants__factory>
+getContractFactory(name: 'Errors', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.Errors__factory>
 getContractFactory(name: 'NFTMarketplace', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.NFTMarketplace__factory>
 getContractFactory(name: 'MockAggregatorV3V2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.MockAggregatorV3V2__factory>
 getContractFactory(name: 'ReentrantBorrowerV2', signerOrOptions?: ethers.Signer | FactoryOptions): Promise<Contracts.ReentrantBorrowerV2__factory>
@@ -128,8 +128,8 @@ getContractAt(name: 'Liquidation', address: string | ethers.Addressable, signer?
 getContractAt(name: 'LoanManager', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LoanManager>
 getContractAt(name: 'LoanMarketplace', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.LoanMarketplace>
 getContractAt(name: 'ReserveManager', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ReserveManager>
-getContractAt(name: 'Errors', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.Errors>
 getContractAt(name: 'Constants', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.Constants>
+getContractAt(name: 'Errors', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.Errors>
 getContractAt(name: 'NFTMarketplace', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.NFTMarketplace>
 getContractAt(name: 'MockAggregatorV3V2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.MockAggregatorV3V2>
 getContractAt(name: 'ReentrantBorrowerV2', address: string | ethers.Addressable, signer?: ethers.Signer): Promise<Contracts.ReentrantBorrowerV2>
@@ -207,8 +207,8 @@ deployContract(name: 'Liquidation', signerOrOptions?: ethers.Signer | DeployCont
 deployContract(name: 'LoanManager', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LoanManager>
 deployContract(name: 'LoanMarketplace', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LoanMarketplace>
 deployContract(name: 'ReserveManager', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ReserveManager>
-deployContract(name: 'Errors', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Errors>
 deployContract(name: 'Constants', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Constants>
+deployContract(name: 'Errors', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Errors>
 deployContract(name: 'NFTMarketplace', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.NFTMarketplace>
 deployContract(name: 'MockAggregatorV3V2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockAggregatorV3V2>
 deployContract(name: 'ReentrantBorrowerV2', signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ReentrantBorrowerV2>
@@ -286,8 +286,8 @@ deployContract(name: 'Liquidation', args: any[], signerOrOptions?: ethers.Signer
 deployContract(name: 'LoanManager', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LoanManager>
 deployContract(name: 'LoanMarketplace', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.LoanMarketplace>
 deployContract(name: 'ReserveManager', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ReserveManager>
-deployContract(name: 'Errors', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Errors>
 deployContract(name: 'Constants', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Constants>
+deployContract(name: 'Errors', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.Errors>
 deployContract(name: 'NFTMarketplace', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.NFTMarketplace>
 deployContract(name: 'MockAggregatorV3V2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.MockAggregatorV3V2>
 deployContract(name: 'ReentrantBorrowerV2', args: any[], signerOrOptions?: ethers.Signer | DeployContractOptions): Promise<Contracts.ReentrantBorrowerV2>

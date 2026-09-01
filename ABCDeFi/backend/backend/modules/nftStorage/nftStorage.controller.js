@@ -2,7 +2,7 @@ const { storeNftAsset } = require('../../services/nftAssetStorage.cjs');
 
 function attributes(value) {
   try {
-    const parsed = JSON.parse(value || '[]');
+    const parsed = Array.isArray(value) ? value : JSON.parse(value || '[]');
     if (!Array.isArray(parsed) || parsed.some((item) => !item || typeof item !== 'object' || typeof item.trait_type !== 'string' || !('value' in item))) throw new Error();
     return parsed;
   } catch { throw new Error('Attributes must be a JSON array of ERC-721 trait_type/value objects.'); }

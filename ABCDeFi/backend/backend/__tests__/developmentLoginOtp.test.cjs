@@ -8,10 +8,17 @@ const { resolveAuthMode } = require('../config/authMode.cjs');
 const UserAccount = require('../modules/user/userAccount/userAccount.model');
 const mailerPath = require.resolve('../utils/mailer');
 const originalMailer = require(mailerPath);
+const smsPath = require.resolve('../utils/sendSms');
+const originalSendSms = require(smsPath);
 let smtpCalls = 0;
+let smsCalls = 0;
 require.cache[mailerPath].exports = async () => {
   smtpCalls += 1;
   return { accepted: ['local@example.test'] };
+};
+require.cache[smsPath].exports = async () => {
+  smsCalls += 1;
+  throw new Error('SMS provider is not configured');
 };
 const controller = require('../modules/user/userAccount/userAccount.controller');
 
@@ -38,7 +45,8 @@ async function loginUser() {
     loginHistory: [],
     activeSessions: [],
     role: 'user',
-    save: async () => {},
+    saveCalls: 0,
+    save: async function save() { this.saveCalls += 1; },
   };
 }
 
@@ -46,9 +54,13 @@ function installUserLookup(user) {
   return async (query) => {
     if (query.email) return query.email === user.email ? user : null;
     if (query._id && Object.hasOwn(query, 'loginOtp')) {
+      const expectedExpiry = query.loginOtpExpires.$gt || query.loginOtpExpires.$lte;
+      const expirationMatches = Object.hasOwn(query.loginOtpExpires, '$gt')
+        ? user.loginOtpExpires > expectedExpiry
+        : user.loginOtpExpires <= expectedExpiry;
       return query._id === user._id
         && query.loginOtp === user.loginOtp
-        && user.loginOtpExpires > query.loginOtpExpires.$gt
+        && expirationMatches
         ? user
         : null;
     }
@@ -79,6 +91,7 @@ test('development login 2FA logs a hashed-only OTP flow without SMTP or API OTP 
   UserAccount.findById = async (userId) => (userId === user._id ? user : null);
   console.info = (...args) => logEntries.push(args);
   smtpCalls = 0;
+  smsCalls = 0;
 
   try {
     const loginResponse = response();
@@ -94,12 +107,13 @@ test('development login 2FA logs a hashed-only OTP flow without SMTP or API OTP 
     assert.equal(Object.hasOwn(loginResponse.body, 'otp'), false);
     assert.equal(JSON.stringify(loginResponse.body).includes('LOCAL DEVELOPMENT LOGIN OTP'), false);
     assert.equal(smtpCalls, 0);
+    assert.equal(smsCalls, 0, 'a registration SMS failure must not affect user login OTP delivery');
     assert.match(loginResponse.body.message, /local backend terminal/i);
 
     const log = logEntries.find(([message]) => String(message).includes('LOCAL DEVELOPMENT LOGIN OTP'));
     assert.ok(log, 'the local backend terminal must receive the development OTP');
     const logLine = String(log[0]);
-    assert.match(logLine, /^LOCAL DEVELOPMENT LOGIN OTP userId=local-otp-user code=\d{6} expiresInMinutes=10$/);
+    assert.match(logLine, /^LOCAL DEVELOPMENT LOGIN OTP userId=local-otp-user type=USER_LOGIN expiresInMinutes=10 code=\d{6}$/);
     const otp = logLine.match(/code=(\d{6})/)[1];
     assert.match(otp, /^\d{6}$/);
     assert.equal(user.loginOtp, crypto.createHash('sha256').update(otp).digest('hex'));
@@ -120,6 +134,7 @@ test('development login 2FA logs a hashed-only OTP flow without SMTP or API OTP 
 
     const resendLog = logEntries.find(([message]) => String(message).startsWith('LOCAL DEVELOPMENT LOGIN OTP RESEND '));
     assert.ok(resendLog, 'the resent OTP must be printed only in the local backend terminal');
+    assert.match(String(resendLog[0]), /type=USER_LOGIN/);
     const resentOtp = String(resendLog[0]).match(/code=(\d{6})/)[1];
     assert.match(resentOtp, /^\d{6}$/);
     assert.notEqual(resentOtp, otp);
@@ -134,17 +149,6 @@ test('development login 2FA logs a hashed-only OTP flow without SMTP or API OTP 
     assert.equal(invalidResponse.statusCode, 400);
     assert.match(invalidResponse.body.message, /Invalid or expired/i);
 
-    user.loginOtpExpires = new Date(Date.now() - 1);
-    const expiredResponse = response();
-    await controller.verifyLoginOtp(
-      { body: { userId: user._id, otp: resentOtp }, ip: '127.0.0.1', headers: {} },
-      expiredResponse,
-      (error) => { throw error; },
-    );
-    assert.equal(expiredResponse.statusCode, 400);
-    assert.match(expiredResponse.body.message, /Invalid or expired/i);
-
-    user.loginOtpExpires = new Date(Date.now() + 10 * 60 * 1000);
     const validResponse = response();
     await controller.verifyLoginOtp(
       { body: { userId: user._id, otp: resentOtp }, ip: '127.0.0.1', headers: {} },
@@ -154,6 +158,37 @@ test('development login 2FA logs a hashed-only OTP flow without SMTP or API OTP 
     assert.equal(validResponse.statusCode, 200);
     assert.equal(validResponse.body.success, true);
     assert.equal(typeof validResponse.body.token, 'string');
+    assert.equal(user.loginOtp, undefined);
+    assert.equal(user.loginOtpExpires, undefined);
+    assert.ok(user.saveCalls > 0, 'successful OTP verification must persist OTP consumption');
+
+    const reusedResponse = response();
+    await controller.verifyLoginOtp(
+      { body: { userId: user._id, otp: resentOtp }, ip: '127.0.0.1', headers: {} },
+      reusedResponse,
+      (error) => { throw error; },
+    );
+    assert.equal(reusedResponse.statusCode, 400);
+    assert.match(reusedResponse.body.message, /Invalid or expired/i);
+
+    const newLoginResponse = response();
+    await controller.userLogin(
+      { body: { email: user.email, password: 'StrongPass1!' }, ip: '127.0.0.1', headers: {} },
+      newLoginResponse,
+      (error) => { throw error; },
+    );
+    const latestLog = logEntries.at(-1);
+    const expiringOtp = String(latestLog[0]).match(/code=(\d{6})/)[1];
+    user.loginOtpExpires = new Date(Date.now() - 1);
+
+    const expiredResponse = response();
+    await controller.verifyLoginOtp(
+      { body: { userId: user._id, otp: expiringOtp }, ip: '127.0.0.1', headers: {} },
+      expiredResponse,
+      (error) => { throw error; },
+    );
+    assert.equal(expiredResponse.statusCode, 400);
+    assert.match(expiredResponse.body.message, /Invalid or expired/i);
     assert.equal(user.loginOtp, undefined);
     assert.equal(user.loginOtpExpires, undefined);
   } finally {
@@ -258,4 +293,5 @@ test('login rejects an unknown email and invalid password without generating a l
 
 process.on('exit', () => {
   require.cache[mailerPath].exports = originalMailer;
+  require.cache[smsPath].exports = originalSendSms;
 });

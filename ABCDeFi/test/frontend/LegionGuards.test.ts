@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import test from 'node:test';
 import {
   assertLegionDeployment,
@@ -6,6 +7,7 @@ import {
   getLegionSnapshot,
   isAcceptedLegionMetadataUri,
   legionErrorMessage,
+  normalizeLegionLevel,
   waitForLegionReceipt,
 } from '../../src/Services/legion';
 
@@ -34,6 +36,23 @@ test('LegionNFT accepts only explicit HTTPS or IPFS metadata references', () => 
   assert.equal(isAcceptedLegionMetadataUri('legion-1.json'), false);
 });
 
+test('Legion level normalization preserves Continent enum value 0 and accepts all valid hierarchy levels', () => {
+  assert.equal(normalizeLegionLevel('0'), 0);
+  assert.equal(normalizeLegionLevel(0), 0);
+  assert.equal(normalizeLegionLevel('1'), 1);
+  assert.equal(normalizeLegionLevel('2'), 2);
+  assert.equal(normalizeLegionLevel('3'), 3);
+  for (const invalid of [-1, 4, undefined, Number.NaN, '', '0: Continent']) {
+    assert.throws(() => normalizeLegionLevel(invalid), /Legion level must be between 0/);
+  }
+});
+
+test('Admin Legion form resets the inherited Franchise tier to the Continent enum value', () => {
+  const adminForm = fs.readFileSync(new URL('../../src/components/AdminNftIssuance.tsx', import.meta.url), 'utf8');
+  assert.match(adminForm, /tier: nftType === 'Legion' \? '0' : '5'/);
+  assert.match(adminForm, /level: form\.tier/);
+});
+
 test('LegionNFT snapshot follows the selected wallet after an account switch', async () => {
   const first = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
   const second = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
@@ -46,13 +65,28 @@ test('LegionNFT snapshot follows the selected wallet after an account switch', a
     getLegionHierarchy: async () => [0n, []], tokenURI: async () => 'ipfs://metadata', paused: async () => false,
     MINTER_ROLE: async () => '0x01', hasRole: async (_role: string, account: string) => account.toLowerCase() === first.toLowerCase(),
   } as any;
+  const marketplaceContract = { getAllActiveListings: async () => [] } as any;
   const [firstSnapshot, secondSnapshot] = await Promise.all([
-    getLegionSnapshot(first, { deploymentProvider, contract, deploymentBlock: 1 }),
-    getLegionSnapshot(second, { deploymentProvider, contract, deploymentBlock: 1 }),
+    getLegionSnapshot(first, { deploymentProvider, contract, marketplaceContract, deploymentBlock: 1 }),
+    getLegionSnapshot(second, { deploymentProvider, contract, marketplaceContract, deploymentBlock: 1 }),
   ]);
   assert.deepEqual(firstSnapshot.legions.map((record) => record.tokenId), ['1']);
   assert.deepEqual(secondSnapshot.legions.map((record) => record.tokenId), ['2']);
   assert.equal(firstSnapshot.legions[0].metadataUri, 'ipfs://metadata');
   assert.equal(firstSnapshot.isMinter, true);
   assert.equal(secondSnapshot.isMinter, false);
+});
+
+test('Legion listing flow stays isolated from certificate minting and uses the real marketplace receipt path', () => {
+  const service = fs.readFileSync(new URL('../../src/Services/legion.ts', import.meta.url), 'utf8');
+  const view = fs.readFileSync(new URL('../../src/components/LegionNFT.tsx', import.meta.url), 'utf8');
+  assert.match(service, /export async function listLegionOnMarketplace/);
+  assert.match(service, /export async function cancelLegionMarketplaceListing/);
+  assert.match(service, /legion\.getApproved\(tokenId\)/);
+  assert.match(service, /legion\.approve\.estimateGas/);
+  assert.match(service, /marketplace\.listNFT\.estimateGas/);
+  assert.match(service, /NFTListed/);
+  assert.match(view, /List for Sale/);
+  assert.match(view, /Cancel listing/);
+  assert.doesNotMatch(view, /\bmintLegion\b/);
 });
