@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PATHS = Object.freeze({
+  OracleAdapterV2: 'artifacts/contracts/lending/v2/OracleAdapterV2.sol/OracleAdapterV2.json',
   LendingPoolV2: 'artifacts/contracts/lending/v2/LendingPoolV2.sol/LendingPoolV2.json',
   CollateralVaultV2: 'artifacts/contracts/lending/v2/CollateralVaultV2.sol/CollateralVaultV2.json',
   LoanManagerV2: 'artifacts/contracts/lending/v2/LoanManagerV2.sol/LoanManagerV2.json',
@@ -9,6 +10,7 @@ const PATHS = Object.freeze({
   LoanMarketplaceV2: 'artifacts/contracts/lending/v2/LoanMarketplaceV2.sol/LoanMarketplaceV2.json',
   EMIManagerV2: 'artifacts/contracts/lending/v2/EMIManagerV2.sol/EMIManagerV2.json',
   LoanNFTV2: 'artifacts/contracts/nft/LoanNFTV2.sol/LoanNFTV2.json',
+  InsuranceReserveV2: 'artifacts/contracts/lending/v2/InsuranceReserveV2.sol/InsuranceReserveV2.json',
 });
 
 function loadLendingV2Artifacts() {

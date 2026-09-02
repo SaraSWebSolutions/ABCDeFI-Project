@@ -4,12 +4,6 @@ import { AuthProvider, useAuth } from './Context/AuthContext';
 import { LoginPage } from './pages/LoginPage';
 import { Navbar } from './components/Navbar';
 import { UserDashboard } from './components/UserDashboard';
-import { LendingPool } from './components/LendingPool';
-import { LendingV2 } from './components/LendingV2';
-import { NFTEcosystem } from './components/NFTEcosystem';
-import { PresaleICO } from './components/PresaleICO';
-import { StakingPools } from './components/StakingPools';
-import { PortfolioDashboard } from './components/PortfolioDashboard';
 import { AdminPortalEngine } from './components/AdminPortalEngine';
 import { KYCModal } from './components/KycModal';
 import { AuthModal } from './components/AuthModal';
@@ -24,7 +18,10 @@ import {
 
 export function AppContent() {
   const { user, token, sessionVerified } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // The UserDashboard owns the only user-facing feature navigation. App keeps
+  // this single shared selection so header actions can still open a dashboard
+  // view without creating a competing navigation state.
+  const [activeTab, setActiveTab] = useState('overview');
   const [pathname, setPathname] = useState(() => window.location.pathname);
   const [kycModalOpen, setKycModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
@@ -50,7 +47,7 @@ export function AppContent() {
       window.history[replace ? 'replaceState' : 'pushState']({ dashboardMode: mode }, '', destination);
     }
     setPathname(destination);
-    if (mode === 'user') setActiveTab('dashboard');
+    if (mode === 'user') setActiveTab('overview');
   }, []);
 
   useEffect(() => {
@@ -120,7 +117,6 @@ export function AppContent() {
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-300">
       {/* Navbar */}
       <Navbar
-        activeTab={activeTab}
         setActiveTab={(tab) => {
           if (tab === 'admin') {
             if (canAccessAdmin) navigateDashboard('admin');
@@ -146,7 +142,7 @@ export function AppContent() {
           </section>
         ) : dashboardMode === 'admin' ? (
           <AdminPortalEngine onOpenUserDashboard={() => navigateDashboard('user')} />
-        ) : activeTab === 'dashboard' && (
+        ) : (
           <UserDashboard
             schedules={[]}
             selectedAccount={null}
@@ -157,21 +153,11 @@ export function AppContent() {
             formatUnits={formatUnits}
             formatDuration={formatDuration}
             paused={false}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
             canAccessAdmin={canAccessAdmin}
             onOpenAdminDashboard={() => navigateDashboard('admin')}
           />
-        )}
-        {dashboardMode === 'user' && activeTab === 'lending' && <LendingPool />}
-        {dashboardMode === 'user' && activeTab === 'lending-v2' && <LendingV2 />}
-        {dashboardMode === 'user' && (activeTab === 'nft' || activeTab === 'nfts') && <NFTEcosystem />}
-        {dashboardMode === 'user' && activeTab === 'presale' && <PresaleICO />}
-        {dashboardMode === 'user' && activeTab === 'staking' && <StakingPools />}
-        {dashboardMode === 'user' && (activeTab === 'reports' || activeTab === 'portfolio') && <PortfolioDashboard />}
-        {dashboardMode === 'user' && (activeTab === 'security' || activeTab === 'ai-copilot') && (
-          <section className="mx-auto max-w-2xl rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center">
-            <h1 className="text-lg font-bold text-white">{activeTab === 'security' ? 'Security controls' : 'AI Copilot'}</h1>
-            <p className="mt-2 text-sm text-slate-400">This dashboard view is not implemented in the active canonical runtime.</p>
-          </section>
         )}
       </main>
 

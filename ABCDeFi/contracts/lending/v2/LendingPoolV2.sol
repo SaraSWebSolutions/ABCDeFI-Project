@@ -55,12 +55,12 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
         return usd * 1e18 / oracle.priceUSD(address(abcd));
     }
 
-    /// @notice Deposits ETH into a unique, request-scoped V2 collateral balance before borrowing.
+    /// @notice Deposits ETH into a unique direct-pool collateral namespace before borrowing.
     function depositCollateral() external payable whenNotPaused nonReentrant returns (uint256 depositId) {
         require(msg.value != 0, "zero amount");
         depositId = nextCollateralDepositId++;
         pendingCollateral[depositId] = PendingCollateral(msg.sender, uint128(msg.value), true);
-        collateralVault.depositForRequest{value: msg.value}(depositId, msg.sender);
+        collateralVault.depositForDirectDeposit{value: msg.value}(depositId, msg.sender);
         emit CollateralDepositCreated(depositId, msg.sender, msg.value);
     }
 
@@ -69,7 +69,7 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
         PendingCollateral memory deposit = pendingCollateral[depositId];
         require(deposit.active && deposit.borrower == msg.sender, "not pending collateral owner");
         delete pendingCollateral[depositId];
-        collateralVault.releaseRequest(depositId, payable(msg.sender));
+        collateralVault.releaseDirectDeposit(depositId, payable(msg.sender));
         emit PendingCollateralWithdrawn(depositId, msg.sender, deposit.amount);
     }
 
@@ -80,7 +80,7 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
         require(deposit.active && deposit.borrower == msg.sender, "not pending collateral owner");
         loanId = _createLoan(depositId, principal, term, metadataURI, metadataHash, deposit.amount);
         delete pendingCollateral[depositId];
-        collateralVault.bindRequest(depositId, loanId, msg.sender);
+        collateralVault.bindDirectDeposit(depositId, loanId, msg.sender);
     }
 
     function openLoan(uint128 principal, uint48 term, string calldata metadataURI, bytes32 metadataHash)

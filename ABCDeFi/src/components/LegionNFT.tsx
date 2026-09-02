@@ -3,6 +3,7 @@ import { Loader2, MapPinned, RefreshCw } from 'lucide-react';
 import { useWallet } from '../Context/WalletContext';
 import { cancelLegionMarketplaceListing, getLegionSnapshot, LegionRecord, LegionSnapshot, legionErrorMessage, listLegionOnMarketplace } from '../Services/legion';
 import { MetadataReadResult, readNftMetadata } from '../Services/nftMetadata';
+import { buyNftListing, nftMarketplaceErrorMessage } from '../Services/nftEcosystem';
 
 const formatTimestamp = (value: string) => {
   if (!/^\d+$/.test(value)) return 'Unavailable';
@@ -60,6 +61,20 @@ export const LegionNFT: React.FC = () => {
     finally { setListingBusyTokenId(null); }
   };
 
+  const buyListing = async (listingId: string) => {
+    if (listingBusyTokenId) return;
+    const busyKey = `buy-${listingId}`;
+    setListingBusyTokenId(busyKey); setListingError(null); setListingHash(null); setListingMessage(`Validating Legion marketplace listing #${listingId}…`);
+    try {
+      await buyNftListing(listingId, (hash, stage) => {
+        setListingHash(hash); setListingMessage(`${stage} submitted. Confirm it in MetaMask, then waiting for the confirmed receipt…`);
+      });
+      await refresh();
+      setListingMessage(`Legion marketplace listing #${listingId} purchased on-chain. Ownership and active listings were refreshed.`);
+    } catch (reason) { setListingError(nftMarketplaceErrorMessage(reason) || legionErrorMessage(reason)); }
+    finally { setListingBusyTokenId(null); }
+  };
+
   return <section className="space-y-6" aria-label="Legion NFT">
     <header className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">Real on-chain territory certificate</p><h2 className="mt-1 flex items-center gap-2 text-xl font-black text-white"><MapPinned className="h-5 w-5 text-cyan-400" /> Legion NFTs</h2><p className="mt-1 max-w-3xl text-xs text-slate-400">Ownership, hierarchy, territory metadata, and token URI are read from the canonical LegionNFT contract.</p></div><button onClick={() => void refresh()} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-xs font-bold text-slate-100 disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh</button></div>
@@ -70,7 +85,7 @@ export const LegionNFT: React.FC = () => {
     {listingError && <Notice kind="error" message={listingError} />}
     {listingMessage && <Notice kind={listingBusyTokenId ? 'pending' : 'success'} message={listingMessage} hash={listingHash} />}
     <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold text-white">Your Legion certificates</h3><p className="mt-1 text-xs text-slate-400">Contract: <span className="break-all font-mono">{snapshot?.contractAddress || 'Unavailable'}</span></p></div></div>{loading && <p className="mt-4 flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Reading canonical LegionNFT and marketplace state…</p>}{!loading && snapshot?.legions.length === 0 && <p className="mt-4 text-sm text-slate-500">No Legion NFTs are owned by this wallet on the current deployment.</p>}<div className="mt-4 grid gap-4 lg:grid-cols-2">{snapshot?.legions.map((legion) => <LegionCard key={legion.tokenId} legion={legion} price={listingPrices[legion.tokenId] || ''} busy={listingBusyTokenId === legion.tokenId} onPriceChange={(value) => setListingPrices((current) => ({ ...current, [legion.tokenId]: value }))} onList={() => void listForSale(legion.tokenId)} />)}</div></section>
-    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5"><h3 className="font-bold text-white">Active Legion marketplace listings</h3><p className="mt-1 text-xs text-slate-400">These are live NFTMarketplace listings priced in native ETH.</p><div className="mt-4 space-y-2">{snapshot?.activeListings.map((listing) => <div key={listing.listingId} className="rounded-xl bg-slate-950 p-3 text-xs text-slate-200">Listing #{listing.listingId} · Legion #{listing.tokenId} · {listing.priceEth} ETH · seller <span className="break-all">{listing.seller}</span>{address && listing.seller.toLowerCase() === address.toLowerCase() && <button onClick={() => void cancelListing(listing.listingId)} disabled={Boolean(listingBusyTokenId)} className="ml-3 mt-2 rounded-lg border border-rose-500/60 px-3 py-2 font-bold text-rose-200 disabled:opacity-50">{listingBusyTokenId === `listing-${listing.listingId}` ? 'Cancelling…' : 'Cancel listing'}</button>}</div>)}{snapshot && snapshot.activeListings.length === 0 && <p className="text-sm text-slate-500">No active Legion listings on the current deployment.</p>}</div></section>
+    <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5"><h3 className="font-bold text-white">Active Legion marketplace listings</h3><p className="mt-1 text-xs text-slate-400">These are live NFTMarketplace listings priced in native ETH.</p><div className="mt-4 space-y-2">{snapshot?.activeListings.map((listing) => { const isSeller = Boolean(address && listing.seller.toLowerCase() === address.toLowerCase()); return <div key={listing.listingId} className="rounded-xl bg-slate-950 p-3 text-xs text-slate-200">Listing #{listing.listingId} · Legion #{listing.tokenId} · {listing.priceEth} ETH · seller <span className="break-all">{listing.seller}</span>{!address ? <p className="mt-2 text-slate-400">Connect a wallet to buy this listing.</p> : isSeller ? <button onClick={() => void cancelListing(listing.listingId)} disabled={Boolean(listingBusyTokenId)} className="ml-3 mt-2 rounded-lg border border-rose-500/60 px-3 py-2 font-bold text-rose-200 disabled:opacity-50">{listingBusyTokenId === `listing-${listing.listingId}` ? 'Cancelling…' : 'Cancel listing'}</button> : <button onClick={() => void buyListing(listing.listingId)} disabled={Boolean(listingBusyTokenId)} className="ml-3 mt-2 rounded-lg bg-emerald-600 px-3 py-2 font-bold text-white disabled:opacity-50">{listingBusyTokenId === `buy-${listing.listingId}` ? 'Buying…' : `Buy with ETH (${listing.priceEth} ETH)`}</button>}</div>; })}{snapshot && snapshot.activeListings.length === 0 && <p className="text-sm text-slate-500">No active Legion listings on the current deployment.</p>}</div></section>
   </section>;
 };
 

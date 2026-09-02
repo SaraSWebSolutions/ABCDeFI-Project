@@ -3,28 +3,19 @@ import { useWallet } from '../Context/WalletContext';
 import { useAuth } from '../Context/AuthContext';
 import { DashboardMode } from '../Utils/dashboardMode';
 import {
-  Coins,
-  ShieldCheck,
-  Bot,
-  PieChart,
-  Repeat,
-  Sparkles,
   Wallet,
   Globe,
   ChevronDown,
-  Layers,
   Menu,
   X,
   CheckCircle2,
   AlertCircle,
   User,
   LogOut,
-  Key,
   Shield,
 } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenKyc?: () => void;
   onOpenAuth?: () => void;
@@ -33,25 +24,13 @@ interface NavbarProps {
   onSwitchDashboard: (mode: DashboardMode) => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenKyc, onOpenAuth, dashboardMode, canAccessAdmin, onSwitchDashboard }) => {
+export const Navbar: React.FC<NavbarProps> = ({ setActiveTab, onOpenKyc, onOpenAuth, dashboardMode, canAccessAdmin, onSwitchDashboard }) => {
   const { isConnected, shortAddress, chain, balances, profile, connectWallet, disconnectWallet, switchChain } = useWallet();
   const { user, logout } = useAuth();
   const [showNetworkMenu, setShowNetworkMenu] = useState(false);
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Layers },
-    { id: 'lending', label: 'P2P Loans', icon: Repeat },
-    { id: 'lending-v2', label: 'Lending V2', icon: Repeat },
-    { id: 'presale', label: 'ICO Presale', icon: Sparkles },
-    { id: 'staking', label: 'Staking Pools', icon: Coins },
-    { id: 'nfts', label: 'NFT Ecosystem', icon: ShieldCheck },
-    { id: 'security', label: 'Security 2FA', icon: Key },
-    { id: 'ai-copilot', label: 'AI Copilot', icon: Bot },
-    { id: 'portfolio', label: 'Portfolio & Audit', icon: PieChart },
-  ];
 
   const networks = ['Hardhat Local'];
 
@@ -60,7 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenK
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('dashboard')}>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('overview')}>
             <img
               src="/images/login_logo.svg"
               alt="ABCDeFi Logo"
@@ -265,30 +244,12 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenK
             </button>
           </div>
         </div>
+
       </div>
 
       {/* Mobile Nav Menu */}
       {mobileMenuOpen && (
         <div className="lg:hidden bg-slate-900 border-b border-slate-800 px-4 pt-2 pb-4 space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveTab(item.id);
-                  setMobileMenuOpen(false);
-                }}
-                title={item.label}
-                className={`w-full flex items-center justify-center p-2.5 rounded-lg text-sm font-medium transition ${
-                  isActive ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-              </button>
-            );
-          })}
           <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
             <button
               onClick={onOpenKyc}

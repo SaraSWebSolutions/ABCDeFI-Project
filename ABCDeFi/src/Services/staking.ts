@@ -2,7 +2,7 @@ import { Contract, formatEther, isAddress, parseEther } from 'ethers';
 import StakingPoolArtifact from '../../artifacts/contracts/staking/StakingPool.sol/StakingPool.json';
 import ABCDTokenABI from '../abi/ABCDToken.json';
 import { CONTRACTS, DEPLOYMENT_CHAIN_ID } from '../Config/contracts';
-import { provider as canonicalProvider } from './contractProvider';
+import { assertCanonicalContractDeployment, provider as canonicalProvider } from './contractProvider';
 import { getSigner } from './wallet';
 
 export const STAKING_LOCK_DURATIONS = [30 * 24 * 60 * 60, 90 * 24 * 60 * 60, 180 * 24 * 60 * 60] as const;
@@ -63,6 +63,7 @@ async function confirm(transaction: { hash: string; wait: () => Promise<any> }, 
 }
 
 export async function getStakingContract(withSigner = false) {
+  await assertCanonicalContractDeployment('StakingPool', CONTRACTS.staking);
   const providerOrSigner = withSigner ? await getSignerOnDeploymentChain() : canonicalProvider;
   return new Contract(CONTRACTS.staking, StakingPoolArtifact.abi, providerOrSigner);
 }
@@ -70,7 +71,10 @@ export async function getStakingContract(withSigner = false) {
 /** Reads the canonical localhost deployment. The caller address selects user-specific data. */
 export async function getStakingInfo(userAddress?: string): Promise<StakingData> {
   if (!userAddress || !isAddress(userAddress)) throw new Error('Connect a valid wallet address to read user staking data.');
-  const contract = await getStakingContract(false);
+  const [contract] = await Promise.all([
+    getStakingContract(false),
+    assertCanonicalContractDeployment('ABCDToken', CONTRACTS.token),
+  ]);
   const token = new Contract(CONTRACTS.token, ABCDTokenABI, canonicalProvider);
   const [rawStakes, rewardPoolBalance, paused, walletBalance, allowance, block] = await Promise.all([
     contract.getStakes(userAddress), contract.rewardPoolBalance(), contract.paused(), token.balanceOf(userAddress),
@@ -105,6 +109,7 @@ export async function getStakingInfo(userAddress?: string): Promise<StakingData>
 
 export async function approveStaking(amount: string, onSubmitted?: TransactionSubmitted) {
   const value = parsePositiveAmount(amount, 'Approval');
+  await assertCanonicalContractDeployment('ABCDToken', CONTRACTS.token);
   const signer = await getSignerOnDeploymentChain();
   await requireGasBalance(signer);
   const account = await signer.getAddress();
@@ -118,6 +123,10 @@ export async function stakeTokens(amount: string, lockDuration?: number, onSubmi
   if (!lockDuration || !STAKING_LOCK_DURATIONS.includes(lockDuration as typeof STAKING_LOCK_DURATIONS[number])) {
     throw new Error('Select an available on-chain lock tier before staking.');
   }
+  await Promise.all([
+    assertCanonicalContractDeployment('StakingPool', CONTRACTS.staking),
+    assertCanonicalContractDeployment('ABCDToken', CONTRACTS.token),
+  ]);
   const signer = await getSignerOnDeploymentChain();
   await requireGasBalance(signer);
   const account = await signer.getAddress();
@@ -134,6 +143,7 @@ export async function stakeTokens(amount: string, lockDuration?: number, onSubmi
 
 async function getActivePosition(signer: Awaited<ReturnType<typeof getSignerOnDeploymentChain>>, stakeIndex: number) {
   if (!Number.isInteger(stakeIndex) || stakeIndex < 0) throw new Error('Select a valid staking position.');
+  await assertCanonicalContractDeployment('StakingPool', CONTRACTS.staking);
   const account = await signer.getAddress();
   const contract = new Contract(CONTRACTS.staking, StakingPoolArtifact.abi, signer);
   const [paused, stakes, block] = await Promise.all([contract.paused(), contract.getStakes(account), signer.provider!.getBlock('latest')]);

@@ -7,6 +7,8 @@ const toJson = (value) => typeof value === 'bigint' ? value.toString() : Array.i
 const boundedLimit = (value, fallback = 50) => Math.min(100, Math.max(1, Number.isInteger(Number(value)) ? Number(value) : fallback));
 
 function createLendingV2ReadController({ manifest, artifacts, models, provider = new JsonRpcProvider(manifest.rpcUrl) }) {
+  const pool = new Contract(manifest.contracts.LendingPoolV2.address, artifacts.LendingPoolV2.abi, provider);
+  const vault = new Contract(manifest.contracts.CollateralVaultV2.address, artifacts.CollateralVaultV2.abi, provider);
   const manager = new Contract(manifest.contracts.LoanManagerV2.address, artifacts.LoanManagerV2.abi, provider);
   const marketplace = new Contract(manifest.contracts.LoanMarketplaceV2.address, artifacts.LoanMarketplaceV2.abi, provider);
   const liquidation = new Contract(manifest.contracts.LiquidationV2.address, artifacts.LiquidationV2.abi, provider);
@@ -14,6 +16,11 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
   const nft = new Contract(manifest.contracts.LoanNFTV2.address, artifacts.LoanNFTV2.abi, provider);
   const source = () => ({ kind: 'canonical-v2-indexed-on-chain', chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, contracts: Object.fromEntries(Object.entries(manifest.contracts).map(([name, record]) => [name, record.address])) });
   const availability = async () => {
+    const network = await provider.getNetwork();
+    if (Number(network.chainId) !== Number(manifest.chainId)) return { available: false, status: 'UNAVAILABLE', reason: 'The canonical Lending V2 RPC is on the wrong chain.', checkpoint: null };
+    for (const [name, contract] of Object.entries(manifest.contracts)) {
+      if (await provider.getCode(contract.address) === '0x') return { available: false, status: 'UNAVAILABLE', reason: `Canonical ${name} bytecode is missing for this deployment.`, checkpoint: null };
+    }
     const checkpoint = await models.V2BlockCheckpoint.findOne({ chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, scope: SCOPE }).lean();
     return checkpoint?.lastProcessedBlock ? { available: true, status: 'AVAILABLE', checkpoint: checkpoint.lastProcessedBlock } : { available: false, status: 'UNAVAILABLE', reason: 'The canonical Lending V2 indexer has not completed a confirmed sync for this deployment.', checkpoint: null };
   };
@@ -28,7 +35,38 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
     const certificateInfo = certificate[0] === 0n ? null : { tokenId: certificate[0], owner: await nft.ownerOf(certificate[0]), tokenURI: await nft.tokenURI(certificate[0]), certificate: await nft.certificates(certificate[0]) };
     return toJson({ loan: record, previews: { accruedInterest, outstanding, lateFee, totalRepayment, state, currentLtvBps, healthFactor, liquidatable, liquidation: quote }, schedule, certificate: certificateInfo });
   };
+  const includesWallet = (value, wallet) => typeof value === 'string'
+    ? value.toLowerCase() === wallet
+    : Array.isArray(value) ? value.some((item) => includesWallet(item, wallet))
+      : value && typeof value === 'object' ? Object.values(value).some((item) => includesWallet(item, wallet)) : false;
   const eventList = (filter, count) => models.V2ChainEvent.find({ chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, ...filter }).sort({ blockNumber: 1, logIndex: 1 }).limit(count).lean();
+  const readRequest = async (requestId) => {
+    const request = await marketplace.requests(requestId);
+    if (lower(request.borrower) === '0x0000000000000000000000000000000000000000') return null;
+    return toJson(request);
+  };
+  const walletState = async (wallet, limit) => {
+    const events = (await eventList({}, 1_000)).filter((event) => includesWallet(event.args, wallet));
+    const directDepositIds = [...new Set(events.filter((event) => event.eventName === 'CollateralDepositCreated' && lower(event.args.borrower) === wallet).map((event) => event.args.depositId).filter((id) => typeof id === 'string' && UINT.test(id)))];
+    const directPositions = [];
+    for (const depositId of directDepositIds) {
+      const [pending, collateral, maxBorrowable] = await Promise.all([pool.pendingCollateral(depositId), vault.directDepositCollateral(depositId), pool.maxBorrowable(depositId)]);
+      if (lower(pending.borrower) === wallet || collateral !== 0n) directPositions.push(toJson({ depositId, borrower: pending.borrower, active: pending.active, collateralETH: collateral, maxBorrowable }));
+    }
+    const requestIds = [...new Set(events.filter((event) => typeof event.args.requestId === 'string' && UINT.test(event.args.requestId)).map((event) => event.args.requestId))];
+    const requests = [];
+    for (const requestId of requestIds) {
+      const request = await readRequest(requestId);
+      if (request && (lower(request.borrower) === wallet || lower(request.lender) === wallet)) requests.push(toJson({ requestId, borrower: request.borrower, lender: request.lender, principal: request.principal, collateralETH: request.collateral, termSeconds: request.term, state: request.state, loanId: request.loanId, metadataURI: request.metadataURI, metadataHash: request.metadataHash }));
+    }
+    const candidateLoanIds = [...new Set(events.map((event) => event.args.loanId).filter((id) => typeof id === 'string' && UINT.test(id)))];
+    const loans = [];
+    for (const loanId of candidateLoanIds) {
+      const loan = await readLoan(loanId);
+      if (loan && (lower(loan.loan.borrower) === wallet || lower(loan.loan.lender) === wallet)) loans.push({ loanId, ...loan });
+    }
+    return { directPositions, requests, loans, events: events.slice(-limit) };
+  };
   return {
     status: async (_req, res, next) => { try { res.json({ source: source(), ...(await availability()) }); } catch (error) { next(error); } },
     openRequests: async (req, res, next) => { try {
@@ -40,13 +78,13 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
     wallet: async (req, res, next) => { try {
       const wallet = normalizeWallet(req.params.address); if (!wallet) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Wallet address must be a valid Ethereum address.' });
       const state = await requireAvailable(res, { events: [], loanIds: [] }); if (!state) return;
-      const all = await eventList({}, 500); const events = all.filter((event) => JSON.stringify(event.args).toLowerCase().includes(wallet)).slice(-boundedLimit(req.query.limit));
-      const loanIds = [...new Set(events.map((event) => event.args.loanId).filter((id) => typeof id === 'string' && UINT.test(id)))];
-      res.json({ source: source(), ...state, wallet, data: { events, loanIds } });
+      const data = await walletState(wallet, boundedLimit(req.query.limit));
+      res.json({ source: source(), ...state, wallet, data });
     } catch (error) { next(error); } },
     loan: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readLoan(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); res.json({ source: source(), ...state, data }); } } catch (error) { next(error); } },
     history: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res, []); if (state) { const all = await eventList({}, 500); res.json({ source: source(), ...state, data: all.filter((event) => String(event.args.loanId || '') === id).slice(-100) }); } } catch (error) { next(error); } },
     preview: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readLoan(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); res.json({ source: source(), ...state, data: data.previews }); } } catch (error) { next(error); } },
+    request: async (req, res, next) => { try { const id = req.params.requestId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Request ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readRequest(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); const history = (await eventList({}, 1_000)).filter((event) => String(event.args.requestId || '') === id); res.json({ source: source(), ...state, data: { requestId: id, request: data, history } }); } } catch (error) { next(error); } },
   };
 }
 module.exports = { createLendingV2ReadController, normalizeWallet };

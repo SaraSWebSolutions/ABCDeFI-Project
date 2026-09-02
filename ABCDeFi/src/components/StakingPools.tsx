@@ -246,6 +246,8 @@ export const StakingPools: React.FC = () => {
                   <div className="flex justify-between gap-3"><span className="text-slate-400">Position #{position.index}</span><span className="font-mono text-emerald-300">{position.amount} ABCD</span></div>
                   <div className="mt-2 flex justify-between gap-3"><span className="text-slate-400">On-chain APY</span><span>{formatUnits(position.rewardMultiplierBps, 2)}%</span></div>
                   <div className="mt-2 flex justify-between gap-3"><span className="text-slate-400">Claimable reward</span><span>{position.pendingRewards} ABCD</span></div>
+                  <div className="mt-2 flex justify-between gap-3"><span className="text-slate-400">Started</span><span>{formatDate(position.startTime)}</span></div>
+                  <div className="mt-2 flex justify-between gap-3"><span className="text-slate-400">Lock period</span><span>{formatDuration(Number(position.lockDuration))}</span></div>
                   <div className="mt-2 text-slate-400">{position.isUnlocked ? 'Unlocked' : `Locked until ${formatDate(position.unlockTime)}`}</div>
                   <div className="mt-3 flex gap-2"><button type="button" onClick={() => void runPositionAction(position.index, 'claim')} disabled={isPending || !isCorrectNetwork || position.pendingRewardsRaw === 0n} className="flex-1 rounded-lg bg-slate-800 px-2 py-2 font-bold text-slate-100 disabled:opacity-40">Claim</button><button type="button" onClick={() => void runPositionAction(position.index, 'unstake')} disabled={isPending || !isCorrectNetwork || !position.isUnlocked} className="flex-1 rounded-lg bg-rose-600 px-2 py-2 font-bold text-white disabled:opacity-40">Unstake</button></div>
                 </div>

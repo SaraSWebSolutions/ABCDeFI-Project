@@ -36,6 +36,18 @@ describe("Lending V2", function () {
   async function open(principal = "1000", term = 30 * DAY) {
     return pool.connect(borrower).openLoan(ethers.parseEther(principal), term, "ipfs://loan-1", ethers.keccak256(ethers.toUtf8Bytes("loan-1")), { value: ethers.parseEther("1") });
   }
+  async function deployP2P() {
+    const Market = await hh.ethers.getContractFactory("LoanMarketplaceV2");
+    const market = await Market.deploy(admin.address, await token.getAddress(), await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await nft.getAddress());
+    const EMI = await hh.ethers.getContractFactory("EMIManagerV2");
+    const emi = await EMI.deploy(admin.address, await token.getAddress(), await manager.getAddress(), await vault.getAddress(), await nft.getAddress());
+    await market.setEMIManager(await emi.getAddress());
+    await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), await market.getAddress()); await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), await emi.getAddress());
+    await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), await market.getAddress()); await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), await emi.getAddress());
+    await nft.grantRole(ROLE("MINTER_ROLE"), await market.getAddress()); await nft.grantRole(ROLE("MINTER_ROLE"), await emi.getAddress());
+    await emi.grantRole(ROLE("P2P_OPERATOR_ROLE"), await market.getAddress());
+    return { market, emi };
+  }
   beforeEach(deployDirect);
 
   it("allows exactly 50% LTV and mints a non-empty non-transferable certificate", async () => {
@@ -47,12 +59,43 @@ describe("Lending V2", function () {
   it("rejects opening above the oracle-priced 50% LTV", async () => { await expect(open("1000.000000000000000001")).to.be.revertedWith("ltv exceeded"); });
   it("supports separate request-scoped collateral deposit followed by authorized borrowing", async () => {
     await pool.connect(borrower).depositCollateral({ value: ethers.parseEther("1") });
-    expect((await pool.pendingCollateral(1)).borrower).eq(borrower.address); expect(await vault.requestCollateral(1)).eq(ethers.parseEther("1"));
+    expect((await pool.pendingCollateral(1)).borrower).eq(borrower.address); expect(await vault.directDepositCollateral(1)).eq(ethers.parseEther("1")); expect(await vault.requestCollateral(1)).eq(0);
     const hash = ethers.keccak256(ethers.toUtf8Bytes("separate-loan"));
     await expect(pool.connect(lender).borrowABCD(1, ethers.parseEther("1000"), 30 * DAY, "ipfs://separate-loan", hash)).to.be.revertedWith("not pending collateral owner");
     await pool.connect(borrower).borrowABCD(1, ethers.parseEther("1000"), 30 * DAY, "ipfs://separate-loan", hash);
-    expect((await pool.pendingCollateral(1)).active).false; expect(await vault.requestCollateral(1)).eq(0); expect(await vault.loanCollateral(1)).eq(ethers.parseEther("1"));
+    expect((await pool.pendingCollateral(1)).active).false; expect(await vault.directDepositCollateral(1)).eq(0); expect(await vault.loanCollateral(1)).eq(ethers.parseEther("1"));
     await expect(pool.connect(borrower).withdrawPendingCollateral(1)).to.be.revertedWith("not pending collateral owner");
+  });
+  it("keeps direct deposit ID 1 and P2P request ID 1 in independent collateral namespaces", async () => {
+    const { market } = await deployP2P();
+    const directCollateral = ethers.parseEther("0.7");
+    const p2pCollateral = ethers.parseEther("0.2");
+    await pool.connect(borrower).depositCollateral({ value: directCollateral });
+    await market.connect(borrower).createRequest(ethers.parseEther("100"), 30 * DAY, "ipfs://p2p-collision", ethers.keccak256(ethers.toUtf8Bytes("p2p-collision")), { value: p2pCollateral });
+
+    expect(await vault.directDepositCollateral(1)).eq(directCollateral);
+    expect(await vault.requestCollateral(1)).eq(p2pCollateral);
+    expect(await vault.directDepositCollateral(1) + await vault.requestCollateral(1)).eq(directCollateral + p2pCollateral);
+  });
+  it("rejects unauthorized attempts to deposit P2P request collateral", async () => {
+    await expect(vault.connect(borrower).depositForRequest(1, borrower.address, { value: ethers.parseEther("0.1") }))
+      .to.be.revertedWithCustomError(vault, "AccessControlUnauthorizedAccount");
+  });
+  it("never aggregates direct and P2P collateral even when both flows use ID 1", async () => {
+    const { market } = await deployP2P();
+    const directCollateral = ethers.parseEther("0.7");
+    const p2pCollateral = ethers.parseEther("0.2");
+    await pool.connect(borrower).depositCollateral({ value: directCollateral });
+    await market.connect(borrower).createRequest(ethers.parseEther("100"), 30 * DAY, "ipfs://p2p-isolated", ethers.keccak256(ethers.toUtf8Bytes("p2p-isolated")), { value: p2pCollateral });
+
+    await pool.connect(borrower).borrowABCD(1, ethers.parseEther("700"), 30 * DAY, "ipfs://direct-isolated", ethers.keccak256(ethers.toUtf8Bytes("direct-isolated")));
+    await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("100"));
+    await market.connect(lender).fundRequest(1);
+
+    expect(await vault.directDepositCollateral(1)).eq(0);
+    expect(await vault.requestCollateral(1)).eq(0);
+    expect(await vault.loanCollateral(1)).eq(directCollateral);
+    expect(await vault.loanCollateral(2)).eq(p2pCollateral);
   });
   it("exposes non-mutating interest, total-repayment, outstanding, fee, and time-state previews", async () => {
     await open(); const initial = await manager.getLoan(1);

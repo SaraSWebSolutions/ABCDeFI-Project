@@ -47,6 +47,9 @@ import { ContractInteractDashboard } from './ContractInteractDashboard';
 import { MasterProtocolManager } from './MasterProtocolManager';
 import { NFTSubModuleManager } from './NFTSubModuleManager';
 import P2PLendingDashboard from './P2PLendingDashboard';
+import { LendingPool } from './LendingPool';
+import { LendingV2 } from './LendingV2';
+import { StakingPools } from './StakingPools';
 
 import NextGenProtocolDashboard from './NextGenProtocolDashboard';
 
@@ -61,6 +64,8 @@ export interface UserDashboardProps {
   formatUnits: (amt: bigint) => string;
   formatDuration: (sec: number) => string;
   paused: boolean;
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
   canAccessAdmin?: boolean;
   onOpenAdminDashboard?: () => void;
 }
@@ -70,7 +75,7 @@ import { useAuth } from '../Context/AuthContext';
 import { CollateralDepositForm } from './CollateralDepositForm';
 import { WalletSection } from './WalletSection';
 
-export const UserDashboard: React.FC<UserDashboardProps> = ({ canAccessAdmin = false, onOpenAdminDashboard, ...props }) => {
+export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActiveTab, canAccessAdmin = false, onOpenAdminDashboard, ...props }) => {
   const wallet = useWallet();
   const { user } = useAuth();
 
@@ -80,7 +85,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ canAccessAdmin = f
     user?.kycStatus,
     user?.isKycVerified
   );
-  const [activeTab, setActiveTab] = useState('overview');
   const [depositSubTab, setDepositSubTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [walletConnectError, setWalletConnectError] = useState('');
 
@@ -121,6 +125,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ canAccessAdmin = f
     { id: 'overview', label: '🚀 Operating System Hub', icon: Activity },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
     { id: 'portfolio', label: 'Portfolio', icon: PieChart },
+    { id: 'lending', label: 'Lending', icon: Repeat },
+    { id: 'lending-v2', label: 'Lending V2', icon: Repeat },
+    { id: 'p2p-loans', label: 'P2P Loans', icon: Coins },
     { id: 'deposit', label: 'Deposit / Withdraw', icon: ArrowDownToLine },
     { id: 'borrow', label: 'Borrow', icon: Coins },
     // { id: 'repay', label: 'Repay Loan', icon: RefreshCcw },
@@ -138,7 +145,10 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ canAccessAdmin = f
     { id: 'franchise', label: 'Franchise NFTs', icon: Building2 },
     // { id: 'ai-59c', label: '🤖 59C AI Games & Learning', icon: Bot },
     { id: 'ico', label: 'ICO Participation', icon: Rocket },
+    { id: 'staking-pools', label: 'Staking Pools', icon: TrendingUp },
     { id: 'referral', label: 'Referrals', icon: Users },
+    { id: 'security', label: 'Security 2FA', icon: ShieldCheck },
+    { id: 'ai-copilot', label: 'AI Copilot', icon: Bot },
     // { id: 'vesting', label: 'Claim Vesting', icon: Download },
     { id: 'credit', label: 'Credit Score', icon: ShieldCheck },
     // { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -253,7 +263,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ canAccessAdmin = f
 
       {/* MASTER USER NAVIGATION MENU BAR */}
       <div className="bg-slate-900/80 backdrop-blur-xl border border-indigo-500/20 rounded-2xl p-2.5 shadow-xl shadow-slate-950/40">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1">
+        <div className="grid grid-cols-1 gap-2 p-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {USER_MODULES.map((tab) => {
             const IconComp = tab.icon;
             const isSelected = activeTab === tab.id;
@@ -268,7 +278,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ canAccessAdmin = f
                   );
                   setActiveTab(tab.id);
                 }}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all duration-200 flex items-center gap-2 cursor-pointer whitespace-nowrap ${isSelected
+                className={`w-full px-3.5 py-2 rounded-xl text-left text-xs font-black transition-all duration-200 flex items-center gap-2 cursor-pointer ${isSelected
                   ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 text-slate-950 font-black shadow-lg shadow-emerald-500/30 scale-[1.03] border border-emerald-200'
                   : 'bg-slate-950/90 text-slate-400 hover:text-white hover:bg-slate-800/90 border border-slate-800/80'
                   }`}
@@ -300,6 +310,9 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ canAccessAdmin = f
       )}
       {activeTab === 'portfolio' && <PortfolioDashboard />}
       {activeTab === 'ico' && <PresaleICO />}
+      {activeTab === 'lending' && <LendingPool />}
+      {activeTab === 'lending-v2' && <LendingV2 />}
+      {activeTab === 'p2p-loans' && <P2PLendingDashboard activeTab="p2p-loans" />}
       {(activeTab === 'deposit' || activeTab === 'withdraw') && (
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 max-w-3xl mx-auto font-mono">
           {/* Sub-Tab Navigation Header */}
@@ -349,6 +362,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ canAccessAdmin = f
           <ContractInteractDashboard />
         </div>
       )}
+      {activeTab === 'staking-pools' && <StakingPools />}
 
       {/* {activeTab === 'rewards' && (
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 max-w-3xl mx-auto">
@@ -411,6 +425,20 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ canAccessAdmin = f
       )} */}
 
       {activeTab === 'referral' && <ReferralSystem />}
+
+      {activeTab === 'security' && (
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-3 max-w-2xl mx-auto">
+          <h2 className="text-xl font-bold text-white uppercase flex items-center gap-2 border-b border-slate-800 pb-3"><ShieldCheck className="w-5 h-5 text-emerald-400" /> Security controls</h2>
+          <p className="text-sm text-slate-400">This dashboard view is not implemented in the active canonical runtime.</p>
+        </div>
+      )}
+
+      {activeTab === 'ai-copilot' && (
+        <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-3 max-w-2xl mx-auto">
+          <h2 className="text-xl font-bold text-white uppercase flex items-center gap-2 border-b border-slate-800 pb-3"><Bot className="w-5 h-5 text-emerald-400" /> AI Copilot</h2>
+          <p className="text-sm text-slate-400">This dashboard view is not implemented in the active canonical runtime.</p>
+        </div>
+      )}
 
       {activeTab === 'credit' && (
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-3 max-w-2xl mx-auto">

@@ -90,3 +90,12 @@ test('Legion listing flow stays isolated from certificate minting and uses the r
   assert.match(view, /Cancel listing/);
   assert.doesNotMatch(view, /\bmintLegion\b/);
 });
+
+test('Legion listing controls expose Buy only to a connected non-seller and retain seller cancellation', () => {
+  const view = fs.readFileSync(new URL('../../src/components/LegionNFT.tsx', import.meta.url), 'utf8');
+  assert.match(view, /const isSeller = Boolean\(address && listing\.seller\.toLowerCase\(\) === address\.toLowerCase\(\)\)/);
+  assert.match(view, /isSeller \? <button[\s\S]*Cancel listing[\s\S]*: <button[\s\S]*Buy with ETH/);
+  assert.match(view, /!address \? <p[\s\S]*Connect a wallet to buy this listing/);
+  assert.match(view, /await buyNftListing\(listingId/);
+  assert.match(view, /await refresh\(\)/);
+});

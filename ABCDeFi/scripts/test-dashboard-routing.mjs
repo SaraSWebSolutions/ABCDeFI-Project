@@ -90,14 +90,38 @@ test('administrator issuance remains structurally isolated in AdminPortalEngine'
 test('App mounts admin controls only for the explicit admin route branch', () => {
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert.match(appSource, /dashboardMode === 'admin' \? \(\s*<AdminPortalEngine/s);
-  assert.match(appSource, /activeTab === 'dashboard' && \(\s*<UserDashboard/s);
+  assert.match(appSource, /\) : \(\s*<UserDashboard/s);
 });
 
 test('top-level incomplete navigation renders an explicit state instead of a blank page', () => {
-  const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
-  assert.match(appSource, /Security controls/);
-  assert.match(appSource, /AI Copilot/);
-  assert.match(appSource, /not implemented in the active canonical runtime/);
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+  assert.match(userDashboardSource, /Security controls/);
+  assert.match(userDashboardSource, /AI Copilot/);
+  assert.match(userDashboardSource, /not implemented in the active canonical runtime/);
+});
+
+test('Staking Pools remains a labeled, reachable top-level dashboard destination', () => {
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+  const navbarSource = fs.readFileSync(new URL('../src/components/Navbar.tsx', import.meta.url), 'utf8');
+  assert.match(userDashboardSource, /\{ id: 'staking-pools', label: 'Staking Pools'/);
+  assert.match(userDashboardSource, /activeTab === 'staking-pools' && <StakingPools\s*\/>/);
+  assert.doesNotMatch(navbarSource, /Dashboard navigation/);
+});
+
+test('the single UserDashboard navigator owns V1 lending, V2 lending, and P2P views', () => {
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+  assert.match(userDashboardSource, /\{ id: 'lending', label: 'Lending'/);
+  assert.match(userDashboardSource, /\{ id: 'lending-v2', label: 'Lending V2'/);
+  assert.match(userDashboardSource, /\{ id: 'p2p-loans', label: 'P2P Loans'/);
+  assert.match(userDashboardSource, /activeTab === 'lending' && <LendingPool\s*\/>/);
+  assert.match(userDashboardSource, /activeTab === 'lending-v2' && <LendingV2\s*\/>/);
+  assert.match(userDashboardSource, /activeTab === 'p2p-loans' && <P2PLendingDashboard/);
+});
+
+test('the header logo returns to the UserDashboard overview instead of an obsolete tab ID', () => {
+  const navbarSource = fs.readFileSync(new URL('../src/components/Navbar.tsx', import.meta.url), 'utf8');
+  assert.match(navbarSource, /setActiveTab\('overview'\)/);
+  assert.doesNotMatch(navbarSource, /setActiveTab\('dashboard'\)/);
 });
 
 test('a refresh preserves an authorised selected dashboard and blocks unauthorised URLs', () => {

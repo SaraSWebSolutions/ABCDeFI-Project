@@ -7,6 +7,7 @@ const controller = createLendingV2ReadController({ manifest: loadLendingV2Manife
 const router = express.Router();
 router.get('/status', controller.status);
 router.get('/requests/open', controller.openRequests);
+router.get('/requests/:requestId', controller.request);
 router.get('/wallet/:address', controller.wallet);
 router.get('/loans/:loanId', controller.loan);
 router.get('/loans/:loanId/history', controller.history);
