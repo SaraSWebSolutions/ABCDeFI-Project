@@ -15,7 +15,7 @@ describe("Lending V2", function () {
   async function deployDirect() {
     [admin, borrower, liquidator, lender] = await hh.ethers.getSigners();
     const Token = await hh.ethers.getContractFactory("ABCDToken");
-    token = await Token.deploy(admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address);
+    token = await Token.deploy(admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address);
     const Feed = await hh.ethers.getContractFactory("MockAggregatorV3V2");
     ethFeed = await Feed.deploy(8, 2000n * 10n ** 8n); abcdFeed = await Feed.deploy(8, 1n * 10n ** 8n);
     const Oracle = await hh.ethers.getContractFactory("OracleAdapterV2"); oracle = await Oracle.deploy(admin.address);

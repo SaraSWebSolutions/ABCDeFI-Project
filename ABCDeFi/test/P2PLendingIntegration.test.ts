@@ -16,7 +16,7 @@ describe("P2P Lending end-to-end", function () {
     const Token = await hardhatEthers.getContractFactory("ABCDToken");
     const token = await Token.deploy(
       admin.address, admin.address, admin.address, admin.address,
-      admin.address, admin.address, admin.address
+      admin.address, admin.address, admin.address, admin.address
     );
     await token.waitForDeployment();
 
@@ -97,7 +97,7 @@ describe("P2P Lending end-to-end", function () {
     const Token = await hardhatEthers.getContractFactory("ABCDToken");
     const token = await Token.deploy(
       admin.address, admin.address, admin.address, admin.address,
-      admin.address, admin.address, admin.address
+      admin.address, admin.address, admin.address, admin.address
     );
     await token.waitForDeployment();
 
@@ -166,7 +166,7 @@ describe("P2P Lending end-to-end", function () {
     const [admin, borrower, lender] = await hardhatEthers.getSigners();
 
     const Token = await hardhatEthers.getContractFactory("ABCDToken");
-    const token = await Token.deploy(admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address);
+    const token = await Token.deploy(admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address);
     const Vault = await hardhatEthers.getContractFactory("CollateralVault");
     const vault = await Vault.deploy(admin.address);
     const Manager = await hardhatEthers.getContractFactory("LoanManager");
@@ -217,7 +217,7 @@ describe("P2P Lending end-to-end", function () {
     const [admin, borrower, lender, caller] = await hardhatEthers.getSigners();
 
     const Token = await hardhatEthers.getContractFactory("ABCDToken");
-    const token = await Token.deploy(admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address);
+    const token = await Token.deploy(admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address);
     const Vault = await hardhatEthers.getContractFactory("CollateralVault");
     const vault = await Vault.deploy(admin.address);
     const Manager = await hardhatEthers.getContractFactory("LoanManager");

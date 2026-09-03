@@ -15,9 +15,24 @@ import "../interfaces/IABCDToken.sol";
 
 /**
  * @title ABCDToken
- * @notice Core ERC-20 token for the ABCDeFi ecosystem with AccessControl roles,
- *         hard-capped supply, minting/burning controls, treasury bookkeeping,
- *         and emergency rescue logic.
+ * @notice Core ERC-20 token for the ABCDeFi ecosystem.
+ *
+ *         Maximum supply: 1,000,000,000 ABCD
+ *         Decimals:       18
+ *
+ *         Initial ecosystem allocation:
+ *         - Infrastructure: 15%
+ *         - Liquidity / Financial: 40%
+ *         - Marketing: 5%
+ *         - Contracts / Endorsements: 15%
+ *         - Community: 5%
+ *         - ACF Education / Welfare: 10%
+ *         - Contingency: 8%
+ *         - Reserve: 2%
+ *
+ *         The initial allocation is minted once during deployment.
+ *         The 40% liquidity allocation does NOT activate an ICO sale.
+ *         ICO activation/configuration remains a separate operation.
  */
 contract ABCDToken is
     ERC20,
@@ -30,168 +45,288 @@ contract ABCDToken is
 {
     using SafeERC20 for IERC20;
 
-    // --- State Variables ---
+    // ---------------------------------------------------------------------
+    // State Variables
+    // ---------------------------------------------------------------------
+
     address private _treasury;
 
-    // Ecosystem Wallets
-    address public founderWallet;
-    address public icoWallet;
+    // Ecosystem wallets
+    address public infrastructureWallet;
+    address public liquidityWallet;
     address public marketingWallet;
-    address public financeWallet;
-    address public advisorWallet;
-    address public reserveWallet;
+    address public contractsWallet;
+    address public communityWallet;
+    address public educationWallet;
     address public contingencyWallet;
+    address public reserveWallet;
+
+    // ---------------------------------------------------------------------
+    // Constructor
+    // ---------------------------------------------------------------------
 
     /**
-     * @notice Constructs the ABCDToken and mints 100% of MAX_SUPPLY across ecosystem wallets.
-     * @param founderWallet_ Wallet receiving 55% allocation
-     * @param icoWallet_ Wallet receiving 20% allocation
-     * @param marketingWallet_ Wallet receiving 10% allocation
-     * @param financeWallet_ Wallet receiving 9% allocation (also default treasury)
-     * @param advisorWallet_ Wallet receiving 2% allocation
-     * @param reserveWallet_ Wallet receiving 2% allocation
-     * @param contingencyWallet_ Wallet receiving 2% allocation
+     * @notice Constructs ABCDToken and mints 100% of MAX_SUPPLY
+     *         across the eight whitepaper allocation wallets.
+     *
+     * @param infrastructureWallet_ Infrastructure / Development wallet (15%)
+     * @param liquidityWallet_      Liquidity / Financial wallet (40%)
+     * @param marketingWallet_      Marketing wallet (5%)
+     * @param contractsWallet_      Contracts / Endorsements wallet (15%)
+     * @param communityWallet_      Community wallet (5%)
+     * @param educationWallet_      ACF Education / Welfare wallet (10%)
+     * @param contingencyWallet_    Contingency wallet (8%)
+     * @param reserveWallet_        Reserve wallet (2%)
      */
     constructor(
-        address founderWallet_,
-        address icoWallet_,
+        address infrastructureWallet_,
+        address liquidityWallet_,
         address marketingWallet_,
-        address financeWallet_,
-        address advisorWallet_,
-        address reserveWallet_,
-        address contingencyWallet_
+        address contractsWallet_,
+        address communityWallet_,
+        address educationWallet_,
+        address contingencyWallet_,
+        address reserveWallet_
     )
         ERC20(Constants.TOKEN_NAME, Constants.TOKEN_SYMBOL)
         ERC20Permit(Constants.TOKEN_NAME)
         Ownable(msg.sender)
     {
-        // Address Validations
+        // -----------------------------------------------------------------
+        // Address validation
+        // -----------------------------------------------------------------
+
         if (
-            founderWallet_ == address(0) ||
-            icoWallet_ == address(0) ||
+            infrastructureWallet_ == address(0) ||
+            liquidityWallet_ == address(0) ||
             marketingWallet_ == address(0) ||
-            financeWallet_ == address(0) ||
-            advisorWallet_ == address(0) ||
-            reserveWallet_ == address(0) ||
-            contingencyWallet_ == address(0)
+            contractsWallet_ == address(0) ||
+            communityWallet_ == address(0) ||
+            educationWallet_ == address(0) ||
+            contingencyWallet_ == address(0) ||
+            reserveWallet_ == address(0)
         ) {
             revert Errors.InvalidAddress();
         }
 
-        founderWallet = founderWallet_;
-        icoWallet = icoWallet_;
+        // -----------------------------------------------------------------
+        // Store ecosystem wallets
+        // -----------------------------------------------------------------
+
+        infrastructureWallet = infrastructureWallet_;
+        liquidityWallet = liquidityWallet_;
         marketingWallet = marketingWallet_;
-        financeWallet = financeWallet_;
-        advisorWallet = advisorWallet_;
-        reserveWallet = reserveWallet_;
+        contractsWallet = contractsWallet_;
+        communityWallet = communityWallet_;
+        educationWallet = educationWallet_;
         contingencyWallet = contingencyWallet_;
+        reserveWallet = reserveWallet_;
 
-        // Treasury defaults to financeWallet_
-        _treasury = financeWallet_;
+        // Infrastructure wallet is the default treasury.
+        _treasury = infrastructureWallet_;
 
-        // Grant Roles to Deployer
+        // -----------------------------------------------------------------
+        // Grant roles to deployer
+        // -----------------------------------------------------------------
+
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(Constants.MINTER_ROLE, msg.sender);
         _grantRole(Constants.BURNER_ROLE, msg.sender);
         _grantRole(Constants.PAUSER_ROLE, msg.sender);
 
-        // Grant TREASURY_ROLE to default treasury address
+        // Grant treasury permissions to the initial treasury.
         _grantRole(Constants.TREASURY_ROLE, _treasury);
 
-        // Calculate Allocations
-        uint256 maxSup = Constants.MAX_SUPPLY;
-        uint256 founderAmount     = (maxSup * Constants.FOUNDER_BPS) / Constants.BPS_DENOMINATOR;
-        uint256 icoAmount         = (maxSup * Constants.ICO_BPS) / Constants.BPS_DENOMINATOR;
-        uint256 marketingAmount   = (maxSup * Constants.MARKETING_BPS) / Constants.BPS_DENOMINATOR;
-        uint256 financeAmount     = (maxSup * Constants.FINANCE_BPS) / Constants.BPS_DENOMINATOR;
-        uint256 advisorAmount     = (maxSup * Constants.ADVISOR_BPS) / Constants.BPS_DENOMINATOR;
-        uint256 reserveAmount     = (maxSup * Constants.RESERVE_BPS) / Constants.BPS_DENOMINATOR;
-        uint256 contingencyAmount = (maxSup * Constants.CONTINGENCY_BPS) / Constants.BPS_DENOMINATOR;
+        // -----------------------------------------------------------------
+        // Calculate whitepaper allocations
+        // -----------------------------------------------------------------
 
-        uint256 totalAllocated = founderAmount + icoAmount + marketingAmount + financeAmount +
-                                 advisorAmount + reserveAmount + contingencyAmount;
+        uint256 maxSup = Constants.MAX_SUPPLY;
+
+        uint256 infrastructureAmount =
+            (maxSup * Constants.INFRASTRUCTURE_BPS) /
+            Constants.BPS_DENOMINATOR;
+
+        uint256 liquidityAmount =
+            (maxSup * Constants.LIQUIDITY_BPS) /
+            Constants.BPS_DENOMINATOR;
+
+        uint256 marketingAmount =
+            (maxSup * Constants.MARKETING_BPS) /
+            Constants.BPS_DENOMINATOR;
+
+        uint256 contractsAmount =
+            (maxSup * Constants.CONTRACTS_BPS) /
+            Constants.BPS_DENOMINATOR;
+
+        uint256 communityAmount =
+            (maxSup * Constants.COMMUNITY_BPS) /
+            Constants.BPS_DENOMINATOR;
+
+        uint256 educationAmount =
+            (maxSup * Constants.EDUCATION_BPS) /
+            Constants.BPS_DENOMINATOR;
+
+        uint256 contingencyAmount =
+            (maxSup * Constants.CONTINGENCY_BPS) /
+            Constants.BPS_DENOMINATOR;
+
+        uint256 reserveAmount =
+            (maxSup * Constants.RESERVE_BPS) /
+            Constants.BPS_DENOMINATOR;
+
+        // -----------------------------------------------------------------
+        // Allocation integrity check
+        // -----------------------------------------------------------------
+
+        uint256 totalAllocated =
+            infrastructureAmount +
+            liquidityAmount +
+            marketingAmount +
+            contractsAmount +
+            communityAmount +
+            educationAmount +
+            contingencyAmount +
+            reserveAmount;
 
         if (totalAllocated != maxSup) {
             revert Errors.AllocationMismatch(totalAllocated, maxSup);
         }
 
-        // Mint Initial Allocations
-        _mint(founderWallet, founderAmount);
-        _mint(icoWallet, icoAmount);
+        // -----------------------------------------------------------------
+        // Mint initial allocations
+        // -----------------------------------------------------------------
+
+        _mint(infrastructureWallet, infrastructureAmount);
+        _mint(liquidityWallet, liquidityAmount);
         _mint(marketingWallet, marketingAmount);
-        _mint(financeWallet, financeAmount);
-        _mint(advisorWallet, advisorAmount);
-        _mint(reserveWallet, reserveAmount);
+        _mint(contractsWallet, contractsAmount);
+        _mint(communityWallet, communityAmount);
+        _mint(educationWallet, educationAmount);
         _mint(contingencyWallet, contingencyAmount);
+        _mint(reserveWallet, reserveAmount);
 
         emit EcosystemWalletsUpdated(
-            founderWallet, icoWallet, marketingWallet,
-            financeWallet, advisorWallet, reserveWallet, contingencyWallet
+            infrastructureWallet,
+            liquidityWallet,
+            marketingWallet,
+            contractsWallet,
+            communityWallet,
+            educationWallet,
+            contingencyWallet,
+            reserveWallet
         );
+
         emit TreasuryUpdated(address(0), _treasury);
     }
 
-    // --- Core Functions ---
+    // ---------------------------------------------------------------------
+    // Core Functions
+    // ---------------------------------------------------------------------
 
     /**
-     * @notice Mints new ABCD tokens up to MAX_SUPPLY. Restricted to MINTER_ROLE.
-     * @param to Target address receiving tokens
-     * @param amount Token quantity in wei (18 decimals)
+     * @notice Mints new ABCD tokens up to MAX_SUPPLY.
+     * @dev Restricted to MINTER_ROLE.
      */
     function mint(address to, uint256 amount)
         external
         override
         onlyRole(Constants.MINTER_ROLE)
     {
-        if (to == address(0)) revert Errors.InvalidAddress();
-        if (amount == 0) revert Errors.ZeroAmount();
-        if (totalSupply() + amount > Constants.MAX_SUPPLY) {
-            revert Errors.MaxSupplyExceeded(amount, Constants.MAX_SUPPLY - totalSupply());
+        if (to == address(0)) {
+            revert Errors.InvalidAddress();
         }
+
+        if (amount == 0) {
+            revert Errors.ZeroAmount();
+        }
+
+        if (totalSupply() + amount > Constants.MAX_SUPPLY) {
+            revert Errors.MaxSupplyExceeded(
+                amount,
+                Constants.MAX_SUPPLY - totalSupply()
+            );
+        }
+
         _mint(to, amount);
     }
 
     /**
-     * @notice Burns ABCD tokens directly from the treasury wallet balance.
-     *         Callable by accounts with BURNER_ROLE or TREASURY_ROLE.
-     * @param amount Quantity of tokens to burn from treasury
+     * @notice Burns ABCD directly from the active treasury wallet.
+     * @dev Callable by BURNER_ROLE or TREASURY_ROLE.
      */
-    function burnFromTreasury(uint256 amount) external override {
-        if (!hasRole(Constants.BURNER_ROLE, msg.sender) && !hasRole(Constants.TREASURY_ROLE, msg.sender)) {
-            revert Errors.UnauthorizedAccount(msg.sender, Constants.BURNER_ROLE);
+    function burnFromTreasury(uint256 amount)
+        external
+        override
+    {
+        if (
+            !hasRole(Constants.BURNER_ROLE, msg.sender) &&
+            !hasRole(Constants.TREASURY_ROLE, msg.sender)
+        ) {
+            revert Errors.UnauthorizedAccount(
+                msg.sender,
+                Constants.BURNER_ROLE
+            );
         }
-        if (amount == 0) revert Errors.ZeroAmount();
-        if (balanceOf(_treasury) < amount) {
-            revert Errors.InsufficientTreasuryBalance(amount, balanceOf(_treasury));
+
+        if (amount == 0) {
+            revert Errors.ZeroAmount();
+        }
+
+        uint256 treasuryBalance = balanceOf(_treasury);
+
+        if (treasuryBalance < amount) {
+            revert Errors.InsufficientTreasuryBalance(
+                amount,
+                treasuryBalance
+            );
         }
 
         _burn(_treasury, amount);
+
         emit TreasuryBurn(_treasury, amount);
     }
 
     /**
-     * @notice Pauses all token transfers, minting, and burning. Restricted to PAUSER_ROLE.
+     * @notice Pauses all token transfers, minting and burning.
      */
-    function pause() external override onlyRole(Constants.PAUSER_ROLE) {
+    function pause()
+        external
+        override
+        onlyRole(Constants.PAUSER_ROLE)
+    {
         _pause();
     }
 
     /**
-     * @notice Unpauses all token transfers, minting, and burning. Restricted to PAUSER_ROLE.
+     * @notice Unpauses all token transfers, minting and burning.
      */
-    function unpause() external override onlyRole(Constants.PAUSER_ROLE) {
+    function unpause()
+        external
+        override
+        onlyRole(Constants.PAUSER_ROLE)
+    {
         _unpause();
     }
 
-    // --- Admin Operations ---
+    // ---------------------------------------------------------------------
+    // Admin Operations
+    // ---------------------------------------------------------------------
 
     /**
-     * @notice Reassigns the active treasury address and grants TREASURY_ROLE to the new address.
-     * @param newTreasury New treasury wallet address
+     * @notice Reassigns the active treasury address.
      */
-    function setTreasury(address newTreasury) external override onlyOwner {
-        if (newTreasury == address(0)) revert Errors.InvalidAddress();
+    function setTreasury(address newTreasury)
+        external
+        override
+        onlyOwner
+    {
+        if (newTreasury == address(0)) {
+            revert Errors.InvalidAddress();
+        }
+
         address oldTreasury = _treasury;
+
         _treasury = newTreasury;
 
         _revokeRole(Constants.TREASURY_ROLE, oldTreasury);
@@ -201,94 +336,166 @@ contract ABCDToken is
     }
 
     /**
-     * @notice Updates ecosystem wallet record references. Does NOT move existing tokens.
+     * @notice Updates ecosystem wallet references.
+     * @dev Existing token balances are NOT moved.
      */
     function updateWallets(
-        address founderWallet_,
-        address icoWallet_,
+        address infrastructureWallet_,
+        address liquidityWallet_,
         address marketingWallet_,
-        address financeWallet_,
-        address advisorWallet_,
-        address reserveWallet_,
-        address contingencyWallet_
-    ) external override onlyOwner {
+        address contractsWallet_,
+        address communityWallet_,
+        address educationWallet_,
+        address contingencyWallet_,
+        address reserveWallet_
+    )
+        external
+        override
+        onlyOwner
+    {
         if (
-            founderWallet_ == address(0) ||
-            icoWallet_ == address(0) ||
+            infrastructureWallet_ == address(0) ||
+            liquidityWallet_ == address(0) ||
             marketingWallet_ == address(0) ||
-            financeWallet_ == address(0) ||
-            advisorWallet_ == address(0) ||
-            reserveWallet_ == address(0) ||
-            contingencyWallet_ == address(0)
+            contractsWallet_ == address(0) ||
+            communityWallet_ == address(0) ||
+            educationWallet_ == address(0) ||
+            contingencyWallet_ == address(0) ||
+            reserveWallet_ == address(0)
         ) {
             revert Errors.InvalidAddress();
         }
 
-        founderWallet = founderWallet_;
-        icoWallet = icoWallet_;
+        infrastructureWallet = infrastructureWallet_;
+        liquidityWallet = liquidityWallet_;
         marketingWallet = marketingWallet_;
-        financeWallet = financeWallet_;
-        advisorWallet = advisorWallet_;
-        reserveWallet = reserveWallet_;
+        contractsWallet = contractsWallet_;
+        communityWallet = communityWallet_;
+        educationWallet = educationWallet_;
         contingencyWallet = contingencyWallet_;
+        reserveWallet = reserveWallet_;
 
         emit EcosystemWalletsUpdated(
-            founderWallet, icoWallet, marketingWallet,
-            financeWallet, advisorWallet, reserveWallet, contingencyWallet
+            infrastructureWallet,
+            liquidityWallet,
+            marketingWallet,
+            contractsWallet,
+            communityWallet,
+            educationWallet,
+            contingencyWallet,
+            reserveWallet
         );
     }
 
     /**
-     * @notice Rescues ERC-20 tokens accidentally sent to this contract address.
+     * @notice Rescues ERC-20 tokens accidentally sent to this contract.
      */
-    function rescueERC20(address token, address to, uint256 amount) external override onlyOwner {
-        if (token == address(0) || to == address(0)) revert Errors.InvalidAddress();
-        if (amount == 0) revert Errors.ZeroAmount();
+    function rescueERC20(
+        address token,
+        address to,
+        uint256 amount
+    )
+        external
+        override
+        onlyOwner
+    {
+        if (token == address(0) || to == address(0)) {
+            revert Errors.InvalidAddress();
+        }
+
+        if (amount == 0) {
+            revert Errors.ZeroAmount();
+        }
 
         IERC20(token).safeTransfer(to, amount);
+
         emit TokensRescued(token, to, amount);
     }
 
     /**
-     * @notice Rescues native ETH accidentally sent to this contract address.
+     * @notice Rescues native ETH accidentally sent to this contract.
      */
-    function rescueETH(address payable to, uint256 amount) external override onlyOwner {
-        if (to == address(0)) revert Errors.InvalidAddress();
-        if (amount == 0) revert Errors.ZeroAmount();
-        if (address(this).balance < amount) revert Errors.ZeroAmount();
+    function rescueETH(
+        address payable to,
+        uint256 amount
+    )
+        external
+        override
+        onlyOwner
+    {
+        if (to == address(0)) {
+            revert Errors.InvalidAddress();
+        }
+
+        if (amount == 0) {
+            revert Errors.ZeroAmount();
+        }
+
+        if (address(this).balance < amount) {
+            revert Errors.ZeroAmount();
+        }
 
         (bool success, ) = to.call{value: amount}("");
-        if (!success) revert Errors.NativeTransferFailed();
+
+        if (!success) {
+            revert Errors.NativeTransferFailed();
+        }
 
         emit NativeRescued(to, amount);
     }
 
-    // --- Overrides ---
+    // ---------------------------------------------------------------------
+    // Overrides
+    // ---------------------------------------------------------------------
 
     /**
-     * @dev Central hook for transfers, mints, and burns to enforce pausable restrictions.
+     * @dev Central ERC-20 update hook enforcing pause restrictions.
      */
-    function _update(address from, address to, uint256 value)
+    function _update(
+        address from,
+        address to,
+        uint256 value
+    )
         internal
         override(ERC20, ERC20Pausable)
     {
         super._update(from, to, value);
     }
 
-    // --- View Functions ---
+    // ---------------------------------------------------------------------
+    // View Functions
+    // ---------------------------------------------------------------------
 
-    function treasury() external view override returns (address) {
+    function treasury()
+        external
+        view
+        override
+        returns (address)
+    {
         return _treasury;
     }
 
-    function isPaused() external view override returns (bool) {
+    function isPaused()
+        external
+        view
+        override
+        returns (bool)
+    {
         return paused();
     }
 
-    function maxSupply() external pure override returns (uint256) {
+    function maxSupply()
+        external
+        pure
+        override
+        returns (uint256)
+    {
         return Constants.MAX_SUPPLY;
     }
 
-    /// @dev Fallback to receive ETH for rescue test
+    // ---------------------------------------------------------------------
+    // Receive
+    // ---------------------------------------------------------------------
+
     receive() external payable {}
 }

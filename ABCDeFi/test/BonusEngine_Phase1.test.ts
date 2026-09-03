@@ -19,8 +19,8 @@ describe("Bonus Engine Specification Verification", function () {
 
     const TokenFactory = await hardhatEthers.getContractFactory("ABCDToken");
     token = await TokenFactory.deploy(
-      owner.address, owner.address, owner.address,
-      owner.address, owner.address, reserveVault.address, owner.address
+      owner.address, owner.address, owner.address, owner.address,
+      owner.address, owner.address, owner.address, reserveVault.address
     );
     await token.waitForDeployment();
 

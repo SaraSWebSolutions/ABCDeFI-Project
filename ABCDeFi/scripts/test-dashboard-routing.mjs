@@ -108,12 +108,12 @@ test('Staking Pools remains a labeled, reachable top-level dashboard destination
   assert.doesNotMatch(navbarSource, /Dashboard navigation/);
 });
 
-test('the single UserDashboard navigator owns V1 lending, V2 lending, and P2P views', () => {
+test('the primary UserDashboard lending tab uses V2 while V1 P2P remains reachable', () => {
   const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
   assert.match(userDashboardSource, /\{ id: 'lending', label: 'Lending'/);
   assert.match(userDashboardSource, /\{ id: 'lending-v2', label: 'Lending V2'/);
   assert.match(userDashboardSource, /\{ id: 'p2p-loans', label: 'P2P Loans'/);
-  assert.match(userDashboardSource, /activeTab === 'lending' && <LendingPool\s*\/>/);
+  assert.match(userDashboardSource, /activeTab === 'lending' && <LendingV2\s*\/>/);
   assert.match(userDashboardSource, /activeTab === 'lending-v2' && <LendingV2\s*\/>/);
   assert.match(userDashboardSource, /activeTab === 'p2p-loans' && <P2PLendingDashboard/);
 });

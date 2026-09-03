@@ -3,138 +3,285 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+
 import "../libraries/Constants.sol";
 import "../libraries/Errors.sol";
 
-/**
- * @title AllocationManager
- * @notice Manages ecosystem allocations, wallet assignments, allocation history, and freeze controls for ABCDeFi.
- */
 contract AllocationManager is AccessControl, Pausable {
-
-    struct AllocationInfo {
+    struct Allocation {
+        bytes32 key;
         string name;
         address wallet;
         uint256 bps;
-        bool isFrozen;
-    }
-
-    bytes32 public constant ALLOCATION_ADMIN_ROLE = keccak256("ALLOCATION_ADMIN_ROLE");
-
-    struct HistoryRecord {
-        bytes32 key;
-        address fromWallet;
-        address to;
         uint256 amount;
-        string reason;
-        uint256 timestamp;
+        bool frozen;
     }
 
-    mapping(bytes32 => AllocationInfo) public allocations;
-    bytes32[] public allocationKeys;
-    HistoryRecord[] public history;
+    bytes32 public constant INFRASTRUCTURE_KEY =
+        keccak256("INFRASTRUCTURE");
 
-    event AllocationUpdated(bytes32 indexed key, address indexed oldWallet, address indexed newWallet);
+    bytes32 public constant LIQUIDITY_KEY =
+        keccak256("LIQUIDITY");
+
+    bytes32 public constant MARKETING_KEY =
+        keccak256("MARKETING");
+
+    bytes32 public constant CONTRACTS_KEY =
+        keccak256("CONTRACTS");
+
+    bytes32 public constant COMMUNITY_KEY =
+        keccak256("COMMUNITY");
+
+    bytes32 public constant EDUCATION_KEY =
+        keccak256("EDUCATION");
+
+    bytes32 public constant CONTINGENCY_KEY =
+        keccak256("CONTINGENCY");
+
+    bytes32 public constant RESERVE_KEY =
+        keccak256("RESERVE");
+
+    mapping(bytes32 => Allocation) private _allocations;
+    bytes32[] private _allocationKeys;
+
+    event AllocationCreated(
+        bytes32 indexed key,
+        string name,
+        address indexed wallet,
+        uint256 bps,
+        uint256 amount
+    );
+
+    event AllocationUpdated(
+        bytes32 indexed key,
+        address indexed oldWallet,
+        address indexed newWallet,
+        uint256 oldAmount,
+        uint256 newAmount
+    );
+
     event AllocationFrozen(bytes32 indexed key);
     event AllocationUnfrozen(bytes32 indexed key);
-    event AllocationTransferRecorded(bytes32 indexed key, address indexed fromWallet, address indexed to, uint256 amount, string reason);
 
     constructor(
-        address founder,
-        address ico,
+        address infrastructure,
+        address liquidity,
         address marketing,
-        address advisor,
-        address finance,
-        address reserve,
-        address contingency
+        address contractsWallet,
+        address community,
+        address education,
+        address contingency,
+        address reserve
     ) {
         if (
-            founder == address(0) || ico == address(0) || marketing == address(0) ||
-            advisor == address(0) || finance == address(0) || reserve == address(0) ||
-            contingency == address(0)
+            infrastructure == address(0) ||
+            liquidity == address(0) ||
+            marketing == address(0) ||
+            contractsWallet == address(0) ||
+            community == address(0) ||
+            education == address(0) ||
+            contingency == address(0) ||
+            reserve == address(0)
         ) {
             revert Errors.InvalidAddress();
         }
 
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(ALLOCATION_ADMIN_ROLE, msg.sender);
 
-        _createAllocation("FOUNDER", keccak256("FOUNDER"), founder, Constants.FOUNDER_BPS);
-        _createAllocation("ICO", keccak256("ICO"), ico, Constants.ICO_BPS);
-        _createAllocation("MARKETING", keccak256("MARKETING"), marketing, Constants.MARKETING_BPS);
-        _createAllocation("ADVISOR", keccak256("ADVISOR"), advisor, Constants.ADVISOR_BPS);
-        _createAllocation("FINANCE", keccak256("FINANCE"), finance, Constants.FINANCE_BPS);
-        _createAllocation("RESERVE", keccak256("RESERVE"), reserve, Constants.RESERVE_BPS);
-        _createAllocation("CONTINGENCY", keccak256("CONTINGENCY"), contingency, Constants.CONTINGENCY_BPS);
+        _createAllocation(
+            "INFRASTRUCTURE",
+            INFRASTRUCTURE_KEY,
+            infrastructure,
+            Constants.INFRASTRUCTURE_BPS
+        );
+
+        _createAllocation(
+            "LIQUIDITY",
+            LIQUIDITY_KEY,
+            liquidity,
+            Constants.LIQUIDITY_BPS
+        );
+
+        _createAllocation(
+            "MARKETING",
+            MARKETING_KEY,
+            marketing,
+            Constants.MARKETING_BPS
+        );
+
+        _createAllocation(
+            "CONTRACTS",
+            CONTRACTS_KEY,
+            contractsWallet,
+            Constants.CONTRACTS_BPS
+        );
+
+        _createAllocation(
+            "COMMUNITY",
+            COMMUNITY_KEY,
+            community,
+            Constants.COMMUNITY_BPS
+        );
+
+        _createAllocation(
+            "EDUCATION",
+            EDUCATION_KEY,
+            education,
+            Constants.EDUCATION_BPS
+        );
+
+        _createAllocation(
+            "CONTINGENCY",
+            CONTINGENCY_KEY,
+            contingency,
+            Constants.CONTINGENCY_BPS
+        );
+
+        _createAllocation(
+            "RESERVE",
+            RESERVE_KEY,
+            reserve,
+            Constants.RESERVE_BPS
+        );
     }
 
-    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _pause();
-    }
+    function _createAllocation(
+        string memory name,
+        bytes32 key,
+        address wallet,
+        uint256 bps
+    ) internal {
+        if (wallet == address(0)) {
+            revert Errors.InvalidAddress();
+        }
 
-    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _unpause();
-    }
+        uint256 amount =
+            (Constants.MAX_SUPPLY * bps) /
+            Constants.BPS_DENOMINATOR;
 
-    function _createAllocation(string memory name, bytes32 key, address wallet, uint256 bps) internal {
-        allocations[key] = AllocationInfo({
+        _allocations[key] = Allocation({
+            key: key,
             name: name,
             wallet: wallet,
             bps: bps,
-            isFrozen: false
-        });
-        allocationKeys.push(key);
-    }
-
-    function recordTransfer(bytes32 key, address to, uint256 amount, string memory reason) external onlyRole(ALLOCATION_ADMIN_ROLE) whenNotPaused {
-        AllocationInfo memory alloc = allocations[key];
-        require(alloc.wallet != address(0), "Invalid allocation key");
-        require(!alloc.isFrozen, "Allocation is frozen");
-
-        history.push(HistoryRecord({
-            key: key,
-            fromWallet: alloc.wallet,
-            to: to,
             amount: amount,
-            reason: reason,
-            timestamp: block.timestamp
-        }));
+            frozen: false
+        });
 
-        emit AllocationTransferRecorded(key, alloc.wallet, to, amount, reason);
+        _allocationKeys.push(key);
+
+        emit AllocationCreated(
+            key,
+            name,
+            wallet,
+            bps,
+            amount
+        );
     }
 
-    function updateWallet(bytes32 key, address newWallet) external onlyRole(ALLOCATION_ADMIN_ROLE) whenNotPaused {
-        if (newWallet == address(0)) revert Errors.InvalidAddress();
-        AllocationInfo storage alloc = allocations[key];
-        if (alloc.wallet == address(0)) revert Errors.InvalidAddress();
-        if (alloc.isFrozen) revert Errors.UnauthorizedAccount(msg.sender, ALLOCATION_ADMIN_ROLE);
-
-        address oldWallet = alloc.wallet;
-        alloc.wallet = newWallet;
-
-        emit AllocationUpdated(key, oldWallet, newWallet);
+    function getAllocation(bytes32 key)
+        external
+        view
+        returns (Allocation memory)
+    {
+        return _allocations[key];
     }
 
-    function freezeAllocation(bytes32 key) external onlyRole(ALLOCATION_ADMIN_ROLE) whenNotPaused {
-        allocations[key].isFrozen = true;
+    function getAllocationKeys()
+        external
+        view
+        returns (bytes32[] memory)
+    {
+        return _allocationKeys;
+    }
+
+    function allocationCount()
+        external
+        view
+        returns (uint256)
+    {
+        return _allocationKeys.length;
+    }
+
+    function updateAllocation(
+        bytes32 key,
+        address newWallet
+    )
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (newWallet == address(0)) {
+            revert Errors.InvalidAddress();
+        }
+
+        Allocation storage allocation = _allocations[key];
+
+        if (allocation.wallet == address(0)) {
+            revert Errors.InvalidAddress();
+        }
+
+        if (allocation.frozen) {
+            revert Errors.UnauthorizedAccount(
+                msg.sender,
+                DEFAULT_ADMIN_ROLE
+            );
+        }
+
+        address oldWallet = allocation.wallet;
+        uint256 oldAmount = allocation.amount;
+
+        allocation.wallet = newWallet;
+
+        emit AllocationUpdated(
+            key,
+            oldWallet,
+            newWallet,
+            oldAmount,
+            allocation.amount
+        );
+    }
+
+    function freezeAllocation(bytes32 key)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        Allocation storage allocation = _allocations[key];
+
+        if (allocation.wallet == address(0)) {
+            revert Errors.InvalidAddress();
+        }
+
+        allocation.frozen = true;
+
         emit AllocationFrozen(key);
     }
 
-    function unfreezeAllocation(bytes32 key) external onlyRole(ALLOCATION_ADMIN_ROLE) whenNotPaused {
-        allocations[key].isFrozen = false;
+    function unfreezeAllocation(bytes32 key)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        Allocation storage allocation = _allocations[key];
+
+        if (allocation.wallet == address(0)) {
+            revert Errors.InvalidAddress();
+        }
+
+        allocation.frozen = false;
+
         emit AllocationUnfrozen(key);
     }
 
-    function getAllocation(bytes32 key) external view returns (string memory name, address wallet, uint256 bps, bool frozen) {
-        AllocationInfo memory alloc = allocations[key];
-        return (alloc.name, alloc.wallet, alloc.bps, alloc.isFrozen);
+    function pause()
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        _pause();
     }
 
-    function getHistory() external view returns (HistoryRecord[] memory) {
-        return history;
-    }
-
-    function getAllKeys() external view returns (bytes32[] memory) {
-        return allocationKeys;
+    function unpause()
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        _unpause();
     }
 }

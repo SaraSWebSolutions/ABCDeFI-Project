@@ -6,20 +6,21 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface IABCDTokenInterface extends Interface {
-    getFunction(nameOrSignature: "advisorWallet" | "allowance" | "approve" | "balanceOf" | "burnFromTreasury" | "contingencyWallet" | "financeWallet" | "founderWallet" | "icoWallet" | "isPaused" | "marketingWallet" | "maxSupply" | "mint" | "pause" | "rescueERC20" | "rescueETH" | "reserveWallet" | "setTreasury" | "totalSupply" | "transfer" | "transferFrom" | "treasury" | "unpause" | "updateWallets"): FunctionFragment;
+    getFunction(nameOrSignature: "allowance" | "approve" | "balanceOf" | "burnFromTreasury" | "communityWallet" | "contingencyWallet" | "contractsWallet" | "educationWallet" | "infrastructureWallet" | "isPaused" | "liquidityWallet" | "marketingWallet" | "maxSupply" | "mint" | "pause" | "rescueERC20" | "rescueETH" | "reserveWallet" | "setTreasury" | "totalSupply" | "transfer" | "transferFrom" | "treasury" | "unpause" | "updateWallets"): FunctionFragment;
 
     getEvent(nameOrSignatureOrTopic: "Approval" | "EcosystemWalletsUpdated" | "NativeRescued" | "TokensRescued" | "Transfer" | "TreasuryBurn" | "TreasuryUpdated"): EventFragment;
 
-    encodeFunctionData(functionFragment: 'advisorWallet', values?: undefined): string;
-encodeFunctionData(functionFragment: 'allowance', values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: 'allowance', values: [AddressLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'approve', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'balanceOf', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'burnFromTreasury', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'communityWallet', values?: undefined): string;
 encodeFunctionData(functionFragment: 'contingencyWallet', values?: undefined): string;
-encodeFunctionData(functionFragment: 'financeWallet', values?: undefined): string;
-encodeFunctionData(functionFragment: 'founderWallet', values?: undefined): string;
-encodeFunctionData(functionFragment: 'icoWallet', values?: undefined): string;
+encodeFunctionData(functionFragment: 'contractsWallet', values?: undefined): string;
+encodeFunctionData(functionFragment: 'educationWallet', values?: undefined): string;
+encodeFunctionData(functionFragment: 'infrastructureWallet', values?: undefined): string;
 encodeFunctionData(functionFragment: 'isPaused', values?: undefined): string;
+encodeFunctionData(functionFragment: 'liquidityWallet', values?: undefined): string;
 encodeFunctionData(functionFragment: 'marketingWallet', values?: undefined): string;
 encodeFunctionData(functionFragment: 'maxSupply', values?: undefined): string;
 encodeFunctionData(functionFragment: 'mint', values: [AddressLike, BigNumberish]): string;
@@ -33,18 +34,19 @@ encodeFunctionData(functionFragment: 'transfer', values: [AddressLike, BigNumber
 encodeFunctionData(functionFragment: 'transferFrom', values: [AddressLike, AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'treasury', values?: undefined): string;
 encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
-encodeFunctionData(functionFragment: 'updateWallets', values: [AddressLike, AddressLike, AddressLike, AddressLike, AddressLike, AddressLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'updateWallets', values: [AddressLike, AddressLike, AddressLike, AddressLike, AddressLike, AddressLike, AddressLike, AddressLike]): string;
 
-    decodeFunctionResult(functionFragment: 'advisorWallet', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'allowance', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'allowance', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'approve', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'balanceOf', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'burnFromTreasury', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'communityWallet', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'contingencyWallet', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'financeWallet', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'founderWallet', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'icoWallet', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'contractsWallet', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'educationWallet', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'infrastructureWallet', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'isPaused', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'liquidityWallet', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'marketingWallet', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'maxSupply', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'mint', data: BytesLike): Result;
@@ -75,9 +77,9 @@ decodeFunctionResult(functionFragment: 'updateWallets', data: BytesLike): Result
   
 
     export namespace EcosystemWalletsUpdatedEvent {
-      export type InputTuple = [founderWallet: AddressLike, icoWallet: AddressLike, marketingWallet: AddressLike, financeWallet: AddressLike, advisorWallet: AddressLike, reserveWallet: AddressLike, contingencyWallet: AddressLike];
-      export type OutputTuple = [founderWallet: string, icoWallet: string, marketingWallet: string, financeWallet: string, advisorWallet: string, reserveWallet: string, contingencyWallet: string];
-      export interface OutputObject {founderWallet: string, icoWallet: string, marketingWallet: string, financeWallet: string, advisorWallet: string, reserveWallet: string, contingencyWallet: string };
+      export type InputTuple = [infrastructureWallet: AddressLike, liquidityWallet: AddressLike, marketingWallet: AddressLike, contractsWallet: AddressLike, communityWallet: AddressLike, educationWallet: AddressLike, contingencyWallet: AddressLike, reserveWallet: AddressLike];
+      export type OutputTuple = [infrastructureWallet: string, liquidityWallet: string, marketingWallet: string, contractsWallet: string, communityWallet: string, educationWallet: string, contingencyWallet: string, reserveWallet: string];
+      export interface OutputObject {infrastructureWallet: string, liquidityWallet: string, marketingWallet: string, contractsWallet: string, communityWallet: string, educationWallet: string, contingencyWallet: string, reserveWallet: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -180,14 +182,6 @@ decodeFunctionResult(functionFragment: 'updateWallets', data: BytesLike): Result
 
     
     
-    advisorWallet: TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >
-    
-
-    
     allowance: TypedContractMethod<
       [owner: AddressLike, spender: AddressLike, ],
       [bigint],
@@ -220,6 +214,14 @@ decodeFunctionResult(functionFragment: 'updateWallets', data: BytesLike): Result
     
 
     
+    communityWallet: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     contingencyWallet: TypedContractMethod<
       [],
       [string],
@@ -228,7 +230,7 @@ decodeFunctionResult(functionFragment: 'updateWallets', data: BytesLike): Result
     
 
     
-    financeWallet: TypedContractMethod<
+    contractsWallet: TypedContractMethod<
       [],
       [string],
       'view'
@@ -236,7 +238,7 @@ decodeFunctionResult(functionFragment: 'updateWallets', data: BytesLike): Result
     
 
     
-    founderWallet: TypedContractMethod<
+    educationWallet: TypedContractMethod<
       [],
       [string],
       'view'
@@ -244,7 +246,7 @@ decodeFunctionResult(functionFragment: 'updateWallets', data: BytesLike): Result
     
 
     
-    icoWallet: TypedContractMethod<
+    infrastructureWallet: TypedContractMethod<
       [],
       [string],
       'view'
@@ -255,6 +257,14 @@ decodeFunctionResult(functionFragment: 'updateWallets', data: BytesLike): Result
     isPaused: TypedContractMethod<
       [],
       [boolean],
+      'view'
+    >
+    
+
+    
+    liquidityWallet: TypedContractMethod<
+      [],
+      [string],
       'view'
     >
     
@@ -365,7 +375,7 @@ decodeFunctionResult(functionFragment: 'updateWallets', data: BytesLike): Result
 
     
     updateWallets: TypedContractMethod<
-      [founderWallet_: AddressLike, icoWallet_: AddressLike, marketingWallet_: AddressLike, financeWallet_: AddressLike, advisorWallet_: AddressLike, reserveWallet_: AddressLike, contingencyWallet_: AddressLike, ],
+      [infrastructureWallet_: AddressLike, liquidityWallet_: AddressLike, marketingWallet_: AddressLike, contractsWallet_: AddressLike, communityWallet_: AddressLike, educationWallet_: AddressLike, contingencyWallet_: AddressLike, reserveWallet_: AddressLike, ],
       [void],
       'nonpayable'
     >
@@ -374,12 +384,7 @@ decodeFunctionResult(functionFragment: 'updateWallets', data: BytesLike): Result
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
-    getFunction(nameOrSignature: 'advisorWallet'): TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >;
-getFunction(nameOrSignature: 'allowance'): TypedContractMethod<
+    getFunction(nameOrSignature: 'allowance'): TypedContractMethod<
       [owner: AddressLike, spender: AddressLike, ],
       [bigint],
       'view'
@@ -399,22 +404,27 @@ getFunction(nameOrSignature: 'burnFromTreasury'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'communityWallet'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'contingencyWallet'): TypedContractMethod<
       [],
       [string],
       'view'
     >;
-getFunction(nameOrSignature: 'financeWallet'): TypedContractMethod<
+getFunction(nameOrSignature: 'contractsWallet'): TypedContractMethod<
       [],
       [string],
       'view'
     >;
-getFunction(nameOrSignature: 'founderWallet'): TypedContractMethod<
+getFunction(nameOrSignature: 'educationWallet'): TypedContractMethod<
       [],
       [string],
       'view'
     >;
-getFunction(nameOrSignature: 'icoWallet'): TypedContractMethod<
+getFunction(nameOrSignature: 'infrastructureWallet'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -422,6 +432,11 @@ getFunction(nameOrSignature: 'icoWallet'): TypedContractMethod<
 getFunction(nameOrSignature: 'isPaused'): TypedContractMethod<
       [],
       [boolean],
+      'view'
+    >;
+getFunction(nameOrSignature: 'liquidityWallet'): TypedContractMethod<
+      [],
+      [string],
       'view'
     >;
 getFunction(nameOrSignature: 'marketingWallet'): TypedContractMethod<
@@ -490,7 +505,7 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
       'nonpayable'
     >;
 getFunction(nameOrSignature: 'updateWallets'): TypedContractMethod<
-      [founderWallet_: AddressLike, icoWallet_: AddressLike, marketingWallet_: AddressLike, financeWallet_: AddressLike, advisorWallet_: AddressLike, reserveWallet_: AddressLike, contingencyWallet_: AddressLike, ],
+      [infrastructureWallet_: AddressLike, liquidityWallet_: AddressLike, marketingWallet_: AddressLike, contractsWallet_: AddressLike, communityWallet_: AddressLike, educationWallet_: AddressLike, contingencyWallet_: AddressLike, reserveWallet_: AddressLike, ],
       [void],
       'nonpayable'
     >;
@@ -509,7 +524,7 @@ getEvent(key: 'TreasuryUpdated'): TypedContractEvent<TreasuryUpdatedEvent.InputT
       Approval: TypedContractEvent<ApprovalEvent.InputTuple, ApprovalEvent.OutputTuple, ApprovalEvent.OutputObject>;
     
 
-      'EcosystemWalletsUpdated(address,address,address,address,address,address,address)': TypedContractEvent<EcosystemWalletsUpdatedEvent.InputTuple, EcosystemWalletsUpdatedEvent.OutputTuple, EcosystemWalletsUpdatedEvent.OutputObject>;
+      'EcosystemWalletsUpdated(address,address,address,address,address,address,address,address)': TypedContractEvent<EcosystemWalletsUpdatedEvent.InputTuple, EcosystemWalletsUpdatedEvent.OutputTuple, EcosystemWalletsUpdatedEvent.OutputObject>;
       EcosystemWalletsUpdated: TypedContractEvent<EcosystemWalletsUpdatedEvent.InputTuple, EcosystemWalletsUpdatedEvent.OutputTuple, EcosystemWalletsUpdatedEvent.OutputObject>;
     
 

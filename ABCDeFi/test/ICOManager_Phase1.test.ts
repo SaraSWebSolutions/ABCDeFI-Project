@@ -31,8 +31,9 @@ describe("ICO Launchpad Specification Verification", function () {
       owner.address,
       treasury.address,
       owner.address,
+      owner.address,
+      owner.address,
       reserveVault.address,
-      owner.address
     );
     await token.waitForDeployment();
 
@@ -45,8 +46,11 @@ describe("ICO Launchpad Specification Verification", function () {
     await icoManager.waitForDeployment();
 
     // Fund ICOManager with tokens
-    const icoTokens = ethers.parseEther("200000000000000"); // 200T ABCD
-    await token.connect(owner).transfer(await icoManager.getAddress(), icoTokens);
+    // Fund precisely the configured test stages (1M + 2M + 3M + 4M).
+    // The canonical token supply is 1B ABCD; this fixture must not retain
+    // the former quadrillion-scale ICO reserve assumption.
+    const stageReserve = ethers.parseEther("10000000");
+    await token.connect(owner).transfer(await icoManager.getAddress(), stageReserve);
 
     // Initialize 4 Stages
     const now = Math.floor(Date.now() / 1000) - 100;

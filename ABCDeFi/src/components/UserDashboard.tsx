@@ -310,7 +310,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
       )}
       {activeTab === 'portfolio' && <PortfolioDashboard />}
       {activeTab === 'ico' && <PresaleICO />}
-      {activeTab === 'lending' && <LendingPool />}
+      {activeTab === 'lending' && <LendingV2 />}
       {activeTab === 'lending-v2' && <LendingV2 />}
       {activeTab === 'p2p-loans' && <P2PLendingDashboard activeTab="p2p-loans" />}
       {(activeTab === 'deposit' || activeTab === 'withdraw') && (

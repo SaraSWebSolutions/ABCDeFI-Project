@@ -10,93 +10,104 @@ beforeEach(async function () {
 describe("Token Allocation & AllocationManager Specification Verification", function () {
   let allocationManager: any;
   let owner: any;
-  let founder: any;
-  let ico: any;
+  let infrastructure: any;
+  let liquidity: any;
   let marketing: any;
-  let advisor: any;
-  let finance: any;
+  let contractsWallet: any;
+  let community: any;
+  let education: any;
   let reserve: any;
   let contingency: any;
   let newWallet: any;
 
   beforeEach(async function () {
-    [owner, founder, ico, marketing, advisor, finance, reserve, contingency, newWallet] = await hardhatEthers.getSigners();
+    [
+      owner,
+      infrastructure,
+      liquidity,
+      marketing,
+      contractsWallet,
+      community,
+      education,
+      contingency,
+      reserve,
+      newWallet,
+    ] = await hardhatEthers.getSigners();
 
     const Factory = await hardhatEthers.getContractFactory("AllocationManager");
     allocationManager = await Factory.deploy(
-      founder.address,
-      ico.address,
+      infrastructure.address,
+      liquidity.address,
       marketing.address,
-      advisor.address,
-      finance.address,
-      reserve.address,
-      contingency.address
+      contractsWallet.address,
+      community.address,
+      education.address,
+      contingency.address,
+      reserve.address
     );
     await allocationManager.waitForDeployment();
   });
 
-  it("Should initialize all 7 ecosystem allocations with exact whitepaper BPS percentages", async function () {
-    const founderKey = ethers.keccak256(ethers.toUtf8Bytes("FOUNDER"));
-    const icoKey = ethers.keccak256(ethers.toUtf8Bytes("ICO"));
-    const mktgKey = ethers.keccak256(ethers.toUtf8Bytes("MARKETING"));
-    const advisorKey = ethers.keccak256(ethers.toUtf8Bytes("ADVISOR"));
-    const financeKey = ethers.keccak256(ethers.toUtf8Bytes("FINANCE"));
-    const reserveKey = ethers.keccak256(ethers.toUtf8Bytes("RESERVE"));
-    const contingencyKey = ethers.keccak256(ethers.toUtf8Bytes("CONTINGENCY"));
+  it("initializes all eight allocations with the 15/40/5/15/5/10/8/2 BPS model", async function () {
+    const expected = [
+      ["INFRASTRUCTURE", infrastructure.address, 1500n],
+      ["LIQUIDITY", liquidity.address, 4000n],
+      ["MARKETING", marketing.address, 500n],
+      ["CONTRACTS", contractsWallet.address, 1500n],
+      ["COMMUNITY", community.address, 500n],
+      ["EDUCATION", education.address, 1000n],
+      ["CONTINGENCY", contingency.address, 800n],
+      ["RESERVE", reserve.address, 200n],
+    ] as const;
 
-    const [founderName, founderWallet, founderBps] = await allocationManager.getAllocation(founderKey);
-    const [icoName, icoWallet, icoBps] = await allocationManager.getAllocation(icoKey);
-    const [mktgName, mktgWallet, mktgBps] = await allocationManager.getAllocation(mktgKey);
-    const [finName, finWallet, finBps] = await allocationManager.getAllocation(financeKey);
+    expect(await allocationManager.allocationCount()).to.equal(8n);
+    const keys = await allocationManager.getAllocationKeys();
+    expect(keys).to.have.length(8);
 
-    expect(founderBps).to.equal(5500n); // 55%
-    expect(icoBps).to.equal(2000n);     // 20%
-    expect(mktgBps).to.equal(1000n);    // 10%
-    expect(finBps).to.equal(900n);      // 9%
+    let totalBps = 0n;
+    for (const [name, wallet, bps] of expected) {
+      const key = ethers.keccak256(ethers.toUtf8Bytes(name));
+      const allocation = await allocationManager.getAllocation(key);
+      expect(allocation.name).to.equal(name);
+      expect(allocation.wallet).to.equal(wallet);
+      expect(allocation.bps).to.equal(bps);
+      expect(allocation.amount).to.equal((ethers.parseEther("1000000000") * bps) / 10000n);
+      expect(allocation.frozen).to.equal(false);
+      totalBps += allocation.bps;
+    }
+    expect(totalBps).to.equal(10000n);
   });
 
   it("Should update ecosystem wallet addresses", async function () {
-    const icoKey = ethers.keccak256(ethers.toUtf8Bytes("ICO"));
-    await allocationManager.updateWallet(icoKey, newWallet.address);
+    const liquidityKey = ethers.keccak256(ethers.toUtf8Bytes("LIQUIDITY"));
+    await allocationManager.updateAllocation(liquidityKey, newWallet.address);
 
-    const [, updatedWallet] = await allocationManager.getAllocation(icoKey);
-    expect(updatedWallet).to.equal(newWallet.address);
+    const updated = await allocationManager.getAllocation(liquidityKey);
+    expect(updated.wallet).to.equal(newWallet.address);
   });
 
   it("Should freeze allocation and block updates/transfers when frozen", async function () {
     const mktgKey = ethers.keccak256(ethers.toUtf8Bytes("MARKETING"));
 
     await allocationManager.freezeAllocation(mktgKey);
-    const [,,, isFrozen] = await allocationManager.getAllocation(mktgKey);
-    expect(isFrozen).to.equal(true);
+    expect((await allocationManager.getAllocation(mktgKey)).frozen).to.equal(true);
 
     await expect(
-      allocationManager.updateWallet(mktgKey, newWallet.address)
+      allocationManager.updateAllocation(mktgKey, newWallet.address)
     ).to.be.revertedWithCustomError(allocationManager, "UnauthorizedAccount");
-    await expect(
-      allocationManager.recordTransfer(mktgKey, newWallet.address, 1000n, "Promo")
-    ).to.be.revertedWith("Allocation is frozen");
 
     await allocationManager.unfreezeAllocation(mktgKey);
-    const [, oldWallet] = await allocationManager.getAllocation(mktgKey);
+    const oldWallet = (await allocationManager.getAllocation(mktgKey)).wallet;
     await expect(
-      allocationManager.updateWallet(mktgKey, newWallet.address)
+      allocationManager.updateAllocation(mktgKey, newWallet.address)
     )
       .to.emit(allocationManager, "AllocationUpdated")
       .withArgs(
         mktgKey,
         oldWallet,
-        newWallet.address
+        newWallet.address,
+        (ethers.parseEther("1000000000") * 500n) / 10000n,
+        (ethers.parseEther("1000000000") * 500n) / 10000n
       );
-  });
-
-  it("Should log allocation transfer history", async function () {
-    const founderKey = ethers.keccak256(ethers.toUtf8Bytes("FOUNDER"));
-    await allocationManager.recordTransfer(founderKey, newWallet.address, ethers.parseEther("100000"), "Founder Vesting Grant");
-
-    const history = await allocationManager.getHistory();
-    expect(history.length).to.equal(1);
-    expect(history[0].to).to.equal(newWallet.address);
-    expect(history[0].reason).to.equal("Founder Vesting Grant");
   });
 });

@@ -54,13 +54,14 @@ async function main() {
   const signers = await hh.getSigners();
   const deployer = signers[0];
   const wallets = {
-    founder: process.env.FOUNDER_WALLET || signers[1]?.address || deployer.address,
-    ico: process.env.ICO_WALLET || signers[2]?.address || deployer.address,
+    infrastructure: process.env.INFRASTRUCTURE_WALLET || signers[1]?.address || deployer.address,
+    liquidity: process.env.LIQUIDITY_WALLET || signers[2]?.address || deployer.address,
     marketing: process.env.MARKETING_WALLET || signers[3]?.address || deployer.address,
-    finance: process.env.FINANCE_WALLET || signers[4]?.address || deployer.address,
-    advisor: process.env.ADVISOR_WALLET || signers[5]?.address || deployer.address,
-    reserve: process.env.RESERVE_WALLET || signers[6]?.address || deployer.address,
+    contracts: process.env.CONTRACTS_WALLET || signers[4]?.address || deployer.address,
+    community: process.env.COMMUNITY_WALLET || signers[5]?.address || deployer.address,
+    education: process.env.EDUCATION_WALLET || signers[6]?.address || deployer.address,
     contingency: process.env.CONTINGENCY_WALLET || signers[7]?.address || deployer.address,
+    reserve: process.env.RESERVE_WALLET || signers[8]?.address || deployer.address,
   };
 
   const deployed: Record<string, {
@@ -97,21 +98,55 @@ async function main() {
   console.log("ABCDeFi canonical ecosystem deployment");
   console.log(`Deployer: ${deployer.address}`);
 
-  // Core token. The whitepaper specifies 1 quadrillion ABCD total supply.
+  // Core token: 1,000,000,000 ABCD split across the eight canonical allocations.
   const token = await deploy("ABCDToken", [
-    wallets.founder, wallets.ico, wallets.marketing, wallets.finance,
-    wallets.advisor, wallets.reserve, wallets.contingency,
+    wallets.infrastructure, wallets.liquidity, wallets.marketing, wallets.contracts,
+    wallets.community, wallets.education, wallets.contingency, wallets.reserve,
   ]);
   const tokenAddress = deployed.ABCDToken.address;
 
+  // Fail before any manifest can be written if the freshly deployed token does
+  // not satisfy the canonical 1B/eight-allocation deployment postconditions.
+  const canonicalSupply = ethers.parseUnits("1000000000", 18);
+  const tokenAllocations = [
+    ["Infrastructure", "infrastructureWallet", wallets.infrastructure, 1500n],
+    ["Liquidity", "liquidityWallet", wallets.liquidity, 4000n],
+    ["Marketing", "marketingWallet", wallets.marketing, 500n],
+    ["Contracts", "contractsWallet", wallets.contracts, 1500n],
+    ["Community", "communityWallet", wallets.community, 500n],
+    ["Education", "educationWallet", wallets.education, 1000n],
+    ["Contingency", "contingencyWallet", wallets.contingency, 800n],
+    ["Reserve", "reserveWallet", wallets.reserve, 200n],
+  ] as const;
+  if (await token.maxSupply() !== canonicalSupply) {
+    throw new Error("ABCDToken maxSupply postcondition failed: expected exactly 1,000,000,000 ABCD");
+  }
+  if (await token.totalSupply() !== canonicalSupply) {
+    throw new Error("ABCDToken totalSupply postcondition failed: expected exactly 1,000,000,000 ABCD");
+  }
+  for (const [name, getter, configuredWallet, bps] of tokenAllocations) {
+    const [actualWallet, actualBalance] = await Promise.all([
+      token[getter](),
+      token.balanceOf(configuredWallet),
+    ]);
+    const expectedBalance = (canonicalSupply * bps) / 10_000n;
+    if (actualWallet.toLowerCase() !== configuredWallet.toLowerCase()) {
+      throw new Error(`ABCDToken ${name} wallet postcondition failed`);
+    }
+    if (actualBalance !== expectedBalance) {
+      throw new Error(`ABCDToken ${name} allocation postcondition failed`);
+    }
+  }
+  console.log("✓ ABCDToken 1B supply and eight-allocation postconditions verified");
+
   // Treasury uses the explicit 8-way split defined by the canonical Treasury.sol.
   const treasury = await deploy("Treasury", [[
-    wallets.finance,       // devWallet
-    wallets.reserve,       // liquidityVault
+    wallets.infrastructure,// devWallet
+    wallets.liquidity,     // liquidityVault
     wallets.marketing,     // marketingVault
-    wallets.finance,       // contractsVault
-    wallets.founder,       // communityVault
-    wallets.advisor,       // educationVault
+    wallets.contracts,     // contractsVault
+    wallets.community,     // communityVault
+    wallets.education,     // educationVault
     wallets.contingency,   // contingencyVault
     wallets.reserve,       // reserveVault
   ], deployer.address]);
@@ -240,24 +275,20 @@ async function main() {
     throw new Error("Presale and ReferralManager integration wiring verification failed");
   }
 
-  // Fund contracts that pay user rewards / fulfill token claims from the appropriate ecosystem pools.
-  const icoSigner = signers.find((s: any) => s.address.toLowerCase() === wallets.ico.toLowerCase());
+  // The legacy Presale remains deployed but deliberately pending and unfunded.
+  // The migrated 1B allocation model has no automatic ICO allocation. A future
+  // ICO configuration must explicitly designate and fund a sale reserve rather
+  // than repurposing another allocation in this deployment path.
+  const liquiditySigner = signers.find((s: any) => s.address.toLowerCase() === wallets.liquidity.toLowerCase());
   const reserveSigner = signers.find((s: any) => s.address.toLowerCase() === wallets.reserve.toLowerCase());
-  if (!icoSigner) throw new Error("Configured ICO wallet is not an available deployment signer");
+  if (!liquiditySigner) throw new Error("Configured liquidity wallet is not an available deployment signer");
   if (!reserveSigner) throw new Error("Configured reserve wallet is not an available deployment signer for ReferralManager rewards");
-
-  await waitForSuccessfulReceipt(
-    await token.connect(icoSigner).transfer(
-      presaleAddress,
-      ethers.parseUnits(process.env.PRESALE_TOKEN_ALLOCATION || "100000000", 18)
-    ),
-    "Presale token allocation"
-  );
 
   // LendingPool tracks usable liquidity separately from its ERC-20 balance. A
   // direct transfer would strand tokens in the pool while liquidityPoolBalance
-  // remains zero, preventing borrowers from using them. The ICO allocation is
-  // an existing token balance; move the configured amount to the authorized
+  // remains zero, preventing borrowers from using them. The liquidity
+  // allocation is the only canonical source for this initial pool funding; move
+  // the configured amount to the authorized
   // deployer, then use the pool's canonical approve -> fundLiquidity flow.
   const initialLendingLiquidity = ethers.parseUnits(process.env.LENDING_LIQUIDITY || "10000000", 18);
   if (!await lending.hasRole(LENDING_ADMIN_ROLE, deployer.address)) {
@@ -266,13 +297,13 @@ async function main() {
 
   const deployerAbcdBalance = await token.balanceOf(deployer.address);
   if (deployerAbcdBalance < initialLendingLiquidity) {
-    const icoBalance = await token.balanceOf(icoSigner.address);
+    const liquidityBalance = await token.balanceOf(liquiditySigner.address);
     const shortfall = initialLendingLiquidity - deployerAbcdBalance;
-    if (icoBalance < shortfall) {
-      throw new Error("ICO wallet lacks sufficient existing ABCD to initialize LendingPool liquidity");
+    if (liquidityBalance < shortfall) {
+      throw new Error("Liquidity wallet lacks sufficient existing ABCD to initialize LendingPool liquidity");
     }
     await waitForSuccessfulReceipt(
-      await token.connect(icoSigner).transfer(deployer.address, shortfall),
+      await token.connect(liquiditySigner).transfer(deployer.address, shortfall),
       "Lending liquidity allocation to deployer"
     );
   }

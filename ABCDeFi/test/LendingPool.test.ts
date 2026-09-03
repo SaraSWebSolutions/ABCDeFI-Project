@@ -29,6 +29,7 @@ describe("LendingPool Contract Suite", function () {
       owner.address,
       owner.address,
       owner.address,
+      owner.address,
       owner.address
     );
     await token.waitForDeployment();

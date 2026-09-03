@@ -39,21 +39,49 @@ type LendingV2Manifest = {
   chainId: string;
   localOnly: boolean;
   contracts: Record<string, { address: string }>;
+  configuration?: {
+    maxInitialLtvBps?: number;
+    aprBps?: number;
+    lateFeeBps?: number;
+    liquidationThresholdBps?: number;
+    liquidationBonusBps?: number;
+    closeFactorBps?: number;
+    supportedTermSeconds?: number[];
+    gracePeriodSeconds?: number;
+  };
 };
 
-function lendingV2Address(name: string): string {
+type LendingV2Contracts = Readonly<{
+  oracle: string; vault: string; manager: string; pool: string; liquidation: string;
+  reserve: string; marketplace: string; emi: string; loanNFT: string;
+}>;
+
+/**
+ * V2 is an optional, separately deployed local namespace.  A canonical V1
+ * deployment must remain usable when it deliberately has no V2 deployment;
+ * callers that need V2 must ask for it explicitly rather than crashing the
+ * entire dashboard during module import.
+ */
+export function getLendingV2Contracts(): LendingV2Contracts | null {
   const v2 = (deploymentManifest as typeof deploymentManifest & { lendingV2?: LendingV2Manifest }).lendingV2;
-  const value = v2?.contracts?.[name]?.address;
-  if (typeof value !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(value)) throw new Error(`Canonical lendingV2 manifest is missing ${name}.`);
-  return value;
+  const names = ['OracleAdapterV2', 'CollateralVaultV2', 'LoanManagerV2', 'LendingPoolV2', 'LiquidationV2', 'InsuranceReserveV2', 'LoanMarketplaceV2', 'EMIManagerV2', 'LoanNFTV2'] as const;
+  const addresses = Object.fromEntries(names.map((name) => [name, v2?.contracts?.[name]?.address]));
+  if (Object.values(addresses).some((value) => typeof value !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(value))) return null;
+  return Object.freeze({
+    oracle: addresses.OracleAdapterV2!, vault: addresses.CollateralVaultV2!, manager: addresses.LoanManagerV2!,
+    pool: addresses.LendingPoolV2!, liquidation: addresses.LiquidationV2!, reserve: addresses.InsuranceReserveV2!,
+    marketplace: addresses.LoanMarketplaceV2!, emi: addresses.EMIManagerV2!, loanNFT: addresses.LoanNFTV2!,
+  });
 }
 
-/** Isolated V2 namespace. Existing CONTRACTS remains the V1 runtime source. */
-export const LENDING_V2_CONTRACTS = Object.freeze({
-  oracle: lendingV2Address('OracleAdapterV2'), vault: lendingV2Address('CollateralVaultV2'), manager: lendingV2Address('LoanManagerV2'),
-  pool: lendingV2Address('LendingPoolV2'), liquidation: lendingV2Address('LiquidationV2'), reserve: lendingV2Address('InsuranceReserveV2'),
-  marketplace: lendingV2Address('LoanMarketplaceV2'), emi: lendingV2Address('EMIManagerV2'), loanNFT: lendingV2Address('LoanNFTV2'),
-});
+/** Isolated V2 namespace. Null means this canonical deployment is V1-only. */
+export const LENDING_V2_CONTRACTS = getLendingV2Contracts();
+
+/** Deployment-time V2 facts that are not exposed as Solidity public getters. */
+export function getLendingV2Configuration() {
+  const v2 = (deploymentManifest as typeof deploymentManifest & { lendingV2?: LendingV2Manifest }).lendingV2;
+  return v2?.configuration ?? null;
+}
 
 export function requireContractAddress(name: keyof typeof CONTRACTS): string {
   const value = CONTRACTS[name];

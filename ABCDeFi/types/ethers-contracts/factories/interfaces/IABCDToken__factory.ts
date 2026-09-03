@@ -37,13 +37,13 @@
       {
         "indexed": false,
         "internalType": "address",
-        "name": "founderWallet",
+        "name": "infrastructureWallet",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "address",
-        "name": "icoWallet",
+        "name": "liquidityWallet",
         "type": "address"
       },
       {
@@ -55,25 +55,31 @@
       {
         "indexed": false,
         "internalType": "address",
-        "name": "financeWallet",
+        "name": "contractsWallet",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "address",
-        "name": "advisorWallet",
+        "name": "communityWallet",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "address",
-        "name": "reserveWallet",
+        "name": "educationWallet",
         "type": "address"
       },
       {
         "indexed": false,
         "internalType": "address",
         "name": "contingencyWallet",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "reserveWallet",
         "type": "address"
       }
     ],
@@ -188,19 +194,6 @@
     "type": "event"
   },
   {
-    "inputs": [],
-    "name": "advisorWallet",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
@@ -282,6 +275,19 @@
   },
   {
     "inputs": [],
+    "name": "communityWallet",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "contingencyWallet",
     "outputs": [
       {
@@ -295,7 +301,7 @@
   },
   {
     "inputs": [],
-    "name": "financeWallet",
+    "name": "contractsWallet",
     "outputs": [
       {
         "internalType": "address",
@@ -308,7 +314,7 @@
   },
   {
     "inputs": [],
-    "name": "founderWallet",
+    "name": "educationWallet",
     "outputs": [
       {
         "internalType": "address",
@@ -321,7 +327,7 @@
   },
   {
     "inputs": [],
-    "name": "icoWallet",
+    "name": "infrastructureWallet",
     "outputs": [
       {
         "internalType": "address",
@@ -340,6 +346,19 @@
         "internalType": "bool",
         "name": "",
         "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "liquidityWallet",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -553,12 +572,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "founderWallet_",
+        "name": "infrastructureWallet_",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "icoWallet_",
+        "name": "liquidityWallet_",
         "type": "address"
       },
       {
@@ -568,22 +587,27 @@
       },
       {
         "internalType": "address",
-        "name": "financeWallet_",
+        "name": "contractsWallet_",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "advisorWallet_",
+        "name": "communityWallet_",
         "type": "address"
       },
       {
         "internalType": "address",
-        "name": "reserveWallet_",
+        "name": "educationWallet_",
         "type": "address"
       },
       {
         "internalType": "address",
         "name": "contingencyWallet_",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "reserveWallet_",
         "type": "address"
       }
     ],

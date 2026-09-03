@@ -6,67 +6,73 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 export declare namespace AllocationManager {
       
-    export type HistoryRecordStruct = {key: BytesLike, fromWallet: AddressLike, to: AddressLike, amount: BigNumberish, reason: string, timestamp: BigNumberish}
+    export type AllocationStruct = {key: BytesLike, name: string, wallet: AddressLike, bps: BigNumberish, amount: BigNumberish, frozen: boolean}
 
-    export type HistoryRecordStructOutput = [key: string, fromWallet: string, to: string, amount: bigint, reason: string, timestamp: bigint] & {key: string, fromWallet: string, to: string, amount: bigint, reason: string, timestamp: bigint }
+    export type AllocationStructOutput = [key: string, name: string, wallet: string, bps: bigint, amount: bigint, frozen: boolean] & {key: string, name: string, wallet: string, bps: bigint, amount: bigint, frozen: boolean }
   
     }
 
   export interface AllocationManagerInterface extends Interface {
-    getFunction(nameOrSignature: "ALLOCATION_ADMIN_ROLE" | "DEFAULT_ADMIN_ROLE" | "allocationKeys" | "allocations" | "freezeAllocation" | "getAllKeys" | "getAllocation" | "getHistory" | "getRoleAdmin" | "grantRole" | "hasRole" | "history" | "pause" | "paused" | "recordTransfer" | "renounceRole" | "revokeRole" | "supportsInterface" | "unfreezeAllocation" | "unpause" | "updateWallet"): FunctionFragment;
+    getFunction(nameOrSignature: "COMMUNITY_KEY" | "CONTINGENCY_KEY" | "CONTRACTS_KEY" | "DEFAULT_ADMIN_ROLE" | "EDUCATION_KEY" | "INFRASTRUCTURE_KEY" | "LIQUIDITY_KEY" | "MARKETING_KEY" | "RESERVE_KEY" | "allocationCount" | "freezeAllocation" | "getAllocation" | "getAllocationKeys" | "getRoleAdmin" | "grantRole" | "hasRole" | "pause" | "paused" | "renounceRole" | "revokeRole" | "supportsInterface" | "unfreezeAllocation" | "unpause" | "updateAllocation"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "AllocationFrozen" | "AllocationTransferRecorded" | "AllocationUnfrozen" | "AllocationUpdated" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "AllocationCreated" | "AllocationFrozen" | "AllocationUnfrozen" | "AllocationUpdated" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
 
-    encodeFunctionData(functionFragment: 'ALLOCATION_ADMIN_ROLE', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'COMMUNITY_KEY', values?: undefined): string;
+encodeFunctionData(functionFragment: 'CONTINGENCY_KEY', values?: undefined): string;
+encodeFunctionData(functionFragment: 'CONTRACTS_KEY', values?: undefined): string;
 encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
-encodeFunctionData(functionFragment: 'allocationKeys', values: [BigNumberish]): string;
-encodeFunctionData(functionFragment: 'allocations', values: [BytesLike]): string;
+encodeFunctionData(functionFragment: 'EDUCATION_KEY', values?: undefined): string;
+encodeFunctionData(functionFragment: 'INFRASTRUCTURE_KEY', values?: undefined): string;
+encodeFunctionData(functionFragment: 'LIQUIDITY_KEY', values?: undefined): string;
+encodeFunctionData(functionFragment: 'MARKETING_KEY', values?: undefined): string;
+encodeFunctionData(functionFragment: 'RESERVE_KEY', values?: undefined): string;
+encodeFunctionData(functionFragment: 'allocationCount', values?: undefined): string;
 encodeFunctionData(functionFragment: 'freezeAllocation', values: [BytesLike]): string;
-encodeFunctionData(functionFragment: 'getAllKeys', values?: undefined): string;
 encodeFunctionData(functionFragment: 'getAllocation', values: [BytesLike]): string;
-encodeFunctionData(functionFragment: 'getHistory', values?: undefined): string;
+encodeFunctionData(functionFragment: 'getAllocationKeys', values?: undefined): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
-encodeFunctionData(functionFragment: 'history', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
-encodeFunctionData(functionFragment: 'recordTransfer', values: [BytesLike, AddressLike, BigNumberish, string]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'unfreezeAllocation', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
-encodeFunctionData(functionFragment: 'updateWallet', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'updateAllocation', values: [BytesLike, AddressLike]): string;
 
-    decodeFunctionResult(functionFragment: 'ALLOCATION_ADMIN_ROLE', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'COMMUNITY_KEY', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'CONTINGENCY_KEY', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'CONTRACTS_KEY', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'allocationKeys', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'allocations', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'EDUCATION_KEY', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'INFRASTRUCTURE_KEY', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'LIQUIDITY_KEY', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'MARKETING_KEY', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'RESERVE_KEY', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'allocationCount', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'freezeAllocation', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'getAllKeys', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getAllocation', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'getHistory', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'getAllocationKeys', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'history', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'recordTransfer', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'unfreezeAllocation', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'updateWallet', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'updateAllocation', data: BytesLike): Result;
   }
 
   
-    export namespace AllocationFrozenEvent {
-      export type InputTuple = [key: BytesLike];
-      export type OutputTuple = [key: string];
-      export interface OutputObject {key: string };
+    export namespace AllocationCreatedEvent {
+      export type InputTuple = [key: BytesLike, name: string, wallet: AddressLike, bps: BigNumberish, amount: BigNumberish];
+      export type OutputTuple = [key: string, name: string, wallet: string, bps: bigint, amount: bigint];
+      export interface OutputObject {key: string, name: string, wallet: string, bps: bigint, amount: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -75,10 +81,10 @@ decodeFunctionResult(functionFragment: 'updateWallet', data: BytesLike): Result;
 
   
 
-    export namespace AllocationTransferRecordedEvent {
-      export type InputTuple = [key: BytesLike, fromWallet: AddressLike, to: AddressLike, amount: BigNumberish, reason: string];
-      export type OutputTuple = [key: string, fromWallet: string, to: string, amount: bigint, reason: string];
-      export interface OutputObject {key: string, fromWallet: string, to: string, amount: bigint, reason: string };
+    export namespace AllocationFrozenEvent {
+      export type InputTuple = [key: BytesLike];
+      export type OutputTuple = [key: string];
+      export interface OutputObject {key: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -100,9 +106,9 @@ decodeFunctionResult(functionFragment: 'updateWallet', data: BytesLike): Result;
   
 
     export namespace AllocationUpdatedEvent {
-      export type InputTuple = [key: BytesLike, oldWallet: AddressLike, newWallet: AddressLike];
-      export type OutputTuple = [key: string, oldWallet: string, newWallet: string];
-      export interface OutputObject {key: string, oldWallet: string, newWallet: string };
+      export type InputTuple = [key: BytesLike, oldWallet: AddressLike, newWallet: AddressLike, oldAmount: BigNumberish, newAmount: BigNumberish];
+      export type OutputTuple = [key: string, oldWallet: string, newWallet: string, oldAmount: bigint, newAmount: bigint];
+      export interface OutputObject {key: string, oldWallet: string, newWallet: string, oldAmount: bigint, newAmount: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -205,7 +211,23 @@ decodeFunctionResult(functionFragment: 'updateWallet', data: BytesLike): Result;
 
     
     
-    ALLOCATION_ADMIN_ROLE: TypedContractMethod<
+    COMMUNITY_KEY: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    CONTINGENCY_KEY: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    CONTRACTS_KEY: TypedContractMethod<
       [],
       [string],
       'view'
@@ -221,17 +243,49 @@ decodeFunctionResult(functionFragment: 'updateWallet', data: BytesLike): Result;
     
 
     
-    allocationKeys: TypedContractMethod<
-      [arg0: BigNumberish, ],
+    EDUCATION_KEY: TypedContractMethod<
+      [],
       [string],
       'view'
     >
     
 
     
-    allocations: TypedContractMethod<
-      [arg0: BytesLike, ],
-      [[string, string, bigint, boolean] & {name: string, wallet: string, bps: bigint, isFrozen: boolean }],
+    INFRASTRUCTURE_KEY: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    LIQUIDITY_KEY: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    MARKETING_KEY: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    RESERVE_KEY: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    allocationCount: TypedContractMethod<
+      [],
+      [bigint],
       'view'
     >
     
@@ -245,25 +299,17 @@ decodeFunctionResult(functionFragment: 'updateWallet', data: BytesLike): Result;
     
 
     
-    getAllKeys: TypedContractMethod<
-      [],
-      [string[]],
-      'view'
-    >
-    
-
-    
     getAllocation: TypedContractMethod<
       [key: BytesLike, ],
-      [[string, string, bigint, boolean] & {name: string, wallet: string, bps: bigint, frozen: boolean }],
+      [AllocationManager.AllocationStructOutput],
       'view'
     >
     
 
     
-    getHistory: TypedContractMethod<
+    getAllocationKeys: TypedContractMethod<
       [],
-      [AllocationManager.HistoryRecordStructOutput[]],
+      [string[]],
       'view'
     >
     
@@ -293,14 +339,6 @@ decodeFunctionResult(functionFragment: 'updateWallet', data: BytesLike): Result;
     
 
     
-    history: TypedContractMethod<
-      [arg0: BigNumberish, ],
-      [[string, string, string, bigint, string, bigint] & {key: string, fromWallet: string, to: string, amount: bigint, reason: string, timestamp: bigint }],
-      'view'
-    >
-    
-
-    
     pause: TypedContractMethod<
       [],
       [void],
@@ -313,14 +351,6 @@ decodeFunctionResult(functionFragment: 'updateWallet', data: BytesLike): Result;
       [],
       [boolean],
       'view'
-    >
-    
-
-    
-    recordTransfer: TypedContractMethod<
-      [key: BytesLike, to: AddressLike, amount: BigNumberish, reason: string, ],
-      [void],
-      'nonpayable'
     >
     
 
@@ -365,7 +395,7 @@ decodeFunctionResult(functionFragment: 'updateWallet', data: BytesLike): Result;
     
 
     
-    updateWallet: TypedContractMethod<
+    updateAllocation: TypedContractMethod<
       [key: BytesLike, newWallet: AddressLike, ],
       [void],
       'nonpayable'
@@ -375,7 +405,17 @@ decodeFunctionResult(functionFragment: 'updateWallet', data: BytesLike): Result;
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
-    getFunction(nameOrSignature: 'ALLOCATION_ADMIN_ROLE'): TypedContractMethod<
+    getFunction(nameOrSignature: 'COMMUNITY_KEY'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'CONTINGENCY_KEY'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'CONTRACTS_KEY'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -385,14 +425,34 @@ getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
       [string],
       'view'
     >;
-getFunction(nameOrSignature: 'allocationKeys'): TypedContractMethod<
-      [arg0: BigNumberish, ],
+getFunction(nameOrSignature: 'EDUCATION_KEY'): TypedContractMethod<
+      [],
       [string],
       'view'
     >;
-getFunction(nameOrSignature: 'allocations'): TypedContractMethod<
-      [arg0: BytesLike, ],
-      [[string, string, bigint, boolean] & {name: string, wallet: string, bps: bigint, isFrozen: boolean }],
+getFunction(nameOrSignature: 'INFRASTRUCTURE_KEY'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'LIQUIDITY_KEY'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'MARKETING_KEY'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'RESERVE_KEY'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'allocationCount'): TypedContractMethod<
+      [],
+      [bigint],
       'view'
     >;
 getFunction(nameOrSignature: 'freezeAllocation'): TypedContractMethod<
@@ -400,19 +460,14 @@ getFunction(nameOrSignature: 'freezeAllocation'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
-getFunction(nameOrSignature: 'getAllKeys'): TypedContractMethod<
-      [],
-      [string[]],
-      'view'
-    >;
 getFunction(nameOrSignature: 'getAllocation'): TypedContractMethod<
       [key: BytesLike, ],
-      [[string, string, bigint, boolean] & {name: string, wallet: string, bps: bigint, frozen: boolean }],
+      [AllocationManager.AllocationStructOutput],
       'view'
     >;
-getFunction(nameOrSignature: 'getHistory'): TypedContractMethod<
+getFunction(nameOrSignature: 'getAllocationKeys'): TypedContractMethod<
       [],
-      [AllocationManager.HistoryRecordStructOutput[]],
+      [string[]],
       'view'
     >;
 getFunction(nameOrSignature: 'getRoleAdmin'): TypedContractMethod<
@@ -430,11 +485,6 @@ getFunction(nameOrSignature: 'hasRole'): TypedContractMethod<
       [boolean],
       'view'
     >;
-getFunction(nameOrSignature: 'history'): TypedContractMethod<
-      [arg0: BigNumberish, ],
-      [[string, string, string, bigint, string, bigint] & {key: string, fromWallet: string, to: string, amount: bigint, reason: string, timestamp: bigint }],
-      'view'
-    >;
 getFunction(nameOrSignature: 'pause'): TypedContractMethod<
       [],
       [void],
@@ -444,11 +494,6 @@ getFunction(nameOrSignature: 'paused'): TypedContractMethod<
       [],
       [boolean],
       'view'
-    >;
-getFunction(nameOrSignature: 'recordTransfer'): TypedContractMethod<
-      [key: BytesLike, to: AddressLike, amount: BigNumberish, reason: string, ],
-      [void],
-      'nonpayable'
     >;
 getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
       [role: BytesLike, callerConfirmation: AddressLike, ],
@@ -475,14 +520,14 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
-getFunction(nameOrSignature: 'updateWallet'): TypedContractMethod<
+getFunction(nameOrSignature: 'updateAllocation'): TypedContractMethod<
       [key: BytesLike, newWallet: AddressLike, ],
       [void],
       'nonpayable'
     >;
 
-    getEvent(key: 'AllocationFrozen'): TypedContractEvent<AllocationFrozenEvent.InputTuple, AllocationFrozenEvent.OutputTuple, AllocationFrozenEvent.OutputObject>;
-getEvent(key: 'AllocationTransferRecorded'): TypedContractEvent<AllocationTransferRecordedEvent.InputTuple, AllocationTransferRecordedEvent.OutputTuple, AllocationTransferRecordedEvent.OutputObject>;
+    getEvent(key: 'AllocationCreated'): TypedContractEvent<AllocationCreatedEvent.InputTuple, AllocationCreatedEvent.OutputTuple, AllocationCreatedEvent.OutputObject>;
+getEvent(key: 'AllocationFrozen'): TypedContractEvent<AllocationFrozenEvent.InputTuple, AllocationFrozenEvent.OutputTuple, AllocationFrozenEvent.OutputObject>;
 getEvent(key: 'AllocationUnfrozen'): TypedContractEvent<AllocationUnfrozenEvent.InputTuple, AllocationUnfrozenEvent.OutputTuple, AllocationUnfrozenEvent.OutputObject>;
 getEvent(key: 'AllocationUpdated'): TypedContractEvent<AllocationUpdatedEvent.InputTuple, AllocationUpdatedEvent.OutputTuple, AllocationUpdatedEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
@@ -493,19 +538,19 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
     filters: {
       
-      'AllocationFrozen(bytes32)': TypedContractEvent<AllocationFrozenEvent.InputTuple, AllocationFrozenEvent.OutputTuple, AllocationFrozenEvent.OutputObject>;
-      AllocationFrozen: TypedContractEvent<AllocationFrozenEvent.InputTuple, AllocationFrozenEvent.OutputTuple, AllocationFrozenEvent.OutputObject>;
+      'AllocationCreated(bytes32,string,address,uint256,uint256)': TypedContractEvent<AllocationCreatedEvent.InputTuple, AllocationCreatedEvent.OutputTuple, AllocationCreatedEvent.OutputObject>;
+      AllocationCreated: TypedContractEvent<AllocationCreatedEvent.InputTuple, AllocationCreatedEvent.OutputTuple, AllocationCreatedEvent.OutputObject>;
     
 
-      'AllocationTransferRecorded(bytes32,address,address,uint256,string)': TypedContractEvent<AllocationTransferRecordedEvent.InputTuple, AllocationTransferRecordedEvent.OutputTuple, AllocationTransferRecordedEvent.OutputObject>;
-      AllocationTransferRecorded: TypedContractEvent<AllocationTransferRecordedEvent.InputTuple, AllocationTransferRecordedEvent.OutputTuple, AllocationTransferRecordedEvent.OutputObject>;
+      'AllocationFrozen(bytes32)': TypedContractEvent<AllocationFrozenEvent.InputTuple, AllocationFrozenEvent.OutputTuple, AllocationFrozenEvent.OutputObject>;
+      AllocationFrozen: TypedContractEvent<AllocationFrozenEvent.InputTuple, AllocationFrozenEvent.OutputTuple, AllocationFrozenEvent.OutputObject>;
     
 
       'AllocationUnfrozen(bytes32)': TypedContractEvent<AllocationUnfrozenEvent.InputTuple, AllocationUnfrozenEvent.OutputTuple, AllocationUnfrozenEvent.OutputObject>;
       AllocationUnfrozen: TypedContractEvent<AllocationUnfrozenEvent.InputTuple, AllocationUnfrozenEvent.OutputTuple, AllocationUnfrozenEvent.OutputObject>;
     
 
-      'AllocationUpdated(bytes32,address,address)': TypedContractEvent<AllocationUpdatedEvent.InputTuple, AllocationUpdatedEvent.OutputTuple, AllocationUpdatedEvent.OutputObject>;
+      'AllocationUpdated(bytes32,address,address,uint256,uint256)': TypedContractEvent<AllocationUpdatedEvent.InputTuple, AllocationUpdatedEvent.OutputTuple, AllocationUpdatedEvent.OutputObject>;
       AllocationUpdated: TypedContractEvent<AllocationUpdatedEvent.InputTuple, AllocationUpdatedEvent.OutputTuple, AllocationUpdatedEvent.OutputObject>;
     
 

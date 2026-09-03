@@ -77,15 +77,20 @@ async function main() {
   const token = await hh.getContractAt("ABCDToken", tokenAddress);
   const liquidity = ethers.parseUnits(process.env.LENDING_V2_LOCAL_LIQUIDITY ?? "1000000", 18);
   const reserveFunding = ethers.parseUnits(process.env.LENDING_V2_LOCAL_RESERVE ?? "100000", 18);
-  const requiredFunding = liquidity + reserveFunding;
-  const balance = await token.balanceOf(admin.address);
-  if (balance < requiredFunding) {
-    const icoWallet = await token.icoWallet();
-    const icoSigner = signers.find((signer: any) => signer.address.toLowerCase() === icoWallet.toLowerCase());
-    const shortfall = requiredFunding - balance;
-    if (!icoSigner || await token.balanceOf(icoWallet) < shortfall) throw new Error("Canonical ICO allocation cannot fund the configured local V2 liquidity/reserve");
-    await confirmed(await token.connect(icoSigner).transfer(admin.address, shortfall), "Local V2 funding transfer from ICO allocation");
+  // Fund each V2 subsystem from its matching canonical allocation.  The former
+  // ICO wallet no longer exists in the 1B/eight-allocation token model.
+  const liquidityWallet = await token.liquidityWallet();
+  const reserveWallet = await token.reserveWallet();
+  const liquiditySigner = signers.find((signer: any) => signer.address.toLowerCase() === liquidityWallet.toLowerCase());
+  const reserveSigner = signers.find((signer: any) => signer.address.toLowerCase() === reserveWallet.toLowerCase());
+  if (!liquiditySigner || await token.balanceOf(liquidityWallet) < liquidity) {
+    throw new Error("Canonical liquidity allocation cannot fund the configured local V2 liquidity");
   }
+  if (!reserveSigner || await token.balanceOf(reserveWallet) < reserveFunding) {
+    throw new Error("Canonical reserve allocation cannot fund the configured local V2 insurance reserve");
+  }
+  await confirmed(await token.connect(liquiditySigner).transfer(admin.address, liquidity), "Local V2 liquidity funding transfer");
+  await confirmed(await token.connect(reserveSigner).transfer(admin.address, reserveFunding), "Local V2 reserve funding transfer");
   await confirmed(await token.approve(await pool.getAddress(), liquidity), "V2 pool approval");
   await confirmed(await pool.fundLiquidity(liquidity), "V2 pool funding");
   await confirmed(await token.approve(await reserve.getAddress(), reserveFunding), "V2 reserve approval");

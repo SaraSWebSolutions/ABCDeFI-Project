@@ -6,22 +6,23 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface ConstantsInterface extends Interface {
-    getFunction(nameOrSignature: "ADVISOR_BPS" | "BONUS_ADMIN_ROLE" | "BPS_DENOMINATOR" | "BURNER_ROLE" | "CONTINGENCY_BPS" | "FINANCE_BPS" | "FOUNDER_BPS" | "GOVERNANCE_ROLE" | "ICO_BPS" | "LENDING_ADMIN_ROLE" | "LIQUIDATION_ADMIN_ROLE" | "LIQUIDATOR_ROLE" | "LOAN_MANAGER_ADMIN_ROLE" | "LOAN_OPERATOR_ROLE" | "MARKETING_BPS" | "MARKETPLACE_ADMIN_ROLE" | "MAX_SUPPLY" | "MINTER_NFT_ROLE" | "MINTER_ROLE" | "NFT_ADMIN_ROLE" | "PAUSER_ROLE" | "PRESALE_ADMIN_ROLE" | "RESERVE_BPS" | "STAKING_ADMIN_ROLE" | "TOKEN_DECIMALS" | "TOKEN_NAME" | "TOKEN_SYMBOL" | "TREASURY_ADMIN_ROLE" | "TREASURY_ROLE" | "VAULT_ADMIN_ROLE" | "VAULT_OPERATOR_ROLE" | "VESTING_ADMIN_ROLE" | "WITHDRAWER_ROLE"): FunctionFragment;
+    getFunction(nameOrSignature: "BONUS_ADMIN_ROLE" | "BPS_DENOMINATOR" | "BURNER_ROLE" | "COMMUNITY_BPS" | "CONTINGENCY_BPS" | "CONTRACTS_BPS" | "EDUCATION_BPS" | "GOVERNANCE_ROLE" | "INFRASTRUCTURE_BPS" | "LENDING_ADMIN_ROLE" | "LIQUIDATION_ADMIN_ROLE" | "LIQUIDATOR_ROLE" | "LIQUIDITY_BPS" | "LOAN_MANAGER_ADMIN_ROLE" | "LOAN_OPERATOR_ROLE" | "MARKETING_BPS" | "MARKETPLACE_ADMIN_ROLE" | "MAX_SUPPLY" | "MINTER_NFT_ROLE" | "MINTER_ROLE" | "NFT_ADMIN_ROLE" | "PAUSER_ROLE" | "PRESALE_ADMIN_ROLE" | "RESERVE_BPS" | "STAKING_ADMIN_ROLE" | "TOKEN_DECIMALS" | "TOKEN_NAME" | "TOKEN_SYMBOL" | "TREASURY_ADMIN_ROLE" | "TREASURY_ROLE" | "VAULT_ADMIN_ROLE" | "VAULT_OPERATOR_ROLE" | "VESTING_ADMIN_ROLE" | "WITHDRAWER_ROLE"): FunctionFragment;
 
     
 
-    encodeFunctionData(functionFragment: 'ADVISOR_BPS', values?: undefined): string;
-encodeFunctionData(functionFragment: 'BONUS_ADMIN_ROLE', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'BONUS_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'BPS_DENOMINATOR', values?: undefined): string;
 encodeFunctionData(functionFragment: 'BURNER_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'COMMUNITY_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'CONTINGENCY_BPS', values?: undefined): string;
-encodeFunctionData(functionFragment: 'FINANCE_BPS', values?: undefined): string;
-encodeFunctionData(functionFragment: 'FOUNDER_BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'CONTRACTS_BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'EDUCATION_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'GOVERNANCE_ROLE', values?: undefined): string;
-encodeFunctionData(functionFragment: 'ICO_BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'INFRASTRUCTURE_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LENDING_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LIQUIDATION_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LIQUIDATOR_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'LIQUIDITY_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LOAN_MANAGER_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LOAN_OPERATOR_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MARKETING_BPS', values?: undefined): string;
@@ -44,18 +45,19 @@ encodeFunctionData(functionFragment: 'VAULT_OPERATOR_ROLE', values?: undefined):
 encodeFunctionData(functionFragment: 'VESTING_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'WITHDRAWER_ROLE', values?: undefined): string;
 
-    decodeFunctionResult(functionFragment: 'ADVISOR_BPS', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'BONUS_ADMIN_ROLE', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'BONUS_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'BPS_DENOMINATOR', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'BURNER_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'COMMUNITY_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'CONTINGENCY_BPS', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'FINANCE_BPS', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'FOUNDER_BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'CONTRACTS_BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'EDUCATION_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'GOVERNANCE_ROLE', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'ICO_BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'INFRASTRUCTURE_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LENDING_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LIQUIDATION_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LIQUIDATOR_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'LIQUIDITY_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LOAN_MANAGER_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LOAN_OPERATOR_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MARKETING_BPS', data: BytesLike): Result;
@@ -115,14 +117,6 @@ decodeFunctionResult(functionFragment: 'WITHDRAWER_ROLE', data: BytesLike): Resu
 
     
     
-    ADVISOR_BPS: TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >
-    
-
-    
     BONUS_ADMIN_ROLE: TypedContractMethod<
       [],
       [string],
@@ -147,6 +141,14 @@ decodeFunctionResult(functionFragment: 'WITHDRAWER_ROLE', data: BytesLike): Resu
     
 
     
+    COMMUNITY_BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     CONTINGENCY_BPS: TypedContractMethod<
       [],
       [bigint],
@@ -155,7 +157,7 @@ decodeFunctionResult(functionFragment: 'WITHDRAWER_ROLE', data: BytesLike): Resu
     
 
     
-    FINANCE_BPS: TypedContractMethod<
+    CONTRACTS_BPS: TypedContractMethod<
       [],
       [bigint],
       'view'
@@ -163,7 +165,7 @@ decodeFunctionResult(functionFragment: 'WITHDRAWER_ROLE', data: BytesLike): Resu
     
 
     
-    FOUNDER_BPS: TypedContractMethod<
+    EDUCATION_BPS: TypedContractMethod<
       [],
       [bigint],
       'view'
@@ -179,7 +181,7 @@ decodeFunctionResult(functionFragment: 'WITHDRAWER_ROLE', data: BytesLike): Resu
     
 
     
-    ICO_BPS: TypedContractMethod<
+    INFRASTRUCTURE_BPS: TypedContractMethod<
       [],
       [bigint],
       'view'
@@ -206,6 +208,14 @@ decodeFunctionResult(functionFragment: 'WITHDRAWER_ROLE', data: BytesLike): Resu
     LIQUIDATOR_ROLE: TypedContractMethod<
       [],
       [string],
+      'view'
+    >
+    
+
+    
+    LIQUIDITY_BPS: TypedContractMethod<
+      [],
+      [bigint],
       'view'
     >
     
@@ -381,12 +391,7 @@ decodeFunctionResult(functionFragment: 'WITHDRAWER_ROLE', data: BytesLike): Resu
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
-    getFunction(nameOrSignature: 'ADVISOR_BPS'): TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >;
-getFunction(nameOrSignature: 'BONUS_ADMIN_ROLE'): TypedContractMethod<
+    getFunction(nameOrSignature: 'BONUS_ADMIN_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -401,17 +406,22 @@ getFunction(nameOrSignature: 'BURNER_ROLE'): TypedContractMethod<
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'COMMUNITY_BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
 getFunction(nameOrSignature: 'CONTINGENCY_BPS'): TypedContractMethod<
       [],
       [bigint],
       'view'
     >;
-getFunction(nameOrSignature: 'FINANCE_BPS'): TypedContractMethod<
+getFunction(nameOrSignature: 'CONTRACTS_BPS'): TypedContractMethod<
       [],
       [bigint],
       'view'
     >;
-getFunction(nameOrSignature: 'FOUNDER_BPS'): TypedContractMethod<
+getFunction(nameOrSignature: 'EDUCATION_BPS'): TypedContractMethod<
       [],
       [bigint],
       'view'
@@ -421,7 +431,7 @@ getFunction(nameOrSignature: 'GOVERNANCE_ROLE'): TypedContractMethod<
       [string],
       'view'
     >;
-getFunction(nameOrSignature: 'ICO_BPS'): TypedContractMethod<
+getFunction(nameOrSignature: 'INFRASTRUCTURE_BPS'): TypedContractMethod<
       [],
       [bigint],
       'view'
@@ -439,6 +449,11 @@ getFunction(nameOrSignature: 'LIQUIDATION_ADMIN_ROLE'): TypedContractMethod<
 getFunction(nameOrSignature: 'LIQUIDATOR_ROLE'): TypedContractMethod<
       [],
       [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'LIQUIDITY_BPS'): TypedContractMethod<
+      [],
+      [bigint],
       'view'
     >;
 getFunction(nameOrSignature: 'LOAN_MANAGER_ADMIN_ROLE'): TypedContractMethod<

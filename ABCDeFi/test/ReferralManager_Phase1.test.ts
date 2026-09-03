@@ -21,8 +21,8 @@ describe("Referral System Specification Verification", function () {
 
     const TokenFactory = await hardhatEthers.getContractFactory("ABCDToken");
     token = await TokenFactory.deploy(
-      owner.address, owner.address, owner.address,
-      owner.address, owner.address, rewardVault.address, owner.address
+      owner.address, owner.address, owner.address, owner.address,
+      owner.address, owner.address, owner.address, rewardVault.address
     );
     await token.waitForDeployment();
 

@@ -32,6 +32,7 @@ describe("Liquidation Contract Suite", function () {
       owner.address,
       owner.address,
       owner.address,
+      owner.address,
       owner.address
     );
     await token.waitForDeployment();

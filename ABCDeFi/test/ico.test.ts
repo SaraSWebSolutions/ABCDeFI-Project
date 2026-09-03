@@ -18,13 +18,14 @@ describe("ABCD ICO Flow", function () {
       owner.address,
       owner.address,
       owner.address,
+      owner.address,
       owner.address
     );
 
     await token.waitForDeployment();
 
-    const balFounder = await token.balanceOf(owner.address);
+    const infrastructureBalance = await token.balanceOf(owner.address);
 
-    expect(balFounder).to.be.gt(0n);
+    expect(infrastructureBalance).to.be.gt(0n);
   });
 });

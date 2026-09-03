@@ -37,7 +37,7 @@ describe("StakingPool Contract Suite", function () {
 
     const ABCDTokenFactory = await hardhatEthers.getContractFactory("ABCDToken");
     token = await ABCDTokenFactory.deploy(
-      owner.address, owner.address, owner.address, owner.address, owner.address, owner.address, owner.address
+      owner.address, owner.address, owner.address, owner.address, owner.address, owner.address, owner.address, owner.address
     );
     await token.waitForDeployment();
 

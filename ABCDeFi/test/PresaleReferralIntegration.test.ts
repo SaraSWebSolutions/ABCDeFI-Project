@@ -26,8 +26,14 @@ describe("Presale → ReferralManager integration", function () {
 
     const TokenFactory = await hardhatEthers.getContractFactory("ABCDToken");
     token = await TokenFactory.deploy(
-      admin.address, ico.address, admin.address, admin.address,
-      admin.address, reserve.address, admin.address,
+      admin.address,
+      ico.address,
+      admin.address,
+      admin.address,
+      admin.address,
+      admin.address,
+      admin.address,
+      reserve.address
     );
     await token.waitForDeployment();
 
