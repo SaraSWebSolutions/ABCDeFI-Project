@@ -6,6 +6,7 @@ const REQUIRED = Object.freeze([
   'OracleAdapterV2', 'CollateralVaultV2', 'LoanManagerV2', 'LendingPoolV2',
   'LiquidationV2', 'InsuranceReserveV2', 'LoanMarketplaceV2', 'EMIManagerV2', 'LoanNFTV2',
 ]);
+const OPTIONAL = Object.freeze(['LendingReferralManagerV2']);
 
 function manifestPath() {
   return process.env.LENDING_V2_MANIFEST_PATH
@@ -33,6 +34,12 @@ function loadLendingV2Manifest() {
     if (!Number.isInteger(Number(entry.deploymentBlock))) throw new Error(`Lending V2 manifest has an invalid ${name} deployment block.`);
     contracts[name] = Object.freeze({ address: entry.address, deploymentBlock: Number(entry.deploymentBlock), deploymentTransactionHash: entry.deploymentTransactionHash });
   }
+  for (const name of OPTIONAL) {
+    const entry = v2.contracts[name];
+    if (entry == null) continue;
+    if (!isAddress(entry.address) || !Number.isInteger(Number(entry.deploymentBlock))) throw new Error(`Lending V2 manifest has an invalid optional ${name} entry.`);
+    contracts[name] = Object.freeze({ address: entry.address, deploymentBlock: Number(entry.deploymentBlock), deploymentTransactionHash: entry.deploymentTransactionHash });
+  }
   if (!root.contracts?.ABCDToken || !isAddress(root.contracts.ABCDToken.address)) throw new Error('Root manifest ABCDToken address is invalid.');
   return Object.freeze({
     manifestPath: sourcePath, chainId: 31337, network: 'localhost', rpcUrl: root.rpcUrl,
@@ -41,4 +48,4 @@ function loadLendingV2Manifest() {
   });
 }
 
-module.exports = { REQUIRED, loadLendingV2Manifest };
+module.exports = { REQUIRED, OPTIONAL, loadLendingV2Manifest };

@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface InsuranceReserveV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "RESERVE_FUNDER_ROLE" | "RESERVE_OPERATOR_ROLE" | "asset" | "availableBalance" | "cover" | "fund" | "getRoleAdmin" | "grantRole" | "hasRole" | "pause" | "paused" | "renounceRole" | "reserveUsedByLoan" | "revokeRole" | "supportsInterface" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "RESERVE_FUNDER_ROLE" | "RESERVE_OPERATOR_ROLE" | "asset" | "availableBalance" | "cover" | "fund" | "getRoleAdmin" | "grantRole" | "hasRole" | "loanManager" | "pause" | "paused" | "renounceRole" | "reserveSettlementProcessed" | "reserveUsedByLoan" | "revokeRole" | "supportsInterface" | "unpause"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "Paused" | "ReserveFunded" | "ReserveUsed" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "Paused" | "ReserveBalanceUpdated" | "ReserveFunded" | "ReserveUsed" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'RESERVE_FUNDER_ROLE', values?: undefined): string;
@@ -20,9 +20,11 @@ encodeFunctionData(functionFragment: 'fund', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'reserveSettlementProcessed', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'reserveUsedByLoan', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
@@ -38,9 +40,11 @@ decodeFunctionResult(functionFragment: 'fund', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'loanManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'reserveSettlementProcessed', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'reserveUsedByLoan', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
@@ -52,6 +56,18 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       export type InputTuple = [account: AddressLike];
       export type OutputTuple = [account: string];
       export interface OutputObject {account: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace ReserveBalanceUpdatedEvent {
+      export type InputTuple = [loanId: BigNumberish, recipient: AddressLike, paid: BigNumberish, balanceAfter: BigNumberish];
+      export type OutputTuple = [loanId: bigint, recipient: string, paid: bigint, balanceAfter: bigint];
+      export interface OutputObject {loanId: bigint, recipient: string, paid: bigint, balanceAfter: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -246,6 +262,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    loanManager: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     pause: TypedContractMethod<
       [],
       [void],
@@ -266,6 +290,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       [role: BytesLike, callerConfirmation: AddressLike, ],
       [void],
       'nonpayable'
+    >
+    
+
+    
+    reserveSettlementProcessed: TypedContractMethod<
+      [arg0: BigNumberish, ],
+      [boolean],
+      'view'
     >
     
 
@@ -354,6 +386,11 @@ getFunction(nameOrSignature: 'hasRole'): TypedContractMethod<
       [boolean],
       'view'
     >;
+getFunction(nameOrSignature: 'loanManager'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'pause'): TypedContractMethod<
       [],
       [void],
@@ -368,6 +405,11 @@ getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
       [role: BytesLike, callerConfirmation: AddressLike, ],
       [void],
       'nonpayable'
+    >;
+getFunction(nameOrSignature: 'reserveSettlementProcessed'): TypedContractMethod<
+      [arg0: BigNumberish, ],
+      [boolean],
+      'view'
     >;
 getFunction(nameOrSignature: 'reserveUsedByLoan'): TypedContractMethod<
       [arg0: BigNumberish, ],
@@ -391,6 +433,7 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
     >;
 
     getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+getEvent(key: 'ReserveBalanceUpdated'): TypedContractEvent<ReserveBalanceUpdatedEvent.InputTuple, ReserveBalanceUpdatedEvent.OutputTuple, ReserveBalanceUpdatedEvent.OutputObject>;
 getEvent(key: 'ReserveFunded'): TypedContractEvent<ReserveFundedEvent.InputTuple, ReserveFundedEvent.OutputTuple, ReserveFundedEvent.OutputObject>;
 getEvent(key: 'ReserveUsed'): TypedContractEvent<ReserveUsedEvent.InputTuple, ReserveUsedEvent.OutputTuple, ReserveUsedEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
@@ -402,6 +445,10 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       
       'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
       Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+    
+
+      'ReserveBalanceUpdated(uint256,address,uint256,uint256)': TypedContractEvent<ReserveBalanceUpdatedEvent.InputTuple, ReserveBalanceUpdatedEvent.OutputTuple, ReserveBalanceUpdatedEvent.OutputObject>;
+      ReserveBalanceUpdated: TypedContractEvent<ReserveBalanceUpdatedEvent.InputTuple, ReserveBalanceUpdatedEvent.OutputTuple, ReserveBalanceUpdatedEvent.OutputObject>;
     
 
       'ReserveFunded(address,uint256)': TypedContractEvent<ReserveFundedEvent.InputTuple, ReserveFundedEvent.OutputTuple, ReserveFundedEvent.OutputObject>;

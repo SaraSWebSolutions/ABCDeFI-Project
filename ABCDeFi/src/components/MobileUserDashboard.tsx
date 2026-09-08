@@ -32,7 +32,6 @@ import { TransactionHistory } from './TransactionHistory';
 import { NFTEcosystem } from './NFTEcosystem';
 import { GuruNFTSystem } from './GuruNFTSystem';
 import LegionApp from '../Legion/LegionApp';
-import { ICOLaunchpad } from './ICOLaunchpad';
 import { ClaimPortal } from './ClaimPortal';
 import { ReferralSystem } from './ReferralSystem';
 import { AIFinancialAssistant } from './AIFinancialAssistant';
@@ -44,6 +43,7 @@ import { MasterProtocolManager } from './MasterProtocolManager';
 import { NFTSubModuleManager } from './NFTSubModuleManager';
 import { FranchiseSubModuleManager } from './FranchiseSubModuleManager';
 import P2PLendingDashboard from './P2PLendingDashboard';
+import { LendingV2 } from './LendingV2';
 import LoanManagementPortal from './LoanManagementPortal';
 import NextGenProtocolDashboard from './NextGenProtocolDashboard';
 import Web3ActionModal from './Web3ActionModal';
@@ -438,11 +438,11 @@ export const MobileUserDashboard: React.FC<MobileUserDashboardProps> = (props) =
           case 'withdraw':
           case 'borrow':
           case 'repay':
-            return <div className="pb-20"><P2PLendingDashboard activeTab={activeSubTab} /></div>;
+            return <div className="pb-20"><LendingV2 /></div>;
           case 'loans':
             return <div className="pb-20"><LoanManagementPortal /></div>;
           case 'lending':
-            return <div className="pb-20"><P2PLendingDashboard activeTab={activeSubTab} /></div>;
+            return <div className="pb-20"><LendingV2 /></div>;
           case 'history':
             return <div className="pb-20"><TransactionHistory /></div>;
           default:

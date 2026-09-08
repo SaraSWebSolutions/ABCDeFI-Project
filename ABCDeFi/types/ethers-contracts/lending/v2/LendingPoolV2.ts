@@ -4,27 +4,41 @@
 import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, EventFragment, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers"
 import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../../common.js"
   
+export declare namespace LoanNFTV2 {
+      
+    export type MetadataStruct = {uri: string, hash: BytesLike}
+
+    export type MetadataStructOutput = [uri: string, hash: string] & {uri: string, hash: string }
+  
+
+    export type CompletionMetadataStruct = {lender: LoanNFTV2.MetadataStruct, borrower: LoanNFTV2.MetadataStruct, platform: LoanNFTV2.MetadataStruct}
+
+    export type CompletionMetadataStructOutput = [lender: LoanNFTV2.MetadataStructOutput, borrower: LoanNFTV2.MetadataStructOutput, platform: LoanNFTV2.MetadataStructOutput] & {lender: LoanNFTV2.MetadataStructOutput, borrower: LoanNFTV2.MetadataStructOutput, platform: LoanNFTV2.MetadataStructOutput }
+  
+    }
 
   export interface LendingPoolV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "FIXED_APR_BPS" | "LIQUIDITY_MANAGER_ROLE" | "MAX_INITIAL_LTV_BPS" | "abcd" | "borrowABCD" | "collateralValueUSD" | "collateralVault" | "debtValueUSD" | "depositCollateral" | "fundLiquidity" | "getRoleAdmin" | "grantRole" | "hasRole" | "liquidity" | "loanManager" | "loanNFT" | "maxBorrowable" | "nextCollateralDepositId" | "openLoan" | "oracle" | "outstanding" | "pause" | "paused" | "pendingCollateral" | "renounceRole" | "repay" | "repayAll" | "revokeRole" | "supportsInterface" | "syncLoan" | "unpause" | "withdrawPendingCollateral" | "withdrawSettledCollateral"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "LIQUIDITY_MANAGER_ROLE" | "MAX_INITIAL_LTV_BPS" | "abcd" | "addCollateralToLoan" | "borrowABCD" | "collateralValueUSD" | "collateralVault" | "currentNewLoanAprBps" | "debtValueUSD" | "depositCollateral" | "fundLiquidity" | "getRoleAdmin" | "grantRole" | "hasRole" | "lendingReferralManager" | "liquidity" | "loanManager" | "loanNFT" | "maxBorrowable" | "nextCollateralDepositId" | "openLoan" | "oracle" | "outstanding" | "pause" | "paused" | "pendingCollateral" | "renounceRole" | "repay" | "repayAll" | "repayAllWithCompletionMetadata" | "repayWithCompletionMetadata" | "revokeRole" | "supportsInterface" | "syncLoan" | "unpause" | "withdrawPendingCollateral" | "withdrawSettledCollateral"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "CollateralDepositCreated" | "DirectLoanOpened" | "DirectLoanRepaid" | "LiquidityFunded" | "Paused" | "PendingCollateralWithdrawn" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "SettledCollateralWithdrawn" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "CollateralDepositCreated" | "DirectLoanCollateralToppedUp" | "DirectLoanOpened" | "DirectLoanRepaid" | "LiquidityFunded" | "Paused" | "PendingCollateralWithdrawn" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "SettledCollateralWithdrawn" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ETH_ASSET', values?: undefined): string;
-encodeFunctionData(functionFragment: 'FIXED_APR_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LIQUIDITY_MANAGER_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MAX_INITIAL_LTV_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
+encodeFunctionData(functionFragment: 'addCollateralToLoan', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'borrowABCD', values: [BigNumberish, BigNumberish, BigNumberish, string, BytesLike]): string;
 encodeFunctionData(functionFragment: 'collateralValueUSD', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'collateralVault', values?: undefined): string;
+encodeFunctionData(functionFragment: 'currentNewLoanAprBps', values?: undefined): string;
 encodeFunctionData(functionFragment: 'debtValueUSD', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'depositCollateral', values?: undefined): string;
 encodeFunctionData(functionFragment: 'fundLiquidity', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'lendingReferralManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'liquidity', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanNFT', values?: undefined): string;
@@ -39,6 +53,8 @@ encodeFunctionData(functionFragment: 'pendingCollateral', values: [BigNumberish]
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'repay', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'repayAll', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'repayAllWithCompletionMetadata', values: [BigNumberish, LoanNFTV2.CompletionMetadataStruct]): string;
+encodeFunctionData(functionFragment: 'repayWithCompletionMetadata', values: [BigNumberish, BigNumberish, LoanNFTV2.CompletionMetadataStruct]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'syncLoan', values: [BigNumberish]): string;
@@ -48,19 +64,21 @@ encodeFunctionData(functionFragment: 'withdrawSettledCollateral', values: [BigNu
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'ETH_ASSET', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'FIXED_APR_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LIQUIDITY_MANAGER_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MAX_INITIAL_LTV_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'abcd', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'addCollateralToLoan', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'borrowABCD', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'collateralValueUSD', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'collateralVault', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'currentNewLoanAprBps', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'debtValueUSD', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'depositCollateral', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'fundLiquidity', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'lendingReferralManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'liquidity', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanNFT', data: BytesLike): Result;
@@ -75,6 +93,8 @@ decodeFunctionResult(functionFragment: 'pendingCollateral', data: BytesLike): Re
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'repay', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'repayAll', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'repayAllWithCompletionMetadata', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'repayWithCompletionMetadata', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'syncLoan', data: BytesLike): Result;
@@ -88,6 +108,18 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
       export type InputTuple = [depositId: BigNumberish, borrower: AddressLike, collateralETH: BigNumberish];
       export type OutputTuple = [depositId: bigint, borrower: string, collateralETH: bigint];
       export interface OutputObject {depositId: bigint, borrower: string, collateralETH: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace DirectLoanCollateralToppedUpEvent {
+      export type InputTuple = [loanId: BigNumberish, borrower: AddressLike, amount: BigNumberish, totalCollateral: BigNumberish];
+      export type OutputTuple = [loanId: bigint, borrower: string, amount: bigint, totalCollateral: bigint];
+      export interface OutputObject {loanId: bigint, borrower: string, amount: bigint, totalCollateral: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -266,14 +298,6 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
     
 
     
-    FIXED_APR_BPS: TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >
-    
-
-    
     LIQUIDITY_MANAGER_ROLE: TypedContractMethod<
       [],
       [string],
@@ -298,6 +322,14 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
     
 
     
+    addCollateralToLoan: TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [void],
+      'payable'
+    >
+    
+
+    
     borrowABCD: TypedContractMethod<
       [depositId: BigNumberish, principal: BigNumberish, term: BigNumberish, metadataURI: string, metadataHash: BytesLike, ],
       [bigint],
@@ -317,6 +349,14 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
     collateralVault: TypedContractMethod<
       [],
       [string],
+      'view'
+    >
+    
+
+    
+    currentNewLoanAprBps: TypedContractMethod<
+      [],
+      [bigint],
       'view'
     >
     
@@ -365,6 +405,14 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
     hasRole: TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [boolean],
+      'view'
+    >
+    
+
+    
+    lendingReferralManager: TypedContractMethod<
+      [],
+      [string],
       'view'
     >
     
@@ -482,6 +530,22 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
     
 
     
+    repayAllWithCompletionMetadata: TypedContractMethod<
+      [loanId: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
+      [[bigint, bigint, bigint] & {fee: bigint, interest: bigint, principal: bigint }],
+      'nonpayable'
+    >
+    
+
+    
+    repayWithCompletionMetadata: TypedContractMethod<
+      [loanId: BigNumberish, amount: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
+      [[bigint, bigint, bigint] & {fee: bigint, interest: bigint, principal: bigint }],
+      'nonpayable'
+    >
+    
+
+    
     revokeRole: TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [void],
@@ -542,11 +606,6 @@ getFunction(nameOrSignature: 'ETH_ASSET'): TypedContractMethod<
       [string],
       'view'
     >;
-getFunction(nameOrSignature: 'FIXED_APR_BPS'): TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >;
 getFunction(nameOrSignature: 'LIQUIDITY_MANAGER_ROLE'): TypedContractMethod<
       [],
       [string],
@@ -562,6 +621,11 @@ getFunction(nameOrSignature: 'abcd'): TypedContractMethod<
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'addCollateralToLoan'): TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [void],
+      'payable'
+    >;
 getFunction(nameOrSignature: 'borrowABCD'): TypedContractMethod<
       [depositId: BigNumberish, principal: BigNumberish, term: BigNumberish, metadataURI: string, metadataHash: BytesLike, ],
       [bigint],
@@ -575,6 +639,11 @@ getFunction(nameOrSignature: 'collateralValueUSD'): TypedContractMethod<
 getFunction(nameOrSignature: 'collateralVault'): TypedContractMethod<
       [],
       [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'currentNewLoanAprBps'): TypedContractMethod<
+      [],
+      [bigint],
       'view'
     >;
 getFunction(nameOrSignature: 'debtValueUSD'): TypedContractMethod<
@@ -605,6 +674,11 @@ getFunction(nameOrSignature: 'grantRole'): TypedContractMethod<
 getFunction(nameOrSignature: 'hasRole'): TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [boolean],
+      'view'
+    >;
+getFunction(nameOrSignature: 'lendingReferralManager'): TypedContractMethod<
+      [],
+      [string],
       'view'
     >;
 getFunction(nameOrSignature: 'liquidity'): TypedContractMethod<
@@ -677,6 +751,16 @@ getFunction(nameOrSignature: 'repayAll'): TypedContractMethod<
       [[bigint, bigint, bigint] & {fee: bigint, interest: bigint, principal: bigint }],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'repayAllWithCompletionMetadata'): TypedContractMethod<
+      [loanId: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
+      [[bigint, bigint, bigint] & {fee: bigint, interest: bigint, principal: bigint }],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'repayWithCompletionMetadata'): TypedContractMethod<
+      [loanId: BigNumberish, amount: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
+      [[bigint, bigint, bigint] & {fee: bigint, interest: bigint, principal: bigint }],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [void],
@@ -709,6 +793,7 @@ getFunction(nameOrSignature: 'withdrawSettledCollateral'): TypedContractMethod<
     >;
 
     getEvent(key: 'CollateralDepositCreated'): TypedContractEvent<CollateralDepositCreatedEvent.InputTuple, CollateralDepositCreatedEvent.OutputTuple, CollateralDepositCreatedEvent.OutputObject>;
+getEvent(key: 'DirectLoanCollateralToppedUp'): TypedContractEvent<DirectLoanCollateralToppedUpEvent.InputTuple, DirectLoanCollateralToppedUpEvent.OutputTuple, DirectLoanCollateralToppedUpEvent.OutputObject>;
 getEvent(key: 'DirectLoanOpened'): TypedContractEvent<DirectLoanOpenedEvent.InputTuple, DirectLoanOpenedEvent.OutputTuple, DirectLoanOpenedEvent.OutputObject>;
 getEvent(key: 'DirectLoanRepaid'): TypedContractEvent<DirectLoanRepaidEvent.InputTuple, DirectLoanRepaidEvent.OutputTuple, DirectLoanRepaidEvent.OutputObject>;
 getEvent(key: 'LiquidityFunded'): TypedContractEvent<LiquidityFundedEvent.InputTuple, LiquidityFundedEvent.OutputTuple, LiquidityFundedEvent.OutputObject>;
@@ -724,6 +809,10 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       
       'CollateralDepositCreated(uint256,address,uint256)': TypedContractEvent<CollateralDepositCreatedEvent.InputTuple, CollateralDepositCreatedEvent.OutputTuple, CollateralDepositCreatedEvent.OutputObject>;
       CollateralDepositCreated: TypedContractEvent<CollateralDepositCreatedEvent.InputTuple, CollateralDepositCreatedEvent.OutputTuple, CollateralDepositCreatedEvent.OutputObject>;
+    
+
+      'DirectLoanCollateralToppedUp(uint256,address,uint256,uint256)': TypedContractEvent<DirectLoanCollateralToppedUpEvent.InputTuple, DirectLoanCollateralToppedUpEvent.OutputTuple, DirectLoanCollateralToppedUpEvent.OutputObject>;
+      DirectLoanCollateralToppedUp: TypedContractEvent<DirectLoanCollateralToppedUpEvent.InputTuple, DirectLoanCollateralToppedUpEvent.OutputTuple, DirectLoanCollateralToppedUpEvent.OutputObject>;
     
 
       'DirectLoanOpened(uint256,uint256,address,uint256,uint256,uint48,uint48,bytes32,string)': TypedContractEvent<DirectLoanOpenedEvent.InputTuple, DirectLoanOpenedEvent.OutputTuple, DirectLoanOpenedEvent.OutputObject>;

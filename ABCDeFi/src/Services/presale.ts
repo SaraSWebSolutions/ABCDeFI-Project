@@ -26,6 +26,8 @@ export interface PresaleData {
   isPaused: boolean;
   isFinalized: boolean;
   isCancelled: boolean;
+  /** True only for an explicitly approved, inventory-backed sale configuration. */
+  saleEnabled: boolean;
   whitelistRequired: boolean;
   buyer: {
     ethContributed: string;
@@ -58,6 +60,17 @@ async function waitForSuccess(transaction: { wait: () => Promise<any> }) {
   return receipt;
 }
 
+// A local chain may still contain the previous Presale bytecode while source
+// has advanced. Treat an absent/reverting authorization getter as disabled;
+// never infer a sale is authorized from legacy constructor parameters.
+async function readSaleEnabled(contract: Contract): Promise<boolean> {
+  try {
+    return Boolean(await contract.saleEnabled());
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Prevent the UI from treating an old local-chain manifest as a working
  * Presale. This is intentionally a canonical-RPC check; it never uses the
@@ -87,10 +100,11 @@ export async function getPresaleData(buyerAddress?: string): Promise<PresaleData
   if (buyerAddress && !isAddress(buyerAddress)) throw new Error('Buyer must be a valid wallet address.');
   const contract = await getPresaleContract(false);
   const token = new Contract(CONTRACTS.token, ABCDTokenABI, canonicalProvider);
-  const [stateIndex, rate, softCap, hardCap, minBuy, maxBuy, totalEthRaised, totalTokensSold, startTime, endTime, whitelistRequired, tokenReserve, isPaused, isFinalized, isCancelled] = await Promise.all([
+  const [stateIndex, rate, softCap, hardCap, minBuy, maxBuy, totalEthRaised, totalTokensSold, startTime, endTime, whitelistRequired, tokenReserve, isPaused, isFinalized, isCancelled, saleEnabled] = await Promise.all([
     contract.getState(), contract.rate(), contract.softCap(), contract.hardCap(), contract.minBuy(), contract.maxBuy(),
     contract.totalEthRaised(), contract.totalTokensSold(), contract.startTime(), contract.endTime(), contract.whitelistRequired(),
     token.balanceOf(CONTRACTS.presale), contract.paused(), contract.isFinalized(), contract.isCancelled(),
+    readSaleEnabled(contract),
   ]);
   const buyerInfo = buyerAddress ? await Promise.all([contract.getBuyerInfo(buyerAddress), contract.isWhitelisted(buyerAddress)]) : null;
   const formattedTokensSold = formatEther(totalTokensSold);
@@ -114,6 +128,7 @@ export async function getPresaleData(buyerAddress?: string): Promise<PresaleData
     isPaused,
     isFinalized,
     isCancelled,
+    saleEnabled,
     whitelistRequired,
     buyer: buyerInfo ? {
       ethContributed: formatEther(buyerInfo[0].ethContributed),
@@ -130,11 +145,13 @@ export async function buyTokens(ethAmount: string, onSubmitted?: (transactionHas
   const signer = await getSignerOnDeploymentChain();
   const buyer = await signer.getAddress();
   const contract = new Contract(CONTRACTS.presale, PresaleArtifact.abi, signer);
-  const [state, isPaused, minBuy, maxBuy, hardCap, totalEthRaised, whitelistRequired, buyerInfo, isWhitelisted, walletBalance] = await Promise.all([
+  const [state, isPaused, minBuy, maxBuy, hardCap, totalEthRaised, whitelistRequired, buyerInfo, isWhitelisted, walletBalance, saleEnabled] = await Promise.all([
     contract.getState(), contract.paused(), contract.minBuy(), contract.maxBuy(), contract.hardCap(), contract.totalEthRaised(),
     contract.whitelistRequired(), contract.getBuyerInfo(buyer), contract.isWhitelisted(buyer), signer.provider!.getBalance(buyer),
+    readSaleEnabled(contract),
   ]);
 
+  if (!saleEnabled) throw new Error('ICO sale is inactive: the approved 1B/eight-allocation model has no designated ICO inventory.');
   if (isPaused) throw new Error('Presale is paused. Contributions are unavailable.');
   if (Number(state) !== 1) throw new Error(`Presale is ${PRESALE_STATES[Number(state)] ?? 'unavailable'} and cannot accept contributions.`);
   if (whitelistRequired && !isWhitelisted) throw new Error('This Presale requires a whitelisted wallet address.');

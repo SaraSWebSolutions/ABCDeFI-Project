@@ -45,7 +45,7 @@ describe("Presale → ReferralManager integration", function () {
     presale = await PresaleFactory.deploy(
       await token.getAddress(), admin.address, RATE,
       ethers.parseEther("2"), ethers.parseEther("10"),
-      ethers.parseEther("0.1"), ethers.parseEther("5"), admin.address,
+      ethers.parseEther("0.1"), ethers.parseEther("5"), admin.address, true,
     );
     await presale.waitForDeployment();
 

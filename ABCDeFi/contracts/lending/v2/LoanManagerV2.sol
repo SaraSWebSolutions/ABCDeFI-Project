@@ -4,14 +4,24 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract LoanManagerV2 is AccessControl {
     bytes32 public constant LOAN_OPERATOR_ROLE = keccak256("LOAN_OPERATOR_ROLE");
-    enum State { ACTIVE, REPAID, GRACE_PERIOD, DEFAULTED, LIQUIDATED, CLOSED }
-    uint16 public constant FIXED_APR_BPS = 1_200;
+    // Existing numeric values are retained for persisted/local-index compatibility.
+    // MARGIN_CALL is appended rather than inserted into the legacy enum ordering.
+    enum State { ACTIVE, REPAID, GRACE_PERIOD, DEFAULTED, LIQUIDATED, CLOSED, MARGIN_CALL }
+    uint16 public constant INITIAL_APR_BPS = 1_200;
     uint16 public constant LATE_FEE_BPS = 200;
+    uint16 public constant MIN_APR_BPS = 1;
+    uint16 public constant MAX_APR_BPS = 10_000;
+    uint48 public constant MARGIN_CALL_CURE_PERIOD = 72 hours;
     uint256 private constant BPS = 10_000;
     uint256 private constant YEAR = 365 days;
 
-    struct Loan { address borrower; address lender; uint128 collateralETH; uint128 principal; uint128 principalOutstanding; uint128 accruedInterest; uint128 fees; uint16 aprBps; uint48 start; uint48 lastAccrual; uint48 maturity; uint48 graceEnd; State state; bool lateFeeAssessed; uint128 reserveContribution; uint128 badDebt; }
+    /// @notice `totalRepaid` is an immutable-accounting input for a completed
+    /// LoanNFT certificate.  It is appended so existing loan fields retain
+    /// their persisted ordering.
+    struct Loan { address borrower; address lender; uint128 collateralETH; uint128 principal; uint128 principalOutstanding; uint128 accruedInterest; uint128 fees; uint16 aprBps; uint48 start; uint48 lastAccrual; uint48 maturity; uint48 graceEnd; uint48 marginCallAt; uint48 marginCallCureEnd; State state; bool lateFeeAssessed; uint128 reserveContribution; uint128 badDebt; uint128 totalRepaid; }
     uint256 public nextLoanId=1;
+    uint16 public newLoanAprBps = INITIAL_APR_BPS;
+    bytes32 public constant RATE_MANAGER_ROLE = keccak256("RATE_MANAGER_ROLE");
     mapping(uint256=>Loan) private loans;
     event LoanCreated(uint256 indexed loanId,address indexed borrower,address indexed lender,uint256 principal,uint256 collateral,uint16 aprBps,uint48 maturity);
     event InterestAccrued(uint256 indexed loanId,uint256 amount,uint256 total);
@@ -19,13 +29,21 @@ contract LoanManagerV2 is AccessControl {
     event RepaymentApplied(uint256 indexed loanId,address indexed payer,uint256 amount,uint256 fees,uint256 interest,uint256 principal,uint256 outstanding);
     event LoanStateChanged(uint256 indexed loanId,State previous,State current);
     event BadDebtRecorded(uint256 indexed loanId,uint256 reserveContribution,uint256 remainingBadDebt);
-    constructor(address admin){_grantRole(DEFAULT_ADMIN_ROLE,admin);_grantRole(LOAN_OPERATOR_ROLE,admin);}
+    event NewLoanAprUpdated(uint16 indexed previousAprBps, uint16 indexed newAprBps, address indexed updater);
+    event MarginCallActivated(uint256 indexed loanId, uint256 cureEnd);
+    event MarginCallCured(uint256 indexed loanId);
+    constructor(address admin){_grantRole(DEFAULT_ADMIN_ROLE,admin);_grantRole(LOAN_OPERATOR_ROLE,admin);_grantRole(RATE_MANAGER_ROLE,admin);}
+    function setNewLoanAprBps(uint16 aprBps) external onlyRole(RATE_MANAGER_ROLE) {
+        require(aprBps >= MIN_APR_BPS && aprBps <= MAX_APR_BPS, "invalid apr");
+        uint16 previous = newLoanAprBps; newLoanAprBps = aprBps;
+        emit NewLoanAprUpdated(previous, aprBps, msg.sender);
+    }
     function create(address borrower,address lender,uint128 collateral,uint128 principal,uint16 aprBps,uint48 term) external onlyRole(LOAN_OPERATOR_ROLE) returns(uint256 id){
         require(borrower!=address(0) && lender!=address(0) && collateral!=0 && principal!=0, "invalid loan");
-        require(aprBps == FIXED_APR_BPS && (term==30 days || term==90 days || term==180 days), "invalid terms");
+        require(aprBps == newLoanAprBps && (term==30 days || term==90 days || term==180 days), "invalid terms");
         id=nextLoanId++;
         uint48 start=uint48(block.timestamp);
-        loans[id]=Loan(borrower,lender,collateral,principal,principal,0,0,aprBps,start,start,start+term,start+term+7 days,State.ACTIVE,false,0,0);
+        loans[id]=Loan(borrower,lender,collateral,principal,principal,0,0,aprBps,start,start,start+term,start+term+7 days,0,0,State.ACTIVE,false,0,0,0);
         emit LoanCreated(id,borrower,lender,principal,collateral,aprBps,start+term);
     }
     function getLoan(uint256 id) external view returns(Loan memory){return loans[id];}
@@ -61,12 +79,22 @@ contract LoanManagerV2 is AccessControl {
     function previewLoanStatus(uint256 id) public view returns(State) {
         Loan memory l = loans[id]; require(l.borrower != address(0), "missing loan");
         if(l.state != State.ACTIVE) {
+            if(l.state == State.MARGIN_CALL && block.timestamp > l.marginCallCureEnd) return State.DEFAULTED;
             if(l.state == State.GRACE_PERIOD && block.timestamp > l.graceEnd) return State.DEFAULTED;
             return l.state;
         }
         if(block.timestamp > l.graceEnd) return State.DEFAULTED;
         if(block.timestamp > l.maturity) return State.GRACE_PERIOD;
         return State.ACTIVE;
+    }
+    function activateMarginCall(uint256 id) external onlyRole(LOAN_OPERATOR_ROLE) {
+        Loan storage l = loans[id]; require(l.state == State.ACTIVE, "not active");
+        l.state = State.MARGIN_CALL; l.marginCallAt = uint48(block.timestamp); l.marginCallCureEnd = uint48(block.timestamp + MARGIN_CALL_CURE_PERIOD);
+        emit LoanStateChanged(id, State.ACTIVE, State.MARGIN_CALL); emit MarginCallActivated(id, l.marginCallCureEnd);
+    }
+    function cureMarginCall(uint256 id) external onlyRole(LOAN_OPERATOR_ROLE) {
+        Loan storage l = loans[id]; require(l.state == State.MARGIN_CALL, "not margin call");
+        l.state = State.ACTIVE; emit LoanStateChanged(id, State.MARGIN_CALL, State.ACTIVE); emit MarginCallCured(id);
     }
     function accrue(uint256 id) public onlyRole(LOAN_OPERATOR_ROLE) returns(uint256 added){
         Loan storage l=loans[id]; require(l.borrower!=address(0),"missing loan");
@@ -89,10 +117,31 @@ contract LoanManagerV2 is AccessControl {
             emit LoanStateChanged(id,State.ACTIVE,State.GRACE_PERIOD);
         }
         if(l.state==State.GRACE_PERIOD && block.timestamp>l.graceEnd){l.state=State.DEFAULTED;emit LoanStateChanged(id,State.GRACE_PERIOD,State.DEFAULTED);}
+        if(l.state==State.MARGIN_CALL && block.timestamp>l.marginCallCureEnd){l.state=State.DEFAULTED;emit LoanStateChanged(id,State.MARGIN_CALL,State.DEFAULTED);}
     }
-    function repay(uint256 id,address payer,uint256 amount) external onlyRole(LOAN_OPERATOR_ROLE) returns(uint256 fee,uint256 interest,uint256 principal){Loan storage l=loans[id];require(l.state==State.ACTIVE||l.state==State.GRACE_PERIOD,"repay unavailable");accrue(id);fee=amount>l.fees?l.fees:amount;l.fees-=uint128(fee);amount-=fee;interest=amount>l.accruedInterest?l.accruedInterest:amount;l.accruedInterest-=uint128(interest);amount-=interest;principal=amount>l.principalOutstanding?l.principalOutstanding:amount;l.principalOutstanding-=uint128(principal);if(l.principalOutstanding==0&&l.accruedInterest==0&&l.fees==0){State p=l.state;l.state=State.REPAID;emit LoanStateChanged(id,p,State.REPAID);}emit RepaymentApplied(id,payer,fee+interest+principal,fee,interest,principal,uint256(l.principalOutstanding)+l.accruedInterest+l.fees);}
+    function repay(uint256 id,address payer,uint256 amount) external onlyRole(LOAN_OPERATOR_ROLE) returns(uint256 fee,uint256 interest,uint256 principal) {
+        Loan storage l = loans[id];
+        require(l.state == State.ACTIVE || l.state == State.GRACE_PERIOD || l.state == State.MARGIN_CALL, "repay unavailable");
+        accrue(id);
+        fee = amount > l.fees ? l.fees : amount;
+        l.fees -= uint128(fee);
+        amount -= fee;
+        interest = amount > l.accruedInterest ? l.accruedInterest : amount;
+        l.accruedInterest -= uint128(interest);
+        amount -= interest;
+        principal = amount > l.principalOutstanding ? l.principalOutstanding : amount;
+        l.principalOutstanding -= uint128(principal);
+        uint256 applied = fee + interest + principal;
+        l.totalRepaid += uint128(applied);
+        if (l.principalOutstanding == 0 && l.accruedInterest == 0 && l.fees == 0) {
+            State previous = l.state;
+            l.state = State.REPAID;
+            emit LoanStateChanged(id, previous, State.REPAID);
+        }
+        emit RepaymentApplied(id, payer, applied, fee, interest, principal, uint256(l.principalOutstanding) + l.accruedInterest + l.fees);
+    }
     function liquidate(uint256 id,uint256 debtCovered,uint256 reserve,uint256 badDebt) external onlyRole(LOAN_OPERATOR_ROLE){
-        Loan storage l=loans[id];require(l.state==State.ACTIVE||l.state==State.GRACE_PERIOD||l.state==State.DEFAULTED,"not liquidatable");
+        Loan storage l=loans[id];require(l.state==State.ACTIVE||l.state==State.GRACE_PERIOD||l.state==State.MARGIN_CALL||l.state==State.DEFAULTED,"not liquidatable");
         uint256 debt = uint256(l.principalOutstanding) + l.accruedInterest + l.fees;
         require(debtCovered + reserve + badDebt == debt, "settlement mismatch");
         l.principalOutstanding=0;l.accruedInterest=0;l.fees=0;l.reserveContribution=uint128(reserve);l.badDebt=uint128(badDebt);

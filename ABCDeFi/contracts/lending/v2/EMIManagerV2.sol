@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./LoanManagerV2.sol";
 import "./CollateralVaultV2.sol";
+import "./IP2PSettlementCallbackV2.sol";
+import "./LendingReferralManagerV2.sol";
 import "../../nft/LoanNFTV2.sol";
 
 /// @notice Bounded, deterministic (maximum six installments) V2 P2P EMI schedule manager.
@@ -20,21 +22,33 @@ contract EMIManagerV2 is AccessControl, Pausable, ReentrancyGuard {
     LoanManagerV2 public immutable loanManager;
     CollateralVaultV2 public immutable collateralVault;
     LoanNFTV2 public immutable loanNFT;
+    LendingReferralManagerV2 public immutable lendingReferralManager;
+    address public marketplace;
     mapping(uint256 => Installment[]) private schedules;
     mapping(uint256 => uint256) public nextInstallment;
     mapping(uint256 => uint256) public totalScheduled;
 
     event ScheduleCreated(uint256 indexed loanId, uint256 installments, uint256 total);
+    event MarketplaceConfigured(address indexed marketplace);
     event InstallmentPaid(uint256 indexed loanId, uint256 indexed installment, address indexed borrower, uint256 amount);
     event P2PCollateralReleased(uint256 indexed loanId, address indexed borrower, uint256 collateral);
 
-    constructor(address admin, address abcd_, address manager_, address vault_, address loanNFT_) {
-        require(admin != address(0) && abcd_ != address(0) && manager_ != address(0) && vault_ != address(0) && loanNFT_ != address(0), "invalid address");
-        abcd = IERC20(abcd_); loanManager = LoanManagerV2(manager_); collateralVault = CollateralVaultV2(vault_); loanNFT = LoanNFTV2(loanNFT_);
+    constructor(address admin, address abcd_, address manager_, address vault_, address loanNFT_, address lendingReferralManager_) {
+        require(admin != address(0) && abcd_ != address(0) && manager_ != address(0) && vault_ != address(0) && loanNFT_ != address(0) && lendingReferralManager_ != address(0), "invalid address");
+        abcd = IERC20(abcd_); loanManager = LoanManagerV2(manager_); collateralVault = CollateralVaultV2(vault_); loanNFT = LoanNFTV2(loanNFT_); lendingReferralManager = LendingReferralManagerV2(lendingReferralManager_);
         _grantRole(DEFAULT_ADMIN_ROLE, admin); _grantRole(P2P_OPERATOR_ROLE, admin);
     }
 
+    /// @notice Configured once before the marketplace can create P2P schedules.
+    /// This keeps terminal repayment and marketplace request state atomic.
+    function setMarketplace(address marketplace_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(marketplace == address(0) && marketplace_ != address(0), "already configured");
+        marketplace = marketplace_;
+        emit MarketplaceConfigured(marketplace_);
+    }
+
     function createSchedule(uint256 loanId, uint48 term) external onlyRole(P2P_OPERATOR_ROLE) whenNotPaused {
+        require(marketplace != address(0), "marketplace not configured");
         require(schedules[loanId].length == 0, "schedule exists");
         require(term == 30 days || term == 90 days || term == 180 days, "invalid term");
         LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
@@ -49,16 +63,37 @@ contract EMIManagerV2 is AccessControl, Pausable, ReentrancyGuard {
     function getSchedule(uint256 loanId) external view returns (Installment[] memory) { return schedules[loanId]; }
 
     function payInstallment(uint256 loanId) external nonReentrant {
+        _payInstallment(loanId, false, _emptyCompletionMetadata());
+    }
+
+    function payInstallmentWithCompletionMetadata(uint256 loanId, LoanNFTV2.CompletionMetadata calldata metadata) external nonReentrant {
+        _payInstallment(loanId, true, metadata);
+    }
+
+    function _payInstallment(uint256 loanId, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata) private {
         uint256 index = nextInstallment[loanId]; require(index < schedules[loanId].length, "schedule complete");
-        _pay(loanId, schedules[loanId][index].amount);
-        schedules[loanId][index].paid = true; nextInstallment[loanId] = index + 1;
-        emit InstallmentPaid(loanId, index + 1, msg.sender, schedules[loanId][index].amount);
+        Installment storage installment = schedules[loanId][index];
+        require(block.timestamp >= installment.dueAt, "installment not due");
+        // A permitted payOutstanding prepayment can reduce the live debt below
+        // the immutable original schedule amount.  The schedule must settle
+        // that authoritative remainder rather than becoming permanently
+        // unpayable because its original amount would overpay the loan.
+        loanManager.sync(loanId);
+        uint256 amount = installment.amount;
+        uint256 due = _outstanding(loanId);
+        if (amount > due) amount = due;
+        _pay(loanId, amount, hasCompletionMetadata, metadata);
+        installment.paid = true; nextInstallment[loanId] = index + 1;
+        emit InstallmentPaid(loanId, index + 1, msg.sender, amount);
     }
 
     /// @notice Settles a fee or rounding remainder after the scheduled installments.
-    function payOutstanding(uint256 loanId, uint256 amount) external nonReentrant { _pay(loanId, amount); }
+    function payOutstanding(uint256 loanId, uint256 amount) external nonReentrant { _pay(loanId, amount, false, _emptyCompletionMetadata()); }
+    function payOutstandingWithCompletionMetadata(uint256 loanId, uint256 amount, LoanNFTV2.CompletionMetadata calldata metadata) external nonReentrant {
+        _pay(loanId, amount, true, metadata);
+    }
 
-    function _pay(uint256 loanId, uint256 amount) internal {
+    function _pay(uint256 loanId, uint256 amount, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata) internal {
         LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId); require(loan.borrower == msg.sender, "not borrower");
         loanManager.sync(loanId);
         uint256 due = _outstanding(loanId); require(amount != 0 && amount <= due, "invalid repayment");
@@ -66,12 +101,18 @@ contract EMIManagerV2 is AccessControl, Pausable, ReentrancyGuard {
         loanManager.repay(loanId, msg.sender, amount);
         LoanManagerV2.Loan memory settled = loanManager.getLoan(loanId);
         if (settled.state == LoanManagerV2.State.REPAID) {
-            loanNFT.setStatus(loanId, LoanNFTV2.Status.REPAID);
-            loanManager.close(loanId); loanNFT.setStatus(loanId, LoanNFTV2.Status.CLOSED);
+            require(hasCompletionMetadata, "completion metadata required");
+            loanManager.close(loanId);
+            lendingReferralManager.recordLoanCompletion(loanId);
+            uint256 requestId = IP2PSettlementCallbackV2(marketplace).requestByLoanId(loanId);
+            loanNFT.mintCompletionCertificates(loanId, requestId, true, metadata);
+            IP2PSettlementCallbackV2(marketplace).markLoanRepaid(loanId);
             uint256 collateral = collateralVault.release(loanId, payable(msg.sender));
             emit P2PCollateralReleased(loanId, msg.sender, collateral);
         } else if (settled.state == LoanManagerV2.State.GRACE_PERIOD) loanNFT.setStatus(loanId, LoanNFTV2.Status.GRACE_PERIOD);
     }
+
+    function _emptyCompletionMetadata() private pure returns (LoanNFTV2.CompletionMetadata memory metadata) { }
 
     function syncLoan(uint256 loanId) external { loanManager.sync(loanId); LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId); if (loan.state == LoanManagerV2.State.DEFAULTED) loanNFT.setStatus(loanId, LoanNFTV2.Status.DEFAULTED); }
     function _outstanding(uint256 loanId) internal view returns (uint256) { LoanManagerV2.Loan memory l=loanManager.getLoan(loanId); return uint256(l.principalOutstanding)+l.accruedInterest+l.fees; }

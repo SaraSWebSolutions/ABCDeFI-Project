@@ -38,22 +38,29 @@ type LendingV2Manifest = {
   version: string;
   chainId: string;
   localOnly: boolean;
+  deploymentBlock?: number;
   contracts: Record<string, { address: string }>;
   configuration?: {
     maxInitialLtvBps?: number;
+    p2pInitialLtvBps?: number;
+    marginCallThresholdBps?: number;
+    marginCallCureSeconds?: number;
     aprBps?: number;
     lateFeeBps?: number;
     liquidationThresholdBps?: number;
     liquidationBonusBps?: number;
     closeFactorBps?: number;
     supportedTermSeconds?: number[];
-    gracePeriodSeconds?: number;
+    maturityGracePeriodSeconds?: number;
+    lendingReferralMonthlyRewardBps?: number;
+    referralNftValueBps?: number;
+    referralRewardVault?: string;
   };
 };
 
 type LendingV2Contracts = Readonly<{
   oracle: string; vault: string; manager: string; pool: string; liquidation: string;
-  reserve: string; marketplace: string; emi: string; loanNFT: string;
+  reserve: string; marketplace: string; emi: string; loanNFT: string; referral?: string;
 }>;
 
 /**
@@ -71,6 +78,8 @@ export function getLendingV2Contracts(): LendingV2Contracts | null {
     oracle: addresses.OracleAdapterV2!, vault: addresses.CollateralVaultV2!, manager: addresses.LoanManagerV2!,
     pool: addresses.LendingPoolV2!, liquidation: addresses.LiquidationV2!, reserve: addresses.InsuranceReserveV2!,
     marketplace: addresses.LoanMarketplaceV2!, emi: addresses.EMIManagerV2!, loanNFT: addresses.LoanNFTV2!,
+    referral: typeof v2?.contracts?.LendingReferralManagerV2?.address === 'string' && /^0x[a-fA-F0-9]{40}$/.test(v2.contracts.LendingReferralManagerV2.address)
+      ? v2.contracts.LendingReferralManagerV2.address : undefined,
   });
 }
 
@@ -81,6 +90,12 @@ export const LENDING_V2_CONTRACTS = getLendingV2Contracts();
 export function getLendingV2Configuration() {
   const v2 = (deploymentManifest as typeof deploymentManifest & { lendingV2?: LendingV2Manifest }).lendingV2;
   return v2?.configuration ?? null;
+}
+
+/** Canonical local block from which isolated V2 event discovery may begin. */
+export function getLendingV2DeploymentBlock(): number | null {
+  const v2 = (deploymentManifest as typeof deploymentManifest & { lendingV2?: LendingV2Manifest }).lendingV2;
+  return Number.isSafeInteger(v2?.deploymentBlock) && (v2?.deploymentBlock ?? 0) >= 0 ? v2!.deploymentBlock! : null;
 }
 
 export function requireContractAddress(name: keyof typeof CONTRACTS): string {

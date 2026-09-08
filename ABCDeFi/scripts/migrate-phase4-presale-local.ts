@@ -176,6 +176,9 @@ async function main() {
     CONFIGURATION.minBuy,
     CONFIGURATION.maxBuy,
     adminAddress,
+    // This legacy migration cannot authorize an ICO under the approved
+    // eight-allocation model.
+    false,
   );
   await newPresale.waitForDeployment();
   newPresaleAddress = await newPresale.getAddress();

@@ -4,6 +4,18 @@
 import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers"
 import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedListener, TypedContractMethod } from "../common.js"
   
+export declare namespace LoanNFTV2 {
+      
+    export type MetadataStruct = {uri: string, hash: BytesLike}
+
+    export type MetadataStructOutput = [uri: string, hash: string] & {uri: string, hash: string }
+  
+
+    export type CompletionMetadataStruct = {lender: LoanNFTV2.MetadataStruct, borrower: LoanNFTV2.MetadataStruct, platform: LoanNFTV2.MetadataStruct}
+
+    export type CompletionMetadataStructOutput = [lender: LoanNFTV2.MetadataStructOutput, borrower: LoanNFTV2.MetadataStructOutput, platform: LoanNFTV2.MetadataStructOutput] & {lender: LoanNFTV2.MetadataStructOutput, borrower: LoanNFTV2.MetadataStructOutput, platform: LoanNFTV2.MetadataStructOutput }
+  
+    }
 
   export interface ReentrantBorrowerV2Interface extends Interface {
     getFunction(nameOrSignature: "attackEnabled" | "onERC721Received" | "open" | "pool" | "reentryFailed" | "repay" | "repayAll" | "targetLoanId" | "token" | "withdrawWithReentry"): FunctionFragment;
@@ -16,7 +28,7 @@ encodeFunctionData(functionFragment: 'open', values: [BigNumberish, BigNumberish
 encodeFunctionData(functionFragment: 'pool', values?: undefined): string;
 encodeFunctionData(functionFragment: 'reentryFailed', values?: undefined): string;
 encodeFunctionData(functionFragment: 'repay', values: [BigNumberish, BigNumberish]): string;
-encodeFunctionData(functionFragment: 'repayAll', values: [BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'repayAll', values: [BigNumberish, BigNumberish, LoanNFTV2.CompletionMetadataStruct]): string;
 encodeFunctionData(functionFragment: 'targetLoanId', values?: undefined): string;
 encodeFunctionData(functionFragment: 'token', values?: undefined): string;
 encodeFunctionData(functionFragment: 'withdrawWithReentry', values: [BigNumberish]): string;
@@ -118,7 +130,7 @@ decodeFunctionResult(functionFragment: 'withdrawWithReentry', data: BytesLike): 
 
     
     repayAll: TypedContractMethod<
-      [loanId: BigNumberish, approvalAmount: BigNumberish, ],
+      [loanId: BigNumberish, approvalAmount: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
       [void],
       'nonpayable'
     >
@@ -182,7 +194,7 @@ getFunction(nameOrSignature: 'repay'): TypedContractMethod<
       'nonpayable'
     >;
 getFunction(nameOrSignature: 'repayAll'): TypedContractMethod<
-      [loanId: BigNumberish, approvalAmount: BigNumberish, ],
+      [loanId: BigNumberish, approvalAmount: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
       [void],
       'nonpayable'
     >;

@@ -4,27 +4,50 @@
 import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, EventFragment, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers"
 import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../common.js"
   
+export declare namespace LoanNFTV2 {
+      
+    export type CertificateStruct = {loanId: BigNumberish, requestId: BigNumberish, borrower: AddressLike, lender: AddressLike, platform: AddressLike, principal: BigNumberish, collateral: BigNumberish, agreedInterest: BigNumberish, totalScheduledRepayment: BigNumberish, actualRepayment: BigNumberish, certificateValue: BigNumberish, aprBps: BigNumberish, start: BigNumberish, maturity: BigNumberish, completedAt: BigNumberish, status: BigNumberish, role: BigNumberish, isP2P: boolean, metadataHash: BytesLike}
+
+    export type CertificateStructOutput = [loanId: bigint, requestId: bigint, borrower: string, lender: string, platform: string, principal: bigint, collateral: bigint, agreedInterest: bigint, totalScheduledRepayment: bigint, actualRepayment: bigint, certificateValue: bigint, aprBps: bigint, start: bigint, maturity: bigint, completedAt: bigint, status: bigint, role: bigint, isP2P: boolean, metadataHash: string] & {loanId: bigint, requestId: bigint, borrower: string, lender: string, platform: string, principal: bigint, collateral: bigint, agreedInterest: bigint, totalScheduledRepayment: bigint, actualRepayment: bigint, certificateValue: bigint, aprBps: bigint, start: bigint, maturity: bigint, completedAt: bigint, status: bigint, role: bigint, isP2P: boolean, metadataHash: string }
+  
+
+    export type MetadataStruct = {uri: string, hash: BytesLike}
+
+    export type MetadataStructOutput = [uri: string, hash: string] & {uri: string, hash: string }
+  
+
+    export type CompletionMetadataStruct = {lender: LoanNFTV2.MetadataStruct, borrower: LoanNFTV2.MetadataStruct, platform: LoanNFTV2.MetadataStruct}
+
+    export type CompletionMetadataStructOutput = [lender: LoanNFTV2.MetadataStructOutput, borrower: LoanNFTV2.MetadataStructOutput, platform: LoanNFTV2.MetadataStructOutput] & {lender: LoanNFTV2.MetadataStructOutput, borrower: LoanNFTV2.MetadataStructOutput, platform: LoanNFTV2.MetadataStructOutput }
+  
+    }
 
   export interface LoanNFTV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "MINTER_ROLE" | "approve" | "balanceOf" | "certificates" | "getApproved" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "loanCertificate" | "mintDirect" | "mintP2P" | "name" | "ownerOf" | "renounceRole" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "setStatus" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom"): FunctionFragment;
+    getFunction(nameOrSignature: "CERTIFICATE_VALUATION_BPS" | "DEFAULT_ADMIN_ROLE" | "DIRECT_COMPLETION_OPERATOR_ROLE" | "MINTER_ROLE" | "P2P_COMPLETION_OPERATOR_ROLE" | "approve" | "balanceOf" | "completionCreated" | "getApproved" | "getCertificate" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "loanCertificate" | "loanCertificates" | "loanManager" | "mintCompletionCertificates" | "name" | "ownerOf" | "platformRecipient" | "renounceRole" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "setStatus" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "BatchMetadataUpdate" | "CertificateStatusUpdated" | "DirectLoanCertificateMinted" | "MetadataUpdate" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Transfer"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "BatchMetadataUpdate" | "CertificateStatusUpdated" | "LoanCertificateCreated" | "MetadataUpdate" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Transfer"): EventFragment;
 
-    encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'CERTIFICATE_VALUATION_BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'DIRECT_COMPLETION_OPERATOR_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MINTER_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'P2P_COMPLETION_OPERATOR_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'approve', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'balanceOf', values: [AddressLike]): string;
-encodeFunctionData(functionFragment: 'certificates', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'completionCreated', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getApproved', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'getCertificate', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'isApprovedForAll', values: [AddressLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'loanCertificate', values: [BigNumberish]): string;
-encodeFunctionData(functionFragment: 'mintDirect', values: [AddressLike, BigNumberish, BigNumberish, BigNumberish, BigNumberish, BigNumberish, BigNumberish, string, BytesLike]): string;
-encodeFunctionData(functionFragment: 'mintP2P', values: [AddressLike, AddressLike, BigNumberish, BigNumberish, BigNumberish, BigNumberish, BigNumberish, BigNumberish, string, BytesLike]): string;
+encodeFunctionData(functionFragment: 'loanCertificates', values: [BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
+encodeFunctionData(functionFragment: 'mintCompletionCertificates', values: [BigNumberish, BigNumberish, boolean, LoanNFTV2.CompletionMetadataStruct]): string;
 encodeFunctionData(functionFragment: 'name', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ownerOf', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'platformRecipient', values?: undefined): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'safeTransferFrom(address,address,uint256)', values: [AddressLike, AddressLike, BigNumberish]): string;
@@ -36,21 +59,27 @@ encodeFunctionData(functionFragment: 'symbol', values?: undefined): string;
 encodeFunctionData(functionFragment: 'tokenURI', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'transferFrom', values: [AddressLike, AddressLike, BigNumberish]): string;
 
-    decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'CERTIFICATE_VALUATION_BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'DIRECT_COMPLETION_OPERATOR_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MINTER_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'P2P_COMPLETION_OPERATOR_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'approve', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'balanceOf', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'certificates', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'completionCreated', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getApproved', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'getCertificate', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'isApprovedForAll', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanCertificate', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'mintDirect', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'mintP2P', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'loanCertificates', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'loanManager', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'mintCompletionCertificates', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'name', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'ownerOf', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'platformRecipient', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'safeTransferFrom(address,address,uint256)', data: BytesLike): Result;
@@ -112,10 +141,10 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
 
   
 
-    export namespace DirectLoanCertificateMintedEvent {
-      export type InputTuple = [loanId: BigNumberish, tokenId: BigNumberish, borrower: AddressLike, metadataHash: BytesLike, uri: string];
-      export type OutputTuple = [loanId: bigint, tokenId: bigint, borrower: string, metadataHash: string, uri: string];
-      export interface OutputObject {loanId: bigint, tokenId: bigint, borrower: string, metadataHash: string, uri: string };
+    export namespace LoanCertificateCreatedEvent {
+      export type InputTuple = [loanId: BigNumberish, certificateId: BigNumberish, certificateRole: BigNumberish, owner: AddressLike, certificateValue: BigNumberish, metadataURI: string, metadataHash: BytesLike];
+      export type OutputTuple = [loanId: bigint, certificateId: bigint, certificateRole: bigint, owner: string, certificateValue: bigint, metadataURI: string, metadataHash: string];
+      export interface OutputObject {loanId: bigint, certificateId: bigint, certificateRole: bigint, owner: string, certificateValue: bigint, metadataURI: string, metadataHash: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -218,6 +247,14 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
 
     
     
+    CERTIFICATE_VALUATION_BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     DEFAULT_ADMIN_ROLE: TypedContractMethod<
       [],
       [string],
@@ -226,7 +263,23 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
     
 
     
+    DIRECT_COMPLETION_OPERATOR_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     MINTER_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    P2P_COMPLETION_OPERATOR_ROLE: TypedContractMethod<
       [],
       [string],
       'view'
@@ -250,9 +303,9 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
     
 
     
-    certificates: TypedContractMethod<
+    completionCreated: TypedContractMethod<
       [arg0: BigNumberish, ],
-      [[bigint, string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, string] & {loanId: bigint, borrower: string, lender: string, principal: bigint, collateral: bigint, aprBps: bigint, start: bigint, maturity: bigint, status: bigint, isP2P: boolean, metadataHash: string }],
+      [boolean],
       'view'
     >
     
@@ -261,6 +314,14 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
     getApproved: TypedContractMethod<
       [tokenId: BigNumberish, ],
       [string],
+      'view'
+    >
+    
+
+    
+    getCertificate: TypedContractMethod<
+      [certificateId: BigNumberish, ],
+      [LoanNFTV2.CertificateStructOutput],
       'view'
     >
     
@@ -306,17 +367,25 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
     
 
     
-    mintDirect: TypedContractMethod<
-      [borrower: AddressLike, loanId: BigNumberish, principal: BigNumberish, collateral: BigNumberish, aprBps: BigNumberish, start: BigNumberish, maturity: BigNumberish, uri: string, metadataHash: BytesLike, ],
+    loanCertificates: TypedContractMethod<
+      [arg0: BigNumberish, arg1: BigNumberish, ],
       [bigint],
-      'nonpayable'
+      'view'
     >
     
 
     
-    mintP2P: TypedContractMethod<
-      [borrower: AddressLike, lender: AddressLike, loanId: BigNumberish, principal: BigNumberish, collateral: BigNumberish, aprBps: BigNumberish, start: BigNumberish, maturity: BigNumberish, uri: string, metadataHash: BytesLike, ],
-      [bigint],
+    loanManager: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    mintCompletionCertificates: TypedContractMethod<
+      [loanId: BigNumberish, requestId: BigNumberish, isP2P: boolean, metadata: LoanNFTV2.CompletionMetadataStruct, ],
+      [[bigint, bigint, bigint] & {lenderId: bigint, borrowerId: bigint, platformId: bigint }],
       'nonpayable'
     >
     
@@ -332,6 +401,14 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
     
     ownerOf: TypedContractMethod<
       [tokenId: BigNumberish, ],
+      [string],
+      'view'
+    >
+    
+
+    
+    platformRecipient: TypedContractMethod<
+      [],
       [string],
       'view'
     >
@@ -387,7 +464,7 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
 
     
     supportsInterface: TypedContractMethod<
-      [id: BytesLike, ],
+      [interfaceId: BytesLike, ],
       [boolean],
       'view'
     >
@@ -420,12 +497,27 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
-    getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
+    getFunction(nameOrSignature: 'CERTIFICATE_VALUATION_BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'DIRECT_COMPLETION_OPERATOR_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'
     >;
 getFunction(nameOrSignature: 'MINTER_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'P2P_COMPLETION_OPERATOR_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -440,14 +532,19 @@ getFunction(nameOrSignature: 'balanceOf'): TypedContractMethod<
       [bigint],
       'view'
     >;
-getFunction(nameOrSignature: 'certificates'): TypedContractMethod<
+getFunction(nameOrSignature: 'completionCreated'): TypedContractMethod<
       [arg0: BigNumberish, ],
-      [[bigint, string, string, bigint, bigint, bigint, bigint, bigint, bigint, boolean, string] & {loanId: bigint, borrower: string, lender: string, principal: bigint, collateral: bigint, aprBps: bigint, start: bigint, maturity: bigint, status: bigint, isP2P: boolean, metadataHash: string }],
+      [boolean],
       'view'
     >;
 getFunction(nameOrSignature: 'getApproved'): TypedContractMethod<
       [tokenId: BigNumberish, ],
       [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'getCertificate'): TypedContractMethod<
+      [certificateId: BigNumberish, ],
+      [LoanNFTV2.CertificateStructOutput],
       'view'
     >;
 getFunction(nameOrSignature: 'getRoleAdmin'): TypedContractMethod<
@@ -475,14 +572,19 @@ getFunction(nameOrSignature: 'loanCertificate'): TypedContractMethod<
       [bigint],
       'view'
     >;
-getFunction(nameOrSignature: 'mintDirect'): TypedContractMethod<
-      [borrower: AddressLike, loanId: BigNumberish, principal: BigNumberish, collateral: BigNumberish, aprBps: BigNumberish, start: BigNumberish, maturity: BigNumberish, uri: string, metadataHash: BytesLike, ],
+getFunction(nameOrSignature: 'loanCertificates'): TypedContractMethod<
+      [arg0: BigNumberish, arg1: BigNumberish, ],
       [bigint],
-      'nonpayable'
+      'view'
     >;
-getFunction(nameOrSignature: 'mintP2P'): TypedContractMethod<
-      [borrower: AddressLike, lender: AddressLike, loanId: BigNumberish, principal: BigNumberish, collateral: BigNumberish, aprBps: BigNumberish, start: BigNumberish, maturity: BigNumberish, uri: string, metadataHash: BytesLike, ],
-      [bigint],
+getFunction(nameOrSignature: 'loanManager'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'mintCompletionCertificates'): TypedContractMethod<
+      [loanId: BigNumberish, requestId: BigNumberish, isP2P: boolean, metadata: LoanNFTV2.CompletionMetadataStruct, ],
+      [[bigint, bigint, bigint] & {lenderId: bigint, borrowerId: bigint, platformId: bigint }],
       'nonpayable'
     >;
 getFunction(nameOrSignature: 'name'): TypedContractMethod<
@@ -492,6 +594,11 @@ getFunction(nameOrSignature: 'name'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'ownerOf'): TypedContractMethod<
       [tokenId: BigNumberish, ],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'platformRecipient'): TypedContractMethod<
+      [],
       [string],
       'view'
     >;
@@ -526,7 +633,7 @@ getFunction(nameOrSignature: 'setStatus'): TypedContractMethod<
       'nonpayable'
     >;
 getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod<
-      [id: BytesLike, ],
+      [interfaceId: BytesLike, ],
       [boolean],
       'view'
     >;
@@ -550,7 +657,7 @@ getFunction(nameOrSignature: 'transferFrom'): TypedContractMethod<
 getEvent(key: 'ApprovalForAll'): TypedContractEvent<ApprovalForAllEvent.InputTuple, ApprovalForAllEvent.OutputTuple, ApprovalForAllEvent.OutputObject>;
 getEvent(key: 'BatchMetadataUpdate'): TypedContractEvent<BatchMetadataUpdateEvent.InputTuple, BatchMetadataUpdateEvent.OutputTuple, BatchMetadataUpdateEvent.OutputObject>;
 getEvent(key: 'CertificateStatusUpdated'): TypedContractEvent<CertificateStatusUpdatedEvent.InputTuple, CertificateStatusUpdatedEvent.OutputTuple, CertificateStatusUpdatedEvent.OutputObject>;
-getEvent(key: 'DirectLoanCertificateMinted'): TypedContractEvent<DirectLoanCertificateMintedEvent.InputTuple, DirectLoanCertificateMintedEvent.OutputTuple, DirectLoanCertificateMintedEvent.OutputObject>;
+getEvent(key: 'LoanCertificateCreated'): TypedContractEvent<LoanCertificateCreatedEvent.InputTuple, LoanCertificateCreatedEvent.OutputTuple, LoanCertificateCreatedEvent.OutputObject>;
 getEvent(key: 'MetadataUpdate'): TypedContractEvent<MetadataUpdateEvent.InputTuple, MetadataUpdateEvent.OutputTuple, MetadataUpdateEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
 getEvent(key: 'RoleGranted'): TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
@@ -575,8 +682,8 @@ getEvent(key: 'Transfer'): TypedContractEvent<TransferEvent.InputTuple, Transfer
       CertificateStatusUpdated: TypedContractEvent<CertificateStatusUpdatedEvent.InputTuple, CertificateStatusUpdatedEvent.OutputTuple, CertificateStatusUpdatedEvent.OutputObject>;
     
 
-      'DirectLoanCertificateMinted(uint256,uint256,address,bytes32,string)': TypedContractEvent<DirectLoanCertificateMintedEvent.InputTuple, DirectLoanCertificateMintedEvent.OutputTuple, DirectLoanCertificateMintedEvent.OutputObject>;
-      DirectLoanCertificateMinted: TypedContractEvent<DirectLoanCertificateMintedEvent.InputTuple, DirectLoanCertificateMintedEvent.OutputTuple, DirectLoanCertificateMintedEvent.OutputObject>;
+      'LoanCertificateCreated(uint256,uint256,uint8,address,uint256,string,bytes32)': TypedContractEvent<LoanCertificateCreatedEvent.InputTuple, LoanCertificateCreatedEvent.OutputTuple, LoanCertificateCreatedEvent.OutputObject>;
+      LoanCertificateCreated: TypedContractEvent<LoanCertificateCreatedEvent.InputTuple, LoanCertificateCreatedEvent.OutputTuple, LoanCertificateCreatedEvent.OutputObject>;
     
 
       'MetadataUpdate(uint256)': TypedContractEvent<MetadataUpdateEvent.InputTuple, MetadataUpdateEvent.OutputTuple, MetadataUpdateEvent.OutputObject>;

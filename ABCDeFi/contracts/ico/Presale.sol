@@ -21,6 +21,11 @@ contract Presale is AccessControl, ReentrancyGuard, Pausable, IPresale {
 
     IERC20 public immutable token;
     address payable public immutable treasury;
+    /// @notice Explicit sale authorization. The canonical 1B/eight-allocation
+    /// deployment sets this false because it has no approved ICO inventory.
+    /// A generic Presale is usable only when a separately approved sale
+    /// configuration supplies both this flag and an actual token reserve.
+    bool public immutable saleEnabled;
     IReferralManager public referralManager;
 
     uint256 public rate; // Number of ABCD tokens per 1 ETH (scaled by 1e18)
@@ -62,7 +67,8 @@ contract Presale is AccessControl, ReentrancyGuard, Pausable, IPresale {
         uint256 hardCap_,
         uint256 minBuy_,
         uint256 maxBuy_,
-        address admin
+        address admin,
+        bool saleEnabled_
     ) {
         if (tokenAddress == address(0) || treasuryAddress == address(0) || admin == address(0)) {
             revert Errors.InvalidAddress();
@@ -73,6 +79,7 @@ contract Presale is AccessControl, ReentrancyGuard, Pausable, IPresale {
 
         token = IERC20(tokenAddress);
         treasury = treasuryAddress;
+        saleEnabled = saleEnabled_;
         rate = rate_;
         softCap = softCap_;
         hardCap = hardCap_;
@@ -190,6 +197,7 @@ contract Presale is AccessControl, ReentrancyGuard, Pausable, IPresale {
         override
         onlyRole(Constants.PRESALE_ADMIN_ROLE)
     {
+        require(saleEnabled, "sale configuration inactive");
         if (getState() != PresaleState.Pending) revert InvalidLifecycleState(getState());
         if (startTime_ >= endTime_ || endTime_ <= block.timestamp) revert Errors.ZeroAmount();
         if (startTime_ > block.timestamp) revert Errors.InvalidState();

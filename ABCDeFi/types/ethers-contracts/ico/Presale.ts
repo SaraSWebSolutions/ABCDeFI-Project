@@ -13,7 +13,7 @@ export declare namespace IPresale {
     }
 
   export interface PresaleInterface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "buyWithETH" | "cancelFailedSale" | "cancelPresale" | "claimRefund" | "claimTokens" | "endTime" | "finalizePresale" | "getBuyerInfo" | "getRoleAdmin" | "getState" | "grantRole" | "hardCap" | "hasRole" | "isCancelled" | "isFinalized" | "isRefunded" | "isWhitelisted" | "maxBuy" | "minBuy" | "pause" | "paused" | "rate" | "referralManager" | "referralPurchaseNonce" | "renounceRole" | "revokeRole" | "setReferralManager" | "setWhitelist" | "setWhitelistRequired" | "softCap" | "startPresale" | "startTime" | "supportsInterface" | "token" | "totalEthRaised" | "totalEthRefunded" | "totalTokensClaimed" | "totalTokensSold" | "treasury" | "unpause" | "whitelistRequired" | "withdrawProceeds"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "buyWithETH" | "cancelFailedSale" | "cancelPresale" | "claimRefund" | "claimTokens" | "endTime" | "finalizePresale" | "getBuyerInfo" | "getRoleAdmin" | "getState" | "grantRole" | "hardCap" | "hasRole" | "isCancelled" | "isFinalized" | "isRefunded" | "isWhitelisted" | "maxBuy" | "minBuy" | "pause" | "paused" | "rate" | "referralManager" | "referralPurchaseNonce" | "renounceRole" | "revokeRole" | "saleEnabled" | "setReferralManager" | "setWhitelist" | "setWhitelistRequired" | "softCap" | "startPresale" | "startTime" | "supportsInterface" | "token" | "totalEthRaised" | "totalEthRefunded" | "totalTokensClaimed" | "totalTokensSold" | "treasury" | "unpause" | "whitelistRequired" | "withdrawProceeds"): FunctionFragment;
 
     getEvent(nameOrSignatureOrTopic: "Paused" | "PresaleCancelled" | "PresaleFinalized" | "PresaleStateChanged" | "ProceedsWithdrawn" | "ReferralManagerConfigured" | "ReferralPurchaseRecorded" | "RefundClaimed" | "ReserveValidated" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "SaleFailed" | "StateChanged" | "TokensClaimed" | "TokensPurchased" | "Unpaused" | "WhitelistUpdated"): EventFragment;
 
@@ -44,6 +44,7 @@ encodeFunctionData(functionFragment: 'referralManager', values?: undefined): str
 encodeFunctionData(functionFragment: 'referralPurchaseNonce', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'saleEnabled', values?: undefined): string;
 encodeFunctionData(functionFragment: 'setReferralManager', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setWhitelist', values: [AddressLike[], boolean]): string;
 encodeFunctionData(functionFragment: 'setWhitelistRequired', values: [boolean]): string;
@@ -88,6 +89,7 @@ decodeFunctionResult(functionFragment: 'referralManager', data: BytesLike): Resu
 decodeFunctionResult(functionFragment: 'referralPurchaseNonce', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'saleEnabled', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setReferralManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setWhitelist', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setWhitelistRequired', data: BytesLike): Result;
@@ -573,6 +575,14 @@ decodeFunctionResult(functionFragment: 'withdrawProceeds', data: BytesLike): Res
     
 
     
+    saleEnabled: TypedContractMethod<
+      [],
+      [boolean],
+      'view'
+    >
+    
+
+    
     setReferralManager: TypedContractMethod<
       [referralManager_: AddressLike, ],
       [void],
@@ -837,6 +847,11 @@ getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [void],
       'nonpayable'
+    >;
+getFunction(nameOrSignature: 'saleEnabled'): TypedContractMethod<
+      [],
+      [boolean],
+      'view'
     >;
 getFunction(nameOrSignature: 'setReferralManager'): TypedContractMethod<
       [referralManager_: AddressLike, ],

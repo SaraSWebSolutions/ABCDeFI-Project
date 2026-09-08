@@ -160,7 +160,7 @@ export const ICOAdmin: React.FC = () => {
     }
     const writeBlocked = readyForWrites ? '' : authorizationMessage;
     return {
-      start: [Boolean(writeBlocked) || !hasPresaleAdminRole || presale.status !== 'Pending', writeBlocked || (!hasPresaleAdminRole ? 'PRESALE_ADMIN_ROLE is required.' : 'Presale is not pending.')],
+      start: [Boolean(writeBlocked) || !hasPresaleAdminRole || !presale.saleEnabled || presale.status !== 'Pending', writeBlocked || (!hasPresaleAdminRole ? 'PRESALE_ADMIN_ROLE is required.' : !presale.saleEnabled ? 'ICO sale is inactive: no approved ICO allocation/configuration exists.' : 'Presale is not pending.')],
       pause: [Boolean(writeBlocked) || !hasPauserRole || presale.status !== 'Active' || presale.isPaused, writeBlocked || (!hasPauserRole ? 'PAUSER_ROLE is required.' : presale.isPaused ? 'Presale is already paused.' : 'Presale is not active.')],
       unpause: [Boolean(writeBlocked) || !hasPauserRole || !presale.isPaused, writeBlocked || (!hasPauserRole ? 'PAUSER_ROLE is required.' : 'Presale is not paused.')],
       cancel: [Boolean(writeBlocked) || !hasPresaleAdminRole || presale.isFinalized || presale.isCancelled, writeBlocked || (!hasPresaleAdminRole ? 'PRESALE_ADMIN_ROLE is required.' : presale.isFinalized ? 'Presale has already been finalized.' : 'Presale has already been cancelled.')],
@@ -303,6 +303,7 @@ export const ICOAdmin: React.FC = () => {
           <h4 className="text-sm font-black uppercase tracking-wide text-white">Live Presale state</h4>
           <div className="mt-4 grid grid-cols-2 gap-3 text-xs lg:grid-cols-4">
             <Metric label="Status" value={presale.status} />
+            <Metric label="Sale authorization" value={presale.saleEnabled ? 'Explicitly enabled' : 'Inactive — no ICO allocation'} />
             <Metric label="Rate" value={`${presale.rate} ABCD / ETH`} />
             <Metric label="Soft cap" value={`${presale.softCap} ETH`} />
             <Metric label="Hard cap" value={`${presale.hardCap} ETH`} />
@@ -331,8 +332,9 @@ export const ICOAdmin: React.FC = () => {
         <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-xl">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div><h4 className="text-sm font-black uppercase tracking-wide text-white">Administrative actions</h4><p className="mt-1 text-xs text-slate-400">Each action rechecks the live chain, connected wallet, and required role before MetaMask is asked to sign.</p></div>
-            {presale.status === 'Pending' && <label className="text-xs text-slate-300">Sale duration (seconds)<input value={durationSeconds} onChange={(event) => setDurationSeconds(event.target.value)} inputMode="numeric" disabled={isBusy} className="mt-1 block w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-white disabled:opacity-50" /></label>}
+            {presale.status === 'Pending' && presale.saleEnabled && <label className="text-xs text-slate-300">Sale duration (seconds)<input value={durationSeconds} onChange={(event) => setDurationSeconds(event.target.value)} inputMode="numeric" disabled={isBusy} className="mt-1 block w-40 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-white disabled:opacity-50" /></label>}
           </div>
+          {!presale.saleEnabled && <p className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">The canonical 1B/eight-allocation deployment has no approved ICO inventory. Starting or funding this generic Presale is intentionally unavailable.</p>}
           <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <ActionButton action="start" label="Start Presale" disabled={actionState.start[0]} disabledReason={actionState.start[1]} pending={isBusy} onClick={(action) => void runAction(action)} tone="amber" />
             <ActionButton action="pause" label="Pause" disabled={actionState.pause[0]} disabledReason={actionState.pause[1]} pending={isBusy} onClick={(action) => void runAction(action)} tone="rose" />

@@ -31,7 +31,9 @@ async function main() {
     throw new Error("Refusing to replace the existing lendingV2 manifest namespace. Use a fresh canonical local manifest before creating a new V2 deployment.");
   }
   const tokenAddress = manifest.contracts?.ABCDToken?.address;
+  const platformRecipient = manifest.contracts?.Treasury?.address;
   assertAddress(tokenAddress, "ABCDToken");
+  assertAddress(platformRecipient, "Treasury platform recipient");
   if (await hh.provider.getCode(tokenAddress) === "0x") throw new Error("Canonical ABCDToken has no bytecode on this fresh local chain. Deploy the canonical V1 ecosystem first.");
   const signers = await hh.getSigners();
   const admin = signers[0];
@@ -57,12 +59,20 @@ async function main() {
   const oracle = await deploy("OracleAdapterV2", [admin.address]);
   const vault = await deploy("CollateralVaultV2", [admin.address]);
   const manager = await deploy("LoanManagerV2", [admin.address]);
-  const loanNFT = await deploy("LoanNFTV2", [admin.address]);
-  const reserve = await deploy("InsuranceReserveV2", [admin.address, tokenAddress]);
-  const pool = await deploy("LendingPoolV2", [admin.address, tokenAddress, await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await loanNFT.getAddress()]);
-  const liquidation = await deploy("LiquidationV2", [admin.address, tokenAddress, await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await reserve.getAddress(), await loanNFT.getAddress(), await pool.getAddress()]);
-  const marketplace = await deploy("LoanMarketplaceV2", [admin.address, tokenAddress, await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await loanNFT.getAddress()]);
-  const emi = await deploy("EMIManagerV2", [admin.address, tokenAddress, await manager.getAddress(), await vault.getAddress(), await loanNFT.getAddress()]);
+  // Lending referral rewards are paid only from the already-approved Marketing
+  // allocation. No new allocation or token minting is introduced.
+  const token = await hh.getContractAt("ABCDToken", tokenAddress);
+  const marketingWallet = await token.marketingWallet();
+  const referral = await deploy("LendingReferralManagerV2", [admin.address, tokenAddress, await manager.getAddress(), marketingWallet]);
+  // The canonical V1 Treasury is the existing platform recipient.  Completion
+  // certificates are soulbound and are minted without an ERC721 receiver
+  // callback, so the Treasury does not need a receiver implementation.
+  const loanNFT = await deploy("LoanNFTV2", [admin.address, await manager.getAddress(), platformRecipient]);
+  const pool = await deploy("LendingPoolV2", [admin.address, tokenAddress, await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await loanNFT.getAddress(), await referral.getAddress()]);
+  const reserve = await deploy("InsuranceReserveV2", [admin.address, tokenAddress, await manager.getAddress()]);
+  const marketplace = await deploy("LoanMarketplaceV2", [admin.address, tokenAddress, await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await loanNFT.getAddress(), await referral.getAddress()]);
+  const liquidation = await deploy("LiquidationV2", [admin.address, tokenAddress, await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await reserve.getAddress(), await loanNFT.getAddress(), await pool.getAddress(), await marketplace.getAddress()]);
+  const emi = await deploy("EMIManagerV2", [admin.address, tokenAddress, await manager.getAddress(), await vault.getAddress(), await loanNFT.getAddress(), await referral.getAddress()]);
 
   const confirmed = async (tx: any, label: string) => { const receipt = await tx.wait(); if (!receipt || receipt.status !== 1) throw new Error(`${label} failed`); };
   await confirmed(await oracle.configureFeed(ETH_ASSET, await ethFeed.getAddress(), 24 * 60 * 60, true), "ETH/USD feed configuration");
@@ -70,17 +80,25 @@ async function main() {
   for (const operator of [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()]) await confirmed(await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), operator), "LoanManager operator role");
   for (const operator of [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()]) await confirmed(await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), operator), "Vault operator role");
   for (const minter of [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()]) await confirmed(await loanNFT.grantRole(ROLE("MINTER_ROLE"), minter), "LoanNFT minter role");
+  await confirmed(await loanNFT.grantRole(ROLE("DIRECT_COMPLETION_OPERATOR_ROLE"), await pool.getAddress()), "LoanNFT direct completion operator role");
+  await confirmed(await loanNFT.grantRole(ROLE("P2P_COMPLETION_OPERATOR_ROLE"), await emi.getAddress()), "LoanNFT P2P completion operator role");
   await confirmed(await reserve.grantRole(ROLE("RESERVE_OPERATOR_ROLE"), await liquidation.getAddress()), "Reserve operator role");
   await confirmed(await emi.grantRole(ROLE("P2P_OPERATOR_ROLE"), await marketplace.getAddress()), "EMI P2P operator role");
   await confirmed(await marketplace.setEMIManager(await emi.getAddress()), "Marketplace EMI configuration");
+  await confirmed(await marketplace.setLiquidationEngine(await liquidation.getAddress()), "Marketplace liquidation configuration");
+  await confirmed(await emi.setMarketplace(await marketplace.getAddress()), "EMI marketplace configuration");
+  for (const operator of [await pool.getAddress(), await marketplace.getAddress(), await emi.getAddress()]) {
+    await confirmed(await referral.grantRole(ROLE("LENDING_REFERRAL_OPERATOR_ROLE"), operator), "Lending referral operator role");
+  }
 
-  const token = await hh.getContractAt("ABCDToken", tokenAddress);
   const liquidity = ethers.parseUnits(process.env.LENDING_V2_LOCAL_LIQUIDITY ?? "1000000", 18);
   const reserveFunding = ethers.parseUnits(process.env.LENDING_V2_LOCAL_RESERVE ?? "100000", 18);
+  const referralRewardAllowance = ethers.parseUnits(process.env.LENDING_V2_LOCAL_REFERRAL_REWARD_ALLOWANCE ?? "10000", 18);
   // Fund each V2 subsystem from its matching canonical allocation.  The former
   // ICO wallet no longer exists in the 1B/eight-allocation token model.
   const liquidityWallet = await token.liquidityWallet();
   const reserveWallet = await token.reserveWallet();
+  const marketingSigner = signers.find((signer: any) => signer.address.toLowerCase() === marketingWallet.toLowerCase());
   const liquiditySigner = signers.find((signer: any) => signer.address.toLowerCase() === liquidityWallet.toLowerCase());
   const reserveSigner = signers.find((signer: any) => signer.address.toLowerCase() === reserveWallet.toLowerCase());
   if (!liquiditySigner || await token.balanceOf(liquidityWallet) < liquidity) {
@@ -89,24 +107,30 @@ async function main() {
   if (!reserveSigner || await token.balanceOf(reserveWallet) < reserveFunding) {
     throw new Error("Canonical reserve allocation cannot fund the configured local V2 insurance reserve");
   }
+  if (!marketingSigner || await token.balanceOf(marketingWallet) < referralRewardAllowance) {
+    throw new Error("Canonical marketing allocation cannot fund the configured local V2 referral allowance");
+  }
   await confirmed(await token.connect(liquiditySigner).transfer(admin.address, liquidity), "Local V2 liquidity funding transfer");
   await confirmed(await token.connect(reserveSigner).transfer(admin.address, reserveFunding), "Local V2 reserve funding transfer");
   await confirmed(await token.approve(await pool.getAddress(), liquidity), "V2 pool approval");
   await confirmed(await pool.fundLiquidity(liquidity), "V2 pool funding");
   await confirmed(await token.approve(await reserve.getAddress(), reserveFunding), "V2 reserve approval");
   await confirmed(await reserve.fund(reserveFunding), "V2 reserve funding");
+  await confirmed(await token.connect(marketingSigner).approve(await referral.getAddress(), referralRewardAllowance), "V2 lending referral reward allowance");
 
   const expectedRoles = [
     [manager, "LOAN_OPERATOR_ROLE", await pool.getAddress()], [manager, "LOAN_OPERATOR_ROLE", await liquidation.getAddress()], [manager, "LOAN_OPERATOR_ROLE", await marketplace.getAddress()], [manager, "LOAN_OPERATOR_ROLE", await emi.getAddress()],
     [vault, "VAULT_OPERATOR_ROLE", await pool.getAddress()], [vault, "VAULT_OPERATOR_ROLE", await liquidation.getAddress()], [vault, "VAULT_OPERATOR_ROLE", await marketplace.getAddress()], [vault, "VAULT_OPERATOR_ROLE", await emi.getAddress()],
     [loanNFT, "MINTER_ROLE", await pool.getAddress()], [loanNFT, "MINTER_ROLE", await liquidation.getAddress()], [loanNFT, "MINTER_ROLE", await marketplace.getAddress()], [loanNFT, "MINTER_ROLE", await emi.getAddress()],
-    [reserve, "RESERVE_OPERATOR_ROLE", await liquidation.getAddress()], [emi, "P2P_OPERATOR_ROLE", await marketplace.getAddress()],
+    [loanNFT, "DIRECT_COMPLETION_OPERATOR_ROLE", await pool.getAddress()], [loanNFT, "P2P_COMPLETION_OPERATOR_ROLE", await emi.getAddress()],
+    [referral, "LENDING_REFERRAL_OPERATOR_ROLE", await pool.getAddress()], [referral, "LENDING_REFERRAL_OPERATOR_ROLE", await marketplace.getAddress()], [referral, "LENDING_REFERRAL_OPERATOR_ROLE", await emi.getAddress()],
+    [reserve, "RESERVE_OPERATOR_ROLE", await liquidation.getAddress()], [emi, "P2P_OPERATOR_ROLE", await marketplace.getAddress()], [marketplace, "LIQUIDATION_SETTLEMENT_ROLE", await liquidation.getAddress()],
   ] as const;
   for (const [contract, role, account] of expectedRoles) if (!await contract.hasRole(ROLE(role), account)) throw new Error(`Missing ${role} for ${account}`);
   const addressEquals = (actual: string, expected: string, label: string) => {
     if (actual.toLowerCase() !== expected.toLowerCase()) throw new Error(`${label} wiring verification failed`);
   };
-  const defaultAdminChecks = [oracle, vault, manager, loanNFT, reserve, pool, liquidation, marketplace, emi];
+  const defaultAdminChecks = [oracle, vault, manager, loanNFT, referral, reserve, pool, liquidation, marketplace, emi];
   for (const contract of defaultAdminChecks) {
     if (!await contract.hasRole(ethers.ZeroHash, admin.address)) throw new Error(`Missing DEFAULT_ADMIN_ROLE for ${await contract.getAddress()}`);
   }
@@ -114,6 +138,7 @@ async function main() {
   if (!await pool.hasRole(ROLE("LIQUIDITY_MANAGER_ROLE"), admin.address)) throw new Error("Missing LIQUIDITY_MANAGER_ROLE for deployer");
   if (!await reserve.hasRole(ROLE("RESERVE_FUNDER_ROLE"), admin.address)) throw new Error("Missing RESERVE_FUNDER_ROLE for deployer");
   if (!await manager.hasRole(ROLE("LOAN_OPERATOR_ROLE"), admin.address)) throw new Error("Missing LOAN_OPERATOR_ROLE for deployer");
+  if (!await manager.hasRole(ROLE("RATE_MANAGER_ROLE"), admin.address)) throw new Error("Missing RATE_MANAGER_ROLE for deployer");
   if (!await vault.hasRole(ROLE("VAULT_OPERATOR_ROLE"), admin.address)) throw new Error("Missing VAULT_OPERATOR_ROLE for deployer");
   if (!await loanNFT.hasRole(ROLE("MINTER_ROLE"), admin.address)) throw new Error("Missing MINTER_ROLE for deployer");
   if (!await emi.hasRole(ROLE("P2P_OPERATOR_ROLE"), admin.address)) throw new Error("Missing P2P_OPERATOR_ROLE for deployer");
@@ -130,7 +155,11 @@ async function main() {
   addressEquals(await pool.collateralVault(), await vault.getAddress(), "LendingPoolV2 CollateralVault");
   addressEquals(await pool.oracle(), await oracle.getAddress(), "LendingPoolV2 OracleAdapter");
   addressEquals(await pool.loanNFT(), await loanNFT.getAddress(), "LendingPoolV2 LoanNFT");
+  addressEquals(await pool.lendingReferralManager(), await referral.getAddress(), "LendingPoolV2 referral manager");
+  addressEquals(await loanNFT.loanManager(), await manager.getAddress(), "LoanNFTV2 LoanManager");
+  addressEquals(await loanNFT.platformRecipient(), platformRecipient, "LoanNFTV2 platform recipient");
   addressEquals(await reserve.asset(), tokenAddress, "InsuranceReserveV2 ABCD");
+  addressEquals(await reserve.loanManager(), await manager.getAddress(), "InsuranceReserveV2 LoanManager");
   addressEquals(await liquidation.abcd(), tokenAddress, "LiquidationV2 ABCD");
   addressEquals(await liquidation.loanManager(), await manager.getAddress(), "LiquidationV2 LoanManager");
   addressEquals(await liquidation.collateralVault(), await vault.getAddress(), "LiquidationV2 CollateralVault");
@@ -138,17 +167,21 @@ async function main() {
   addressEquals(await liquidation.reserve(), await reserve.getAddress(), "LiquidationV2 InsuranceReserve");
   addressEquals(await liquidation.loanNFT(), await loanNFT.getAddress(), "LiquidationV2 LoanNFT");
   addressEquals(await liquidation.settlementPool(), await pool.getAddress(), "LiquidationV2 settlement pool");
+  addressEquals(await liquidation.p2pMarketplace(), await marketplace.getAddress(), "LiquidationV2 P2P marketplace");
   addressEquals(await marketplace.abcd(), tokenAddress, "LoanMarketplaceV2 ABCD");
   addressEquals(await marketplace.loanManager(), await manager.getAddress(), "LoanMarketplaceV2 LoanManager");
   addressEquals(await marketplace.collateralVault(), await vault.getAddress(), "LoanMarketplaceV2 CollateralVault");
   addressEquals(await marketplace.oracle(), await oracle.getAddress(), "LoanMarketplaceV2 OracleAdapter");
   addressEquals(await marketplace.loanNFT(), await loanNFT.getAddress(), "LoanMarketplaceV2 LoanNFT");
+  addressEquals(await marketplace.lendingReferralManager(), await referral.getAddress(), "LoanMarketplaceV2 referral manager");
   addressEquals(await marketplace.emiManager(), await emi.getAddress(), "LoanMarketplaceV2 EMIManager");
   addressEquals(await emi.abcd(), tokenAddress, "EMIManagerV2 ABCD");
   addressEquals(await emi.loanManager(), await manager.getAddress(), "EMIManagerV2 LoanManager");
   addressEquals(await emi.collateralVault(), await vault.getAddress(), "EMIManagerV2 CollateralVault");
   addressEquals(await emi.loanNFT(), await loanNFT.getAddress(), "EMIManagerV2 LoanNFT");
-  if (await pool.MAX_INITIAL_LTV_BPS() !== 5_000n || await pool.FIXED_APR_BPS() !== 1_200n || await manager.FIXED_APR_BPS() !== 1_200n || await manager.LATE_FEE_BPS() !== 200n || await liquidation.LIQUIDATION_THRESHOLD_BPS() !== 7_500n || await liquidation.CLOSE_FACTOR_BPS() !== 10_000n || await liquidation.LIQUIDATION_BONUS_BPS() !== 500n) throw new Error("V2 economic configuration verification failed");
+  addressEquals(await emi.lendingReferralManager(), await referral.getAddress(), "EMIManagerV2 referral manager");
+  addressEquals(await emi.marketplace(), await marketplace.getAddress(), "EMIManagerV2 LoanMarketplace");
+  if (await pool.MAX_INITIAL_LTV_BPS() !== 5_000n || await marketplace.P2P_INITIAL_LTV_BPS() !== 3_500n || await marketplace.previewMaxP2PPrincipal(ethers.parseEther("0.1")) !== ethers.parseEther("70") || await manager.newLoanAprBps() !== 1_200n || await manager.LATE_FEE_BPS() !== 200n || await liquidation.MARGIN_CALL_THRESHOLD_BPS() !== 7_000n || await liquidation.LIQUIDATION_THRESHOLD_BPS() !== 8_000n || await liquidation.CLOSE_FACTOR_BPS() !== 10_000n || await liquidation.LIQUIDATION_BONUS_BPS() !== 500n || await manager.MARGIN_CALL_CURE_PERIOD() !== 72n * 60n * 60n) throw new Error("V2 economic configuration verification failed");
 
   const block = Math.min(...Object.values(deployed).map((entry) => entry.deploymentBlock));
   const version = `lending-v2-local-${(await hh.provider.getBlock(block))?.hash}`;
@@ -157,7 +190,24 @@ async function main() {
     localOnly: true,
     contracts: deployed,
     oracle: { mode: "local-mock", ethAsset: ETH_ASSET, feeds: { ETH_USD: deployed.MockAggregatorV3V2_ETH_USD, ABCD_USD: deployed.MockAggregatorV3V2_ABCD_USD }, heartbeatSeconds: 86400 },
-    configuration: { maxInitialLtvBps: 5000, aprBps: 1200, lateFeeBps: 200, liquidationThresholdBps: 7500, liquidationBonusBps: 500, closeFactorBps: 10000, supportedTermSeconds: [2592000, 7776000, 15552000], gracePeriodSeconds: 604800, liquidity: liquidity.toString(), reserveFunding: reserveFunding.toString() },
+    configuration: { maxInitialLtvBps: 5000, p2pInitialLtvBps: 3500, marginCallThresholdBps: 7000, marginCallCureSeconds: 259200, aprBps: 1200, lateFeeBps: 200, liquidationThresholdBps: 8000, liquidationBonusBps: 500, closeFactorBps: 10000, supportedTermSeconds: [2592000, 7776000, 15552000], maturityGracePeriodSeconds: 604800, liquidity: liquidity.toString(), reserveFunding: reserveFunding.toString(), lendingReferralMonthlyRewardBps: 5, referralNftValueBps: 50, referralRewardAllowance: referralRewardAllowance.toString(), referralRewardVault: marketingWallet },
+    roles: {
+      defaultAdmin: admin.address,
+      oracleAdmin: admin.address,
+      rateManager: admin.address,
+      liquidityManager: admin.address,
+      reserveFunder: admin.address,
+      loanOperators: [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()],
+      vaultOperators: [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()],
+      loanNftMinters: [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()],
+      loanNftDirectCompletionOperator: await pool.getAddress(),
+      loanNftP2pCompletionOperator: await emi.getAddress(),
+      reserveOperator: await liquidation.getAddress(),
+      p2pOperator: await marketplace.getAddress(),
+      p2pLiquidationSettlementOperator: await liquidation.getAddress(),
+      lendingReferralOperators: [await pool.getAddress(), await marketplace.getAddress(), await emi.getAddress()],
+      platformRecipient,
+    },
   };
   writeManifestAtomically(manifest);
   console.log(JSON.stringify({ chainId: "31337", v1Preserved: manifest.contracts, lendingV2: manifest.lendingV2 }, null, 2));

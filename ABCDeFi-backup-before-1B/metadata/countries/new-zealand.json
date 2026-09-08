@@ -1,0 +1,35 @@
+{
+  "name": "New Zealand",
+  "country": "New Zealand",
+  "continent": "Africa",
+  "mascot": "Skater Astronaut",
+  "description": "Official ABCDeFi Legion Territory NFT for New Zealand. Finance for everyone.",
+  "image": "ipfs://QmY3b1aKw7Jv3pD8mN4L6R2t1Y5c0A3e8F9c/countries/new-zealand.png",
+  "level": "Country",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "Country"
+    },
+    {
+      "trait_type": "Continent",
+      "value": "Africa"
+    },
+    {
+      "trait_type": "Parent NFT ID",
+      "value": 3
+    },
+    {
+      "trait_type": "Character",
+      "value": "Vanguard Commander"
+    },
+    {
+      "trait_type": "Treasury Share Bps",
+      "value": 300
+    },
+    {
+      "trait_type": "Mascot",
+      "value": "Skater Astronaut"
+    }
+  ]
+}

@@ -16,6 +16,13 @@ and wind-down only.
 | Grace period | 7 days |
 | Late fee | One-time 200 BPS (2%) of debt at maturity |
 
+## Approved P2P ETH request parameter
+
+P2P V2 accepts ETH collateral only. Its independent initial maximum LTV is
+3,500 BPS (35%), the ETH row of the approved collateral table. `LoanMarketplaceV2`
+prices ETH and ABCD through `OracleAdapterV2` and enforces that maximum during
+request creation. This does not change the Direct Lending V2 5,000 BPS policy.
+
 ## Interest and repayment
 
 Interest is simple, non-compounding, and accrues per second through maturity:

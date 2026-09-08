@@ -82,7 +82,8 @@ describe("Presale Contract Suite", function () {
       HARD_CAP,
       MIN_BUY,
       MAX_BUY,
-      admin.address
+      admin.address,
+      true
     );
     await presale.waitForDeployment();
 
@@ -123,7 +124,7 @@ describe("Presale Contract Suite", function () {
 
       const PresaleFactory = await hardhatEthers.getContractFactory("Presale");
       const endedPresale = await PresaleFactory.deploy(
-        await token.getAddress(), await treasury.getAddress(), RATE, SOFT_CAP, HARD_CAP, MIN_BUY, MAX_BUY, admin.address
+        await token.getAddress(), await treasury.getAddress(), RATE, SOFT_CAP, HARD_CAP, MIN_BUY, MAX_BUY, admin.address, true
       );
       await endedPresale.waitForDeployment();
       await token.connect(owner).transfer(await endedPresale.getAddress(), ethers.parseUnits("100000", 18));
@@ -198,7 +199,7 @@ describe("Presale Contract Suite", function () {
     it("rejects purchases when its token reserve cannot cover the new obligation", async function () {
       const PresaleFactory = await hardhatEthers.getContractFactory("Presale");
       const underfundedPresale = await PresaleFactory.deploy(
-        await token.getAddress(), await treasury.getAddress(), RATE, SOFT_CAP, HARD_CAP, MIN_BUY, MAX_BUY, admin.address
+        await token.getAddress(), await treasury.getAddress(), RATE, SOFT_CAP, HARD_CAP, MIN_BUY, MAX_BUY, admin.address, true
       );
       await underfundedPresale.waitForDeployment();
       const now = await time.latest();

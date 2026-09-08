@@ -164,6 +164,10 @@ async function main() {
     ethers.parseEther("0.1"),
     ethers.parseEther("10"),
     deployer.address,
+    // The approved 1B/eight-allocation model contains no ICO allocation.
+    // Keep this generic contract explicitly inactive until a future approved
+    // sale configuration designates a source of inventory.
+    false,
   ]);
   const presaleAddress = deployed.Presale.address;
 
@@ -198,6 +202,9 @@ async function main() {
 
   const nftMarketplace = await deploy("NFTMarketplace", [treasuryAddress, deployer.address]);
   const nftMarketplaceAddress = deployed.NFTMarketplace.address;
+  if (await nftMarketplace.marketplaceFeeBps() !== 10n) {
+    throw new Error("NFTMarketplace must deploy with the whitepaper 0.1% (10 BPS) transaction fee");
+  }
   const participantNFT = await deploy("ParticipantNFT", [deployer.address]);
   const reputationNFT = await deploy("ReputationNFT", [deployer.address]);
   const guruNFT = await deploy("GuruNFT", [deployer.address]);
@@ -261,9 +268,8 @@ async function main() {
     throw new Error("LegionNFT role wiring verification failed");
   }
   await (await referralManager.setRewardVault(wallets.reserve)).wait();
-  // Referral rewards are recorded atomically from Presale.buyWithETH(). The
-  // reciprocal one-time wiring locks the integration to these deployed
-  // contracts before the sale can start.
+  // Retain legacy contract wiring for compatibility, but canonical deployment
+  // does not authorize a sale or grant it a reserve-funded referral allowance.
   await (await presale.setReferralManager(deployed.ReferralManager.address)).wait();
   await (await referralManager.setPresale(presaleAddress)).wait();
   await (await referralManager.grantRole(PRESALE_ADMIN_ROLE, presaleAddress)).wait();
@@ -282,7 +288,7 @@ async function main() {
   const liquiditySigner = signers.find((s: any) => s.address.toLowerCase() === wallets.liquidity.toLowerCase());
   const reserveSigner = signers.find((s: any) => s.address.toLowerCase() === wallets.reserve.toLowerCase());
   if (!liquiditySigner) throw new Error("Configured liquidity wallet is not an available deployment signer");
-  if (!reserveSigner) throw new Error("Configured reserve wallet is not an available deployment signer for ReferralManager rewards");
+  if (!reserveSigner) throw new Error("Configured reserve wallet is not an available deployment signer for staking rewards");
 
   // LendingPool tracks usable liquidity separately from its ERC-20 balance. A
   // direct transfer would strand tokens in the pool while liquidityPoolBalance
@@ -332,17 +338,6 @@ async function main() {
   const rewardAmount = ethers.parseUnits(process.env.STAKING_REWARD_POOL || "5000000", 18);
   await (await token.connect(reserveSigner).approve(stakingAddress, rewardAmount)).wait();
   await (await staking.connect(reserveSigner).fundRewardPool(rewardAmount)).wait();
-
-  // The maximum aggregate referral reward is bounded by the sale hard cap,
-  // rate and immutable 5 BPS setting. Approving exactly that amount means a
-  // referral payout cannot consume more reserve allowance than the sale can
-  // ever generate.
-  const maxPresaleTokens = (await presale.hardCap()) * (await presale.rate()) / ethers.parseUnits("1", 18);
-  const maxReferralRewards = maxPresaleTokens * (await referralManager.REFERRAL_BPS()) / 10_000n;
-  await waitForSuccessfulReceipt(
-    await token.connect(reserveSigner).approve(deployed.ReferralManager.address, maxReferralRewards),
-    "ReferralManager reward allowance"
-  );
 
   const networkInfo = await hh.provider.getNetwork();
   const chainId = networkInfo.chainId.toString();

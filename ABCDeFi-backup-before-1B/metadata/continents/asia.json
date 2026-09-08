@@ -1,0 +1,30 @@
+{
+  "name": "Asia",
+  "description": "Official Legion NFT representing Asia Continent in the ABCDeFi Ecosystem.",
+  "image": "ipfs://QmX8f9aKw7Jv3pD8mN4L6R2t1Y5c0A3e8F9b/continents/asia.png",
+  "continent": "Asia",
+  "level": "Continent",
+  "mascot": "Asian Celestial Dragon",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "Continent"
+    },
+    {
+      "trait_type": "Parent NFT ID",
+      "value": 0
+    },
+    {
+      "trait_type": "Character",
+      "value": "Supreme Guardian"
+    },
+    {
+      "trait_type": "Treasury Share Bps",
+      "value": 500
+    },
+    {
+      "trait_type": "Mascot",
+      "value": "Asian Celestial Dragon"
+    }
+  ]
+}

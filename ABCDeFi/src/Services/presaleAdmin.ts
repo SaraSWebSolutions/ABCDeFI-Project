@@ -47,6 +47,7 @@ export interface AdminPresaleData {
   isPaused: boolean;
   isFinalized: boolean;
   isCancelled: boolean;
+  saleEnabled: boolean;
   adminAddress: string | null;
   roles: PresaleAdminRoles;
 }
@@ -64,6 +65,16 @@ const PRESALE_STATES: PresaleAdminStatus[] = ['Pending', 'Active', 'Ended', 'Fin
 const PRESALE_ADMIN_ROLE = keccak256(toUtf8Bytes('PRESALE_ADMIN_ROLE'));
 const PAUSER_ROLE = keccak256(toUtf8Bytes('PAUSER_ROLE'));
 const presaleInterface = new Interface(PresaleArtifact.abi);
+
+async function readSaleEnabled(contract: Contract): Promise<boolean> {
+  try {
+    return Boolean(await contract.saleEnabled());
+  } catch {
+    // Old local bytecode cannot be an authorized sale under the current
+    // allocation model; fail closed until a fresh explicit configuration exists.
+    return false;
+  }
+}
 
 function statusFromIndex(index: bigint): PresaleAdminStatus {
   return PRESALE_STATES[Number(index)] ?? 'Pending';
@@ -172,6 +183,7 @@ export async function getAdminPresaleData(adminAddress?: string): Promise<AdminP
     defaultAdmin,
     presaleAdmin,
     pauser,
+    saleEnabled,
   ] = await Promise.all([
     contract.getState(),
     contract.rate(),
@@ -192,6 +204,7 @@ export async function getAdminPresaleData(adminAddress?: string): Promise<AdminP
     adminAddress ? contract.hasRole(defaultAdminRole, adminAddress) : false,
     adminAddress ? contract.hasRole(PRESALE_ADMIN_ROLE, adminAddress) : false,
     adminAddress ? contract.hasRole(PAUSER_ROLE, adminAddress) : false,
+    readSaleEnabled(contract),
   ]);
 
   return {
@@ -220,6 +233,7 @@ export async function getAdminPresaleData(adminAddress?: string): Promise<AdminP
     isPaused: Boolean(isPaused),
     isFinalized: Boolean(isFinalized),
     isCancelled: Boolean(isCancelled),
+    saleEnabled,
     adminAddress: adminAddress ?? null,
     roles: { defaultAdmin: Boolean(defaultAdmin), presaleAdmin: Boolean(presaleAdmin), pauser: Boolean(pauser) },
   };
@@ -229,6 +243,7 @@ export async function getAdminPresaleData(adminAddress?: string): Promise<AdminP
 export async function startPresale(durationSeconds: number, onSubmitted?: SubmittedCallback) {
   requireState(Number.isSafeInteger(durationSeconds) && durationSeconds > 0, 'Sale duration must be a positive number of seconds.');
   const { contract, caller, state } = await prepareAdminAction('presaleAdmin');
+  requireState(state.saleEnabled, 'ICO sale is inactive: no approved ICO allocation/configuration exists.');
   requireState(state.status === 'Pending', 'Presale is already active, ended, finalized, or cancelled.');
   const latestBlock = await canonicalProvider.getBlock('latest');
   if (!latestBlock) throw new Error('Unable to determine the current Hardhat block time.');

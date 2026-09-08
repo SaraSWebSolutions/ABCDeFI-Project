@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="100%" height="100%">
+  <defs>
+    <radialGradient id="indiaGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f97316" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#16a34a" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="saffronGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff9933"/>
+      <stop offset="50%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#138808"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="400" cy="400" r="360" fill="url(#indiaGlow)" />
+  <circle cx="400" cy="400" r="300" fill="none" stroke="url(#saffronGrad)" stroke-width="4"/>
+
+  <!-- Ashoka Chakra Symbol Behind Head -->
+  <circle cx="400" cy="380" r="140" fill="none" stroke="#000080" stroke-width="3" opacity="0.6"/>
+  <g transform="translate(400,380)">
+    <line x1="0" y1="-140" x2="0" y2="140" stroke="#000080" stroke-width="2" opacity="0.5"/>
+    <line x1="-140" y1="0" x2="140" y2="0" stroke="#000080" stroke-width="2" opacity="0.5"/>
+  </g>
+
+  <!-- Voyager Bengal Tiger Armor Helmet -->
+  <g transform="translate(400, 410)">
+    <!-- Tiger Ears -->
+    <polygon points="-70,-60 -110,-120 -40,-90" fill="#f97316" stroke="#ffffff" stroke-width="2"/>
+    <polygon points="70,-60 110,-120 40,-90" fill="#f97316" stroke="#ffffff" stroke-width="2"/>
+
+    <!-- Shoulders -->
+    <path d="M-130 150 L-90 50 L0 20 L90 50 L130 150 Z" fill="#9a3412" stroke="#f97316" stroke-width="3"/>
+    <!-- Helmet -->
+    <path d="M-60 30 C-60 -50 -40 -90 0 -90 C40 -90 60 -50 60 30 Z" fill="#1e1b4b" stroke="#f97316" stroke-width="4"/>
+    <!-- Visor Blue -->
+    <path d="M-45 -10 Q0 -35 45 -10 Q35 25 0 25 Q-35 25 -45 -10 Z" fill="#38bdf8" stroke="#7dd3fc" stroke-width="3"/>
+  </g>
+
+  <text x="400" y="110" font-family="'Outfit', sans-serif" font-size="36" font-weight="900" fill="#f8fafc" text-anchor="middle" letter-spacing="4">INDIA LEGION NFT</text>
+  <text x="400" y="150" font-family="'Inter', sans-serif" font-size="20" font-weight="700" fill="#f97316" text-anchor="middle" letter-spacing="2">COUNTRY TIER | CODE: IN | PARENT: ASIA</text>
+  
+  <rect x="250" y="690" width="300" height="44" rx="22" fill="rgba(15,23,42,0.8)" stroke="#f97316" stroke-width="2"/>
+  <text x="400" y="718" font-family="'Inter', sans-serif" font-size="14" font-weight="800" fill="#fed7aa" text-anchor="middle">CHARACTER: VOYAGER TIGER</text>
+</svg>

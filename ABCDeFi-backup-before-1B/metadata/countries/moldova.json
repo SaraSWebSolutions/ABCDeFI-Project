@@ -1,0 +1,35 @@
+{
+  "name": "Moldova",
+  "country": "Moldova",
+  "continent": "Oceania",
+  "mascot": "Skater Astronaut",
+  "description": "Official ABCDeFi Legion Territory NFT for Moldova. Finance for everyone.",
+  "image": "ipfs://QmY3b1aKw7Jv3pD8mN4L6R2t1Y5c0A3e8F9c/countries/moldova.png",
+  "level": "Country",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "Country"
+    },
+    {
+      "trait_type": "Continent",
+      "value": "Oceania"
+    },
+    {
+      "trait_type": "Parent NFT ID",
+      "value": 6
+    },
+    {
+      "trait_type": "Character",
+      "value": "Vanguard Commander"
+    },
+    {
+      "trait_type": "Treasury Share Bps",
+      "value": 300
+    },
+    {
+      "trait_type": "Mascot",
+      "value": "Skater Astronaut"
+    }
+  ]
+}

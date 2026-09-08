@@ -1,0 +1,42 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": [
+    "src/Screens/**/*",
+    "src/Navigation/**/*",
+    "src/Config/**/*",
+    "src/Store/**/*",
+    "src/Legion/**/*",
+    "src/models/**/*",
+    "src/components/MobileUserDashboard.tsx",
+    "src/components/MobileAdminDashboard.tsx",
+    "src/components/WalletModal.tsx",
+    "src/Utils/StorageUtil.ts",
+    "src/Utils/WalletDetection.ts",
+    "src/Services/notificationService.ts",
+    "src/Services/referralService.ts"
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

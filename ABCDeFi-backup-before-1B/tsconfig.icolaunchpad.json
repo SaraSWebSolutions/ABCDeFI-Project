@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "src/components/ICOLaunchpad.tsx",
+    "src/components/ICOAdmin.tsx",
+    "src/Services/icoService.ts",
+    "src/Services/icoLaunchpad.ts",
+    "src/Services/bonusEngine.ts",
+    "src/Services/axiosConfig.ts",
+    "src/types/custom.d.ts"
+  ]
+}

@@ -14,6 +14,7 @@ contract CollateralVaultV2 is AccessControl, ReentrancyGuard {
     event RequestCollateralDeposited(uint256 indexed requestId, address indexed borrower, uint256 amount);
     event DirectDepositCollateralDeposited(uint256 indexed depositId, address indexed borrower, uint256 amount);
     event CollateralLocked(uint256 indexed loanId, uint256 indexed requestId, address indexed borrower, uint256 amount);
+    event LoanCollateralToppedUp(uint256 indexed loanId, address indexed borrower, uint256 amount, uint256 totalCollateral);
     event CollateralReleased(uint256 indexed loanId, address indexed borrower, uint256 amount);
     event CollateralSeized(uint256 indexed loanId, address indexed recipient, uint256 amount);
     constructor(address admin) { _grantRole(DEFAULT_ADMIN_ROLE, admin); _grantRole(VAULT_OPERATOR_ROLE, admin); }
@@ -24,6 +25,13 @@ contract CollateralVaultV2 is AccessControl, ReentrancyGuard {
     function lockDirect(uint256 loanId, address borrower) external payable onlyRole(VAULT_OPERATOR_ROLE) { require(loanId != 0 && borrower != address(0) && msg.value != 0 && loanCollateral[loanId] == 0, "invalid lock"); loanCollateral[loanId] = msg.value; emit CollateralLocked(loanId, 0, borrower, msg.value); }
     function bindRequest(uint256 requestId, uint256 loanId, address borrower) external onlyRole(VAULT_OPERATOR_ROLE) { uint256 amount=requestCollateral[requestId]; require(amount != 0 && loanCollateral[loanId] == 0, "invalid bind"); requestCollateral[requestId]=0; loanCollateral[loanId]=amount; emit CollateralLocked(loanId, requestId, borrower, amount); }
     function bindDirectDeposit(uint256 depositId, uint256 loanId, address borrower) external onlyRole(VAULT_OPERATOR_ROLE) { uint256 amount=directDepositCollateral[depositId]; require(amount != 0 && loanCollateral[loanId] == 0, "invalid bind"); directDepositCollateral[depositId]=0; loanCollateral[loanId]=amount; emit CollateralLocked(loanId, depositId, borrower, amount); }
+    /// @notice Adds ETH only to an existing loan-scoped collateral position.
+    /// The caller must be a trusted lending operator; it cannot affect pending or P2P-request namespaces.
+    function topUpLoanCollateral(uint256 loanId, address borrower) external payable onlyRole(VAULT_OPERATOR_ROLE) nonReentrant {
+        require(loanId != 0 && borrower != address(0) && msg.value != 0 && loanCollateral[loanId] != 0, "invalid top up");
+        loanCollateral[loanId] += msg.value;
+        emit LoanCollateralToppedUp(loanId, borrower, msg.value, loanCollateral[loanId]);
+    }
     function releaseRequest(uint256 requestId, address payable borrower) external onlyRole(VAULT_OPERATOR_ROLE) nonReentrant returns(uint256 amount) { amount=requestCollateral[requestId]; require(amount != 0, "no request collateral"); requestCollateral[requestId]=0; (bool ok,)=borrower.call{value:amount}(""); require(ok,"eth transfer failed"); emit CollateralReleased(requestId, borrower, amount); }
     function releaseDirectDeposit(uint256 depositId, address payable borrower) external onlyRole(VAULT_OPERATOR_ROLE) nonReentrant returns(uint256 amount) { amount=directDepositCollateral[depositId]; require(amount != 0, "no direct deposit collateral"); directDepositCollateral[depositId]=0; (bool ok,)=borrower.call{value:amount}(""); require(ok,"eth transfer failed"); emit CollateralReleased(depositId, borrower, amount); }
     function release(uint256 loanId, address payable borrower) external onlyRole(VAULT_OPERATOR_ROLE) nonReentrant returns(uint256 amount) { amount=loanCollateral[loanId]; require(amount != 0, "no collateral"); loanCollateral[loanId]=0; (bool ok,)=borrower.call{value:amount}(""); require(ok,"eth transfer failed"); emit CollateralReleased(loanId, borrower, amount); }

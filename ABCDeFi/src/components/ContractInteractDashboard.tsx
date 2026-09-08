@@ -22,7 +22,6 @@ import { getReferralStats, registerReferral, claimReferralReward } from '../Serv
 import { getNFTListings, mintNFT, buyNFT } from '../Services/marketplace';
 import { CONTRACTS, requireContractAddress } from '../Config/contracts';
 import { useWallet } from '../Context/WalletContext';
-import LendingPool from './LendingPool';
 import {
   Coins,
   ShoppingBag,
@@ -568,7 +567,10 @@ export const ContractInteractDashboard: React.FC = () => {
 
         {/* 6. LENDING MODULE */}
         {activeModule === 'lending' && (
-          <LendingPool />
+          <section className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 text-sm text-amber-100">
+            <h2 className="font-bold text-amber-200">Legacy / Compatibility / Historical V1</h2>
+            <p className="mt-2">V1 lending transaction controls are intentionally unavailable from the normal dashboard. Historical V1 contracts remain unchanged; use the isolated Lending V2 workflow for all new deposits, borrowing, repayment, and P2P activity.</p>
+          </section>
         )}
 
         {/* 7. REFERRAL MODULE */}

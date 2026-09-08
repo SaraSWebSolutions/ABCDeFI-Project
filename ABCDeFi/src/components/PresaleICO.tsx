@@ -91,7 +91,12 @@ export const PresaleICO: React.FC = () => {
       setMessage('Switch MetaMask to Hardhat Local (chain 31337) before contributing.');
       return;
     }
-    if (!presale || presale.status !== 'Active') {
+    if (!presale?.saleEnabled) {
+      setStatus('error');
+      setMessage('ICO sale is inactive: the approved 1B/eight-allocation model has no designated ICO inventory.');
+      return;
+    }
+    if (presale.status !== 'Active') {
       setStatus('error');
       setMessage(`Presale purchases are unavailable while the on-chain sale is ${presale?.status ?? 'unavailable'}.`);
       return;
@@ -197,13 +202,18 @@ export const PresaleICO: React.FC = () => {
 
         {isLoading ? <div className="mt-6 flex items-center gap-2 text-sm text-slate-400"><Loader2 className="h-4 w-4 animate-spin" /> Reading Presale contract…</div> : presale && (
           <>
-            {presale.status === 'Pending' && (
+            {!presale.saleEnabled ? (
+              <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                ICO sale is explicitly inactive. The approved 1B/eight-allocation model has no designated ICO inventory; the stored generic Presale parameters are not approved sale terms and contributions cannot be submitted.
+              </div>
+            ) : presale.status === 'Pending' && (
               <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
                 Presale has not started. An authorized Presale administrator must start it before contributions can be accepted.
               </div>
             )}
             <div className="mt-6 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
               <Metric label="Sale state" value={presale.status} />
+              <Metric label="Sale authorization" value={presale.saleEnabled ? 'Explicitly enabled' : 'Inactive — no ICO allocation'} />
               <Metric label="Canonical Presale" value={CONTRACTS.presale} />
               <Metric label="Rate" value={`${presale.rateAbcdPerEth} ABCD / ETH`} />
               <Metric label="Soft cap" value={`${presale.softCap} ETH`} />
@@ -226,14 +236,14 @@ export const PresaleICO: React.FC = () => {
           <h2 className="flex items-center gap-2 text-lg font-bold text-white"><Wallet className="h-5 w-5 text-amber-400" /> ETH contribution</h2>
           <form className="mt-5 space-y-4" onSubmit={handlePurchase}>
             <label className="block text-xs font-semibold text-slate-300" htmlFor="presale-eth-amount">Amount (ETH)</label>
-            <input id="presale-eth-amount" inputMode="decimal" value={ethAmount} onChange={(event) => setEthAmount(event.target.value)} disabled={isPending} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 font-mono text-white outline-none focus:border-amber-500 disabled:opacity-60" />
+            <input id="presale-eth-amount" inputMode="decimal" value={ethAmount} onChange={(event) => setEthAmount(event.target.value)} disabled={isPending || !presale?.saleEnabled} className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 font-mono text-white outline-none focus:border-amber-500 disabled:opacity-60" />
             <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 text-xs">
               <div className="flex justify-between gap-4"><span className="text-slate-400">Expected allocation at on-chain rate</span><span className="font-bold text-emerald-300">{expectedTokens === null ? 'Unavailable' : `${expectedTokens} ABCD`}</span></div>
             </div>
             {!isConnected && <p className="text-xs text-slate-400">Connect a wallet to contribute.</p>}
             {isConnected && !isCorrectNetwork && <p className="text-xs text-amber-300">Switch MetaMask to Hardhat Local (chain 31337) to contribute.</p>}
-            <button type="submit" disabled={isPending || !isConnected || !isCorrectNetwork || !presale || presale.status !== 'Active' || presale.isPaused} className="w-full rounded-xl bg-amber-400 py-3.5 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
-              {status === 'validating' ? 'Validating…' : status === 'awaiting-wallet' ? 'Confirm in Wallet…' : status === 'confirming' ? 'Confirming on-chain…' : presale?.isPaused ? 'Presale Paused' : presale?.status === 'Active' ? 'Buy ABCD with ETH' : presale?.status === 'Pending' ? 'Presale has not started' : `Presale ${presale?.status ?? 'Unavailable'}`}
+            <button type="submit" disabled={isPending || !isConnected || !isCorrectNetwork || !presale || !presale.saleEnabled || presale.status !== 'Active' || presale.isPaused} className="w-full rounded-xl bg-amber-400 py-3.5 text-sm font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50">
+              {status === 'validating' ? 'Validating…' : status === 'awaiting-wallet' ? 'Confirm in Wallet…' : status === 'confirming' ? 'Confirming on-chain…' : !presale?.saleEnabled ? 'ICO sale configuration inactive' : presale?.isPaused ? 'Presale Paused' : presale?.status === 'Active' ? 'Buy ABCD with ETH' : presale?.status === 'Pending' ? 'Presale has not started' : `Presale ${presale?.status ?? 'Unavailable'}`}
             </button>
           </form>
           {status !== 'idle' && <div className={`mt-4 rounded-xl border p-4 text-xs ${status === 'success' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : status === 'error' ? 'border-rose-500/30 bg-rose-500/10 text-rose-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-100'}`}>

@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "../lending/v2/LendingPoolV2.sol";
+import "../nft/LoanNFTV2.sol";
 
 /// @dev Test-only receiver that attempts to reenter collateral withdrawal on receiving ETH.
 contract ReentrantBorrowerV2 is IERC721Receiver {
@@ -21,8 +22,8 @@ contract ReentrantBorrowerV2 is IERC721Receiver {
     function repay(uint256 loanId, uint256 amount) external {
         token.approve(address(pool), amount); pool.repay(loanId, amount);
     }
-    function repayAll(uint256 loanId, uint256 approvalAmount) external {
-        token.approve(address(pool), approvalAmount); pool.repayAll(loanId);
+    function repayAll(uint256 loanId, uint256 approvalAmount, LoanNFTV2.CompletionMetadata calldata metadata) external {
+        token.approve(address(pool), approvalAmount); pool.repayAllWithCompletionMetadata(loanId, metadata);
     }
     function withdrawWithReentry(uint256 loanId) external { targetLoanId = loanId; attackEnabled = true; pool.withdrawSettledCollateral(loanId); attackEnabled = false; }
     receive() external payable {

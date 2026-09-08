@@ -6,15 +6,16 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface LiquidationV2Interface extends Interface {
-    getFunction(nameOrSignature: "CLOSE_FACTOR_BPS" | "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "LIQUIDATION_BONUS_BPS" | "LIQUIDATION_THRESHOLD_BPS" | "abcd" | "collateralVault" | "currentCollateralValueUSD" | "currentDebtValueUSD" | "currentLtvBps" | "getRoleAdmin" | "grantRole" | "hasRole" | "healthFactor" | "isLiquidatable" | "liquidate" | "loanManager" | "loanNFT" | "oracle" | "pause" | "paused" | "previewLiquidation" | "renounceRole" | "reserve" | "revokeRole" | "settlementPool" | "supportsInterface" | "totalDebt" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "CLOSE_FACTOR_BPS" | "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "LIQUIDATION_BONUS_BPS" | "LIQUIDATION_THRESHOLD_BPS" | "MARGIN_CALL_THRESHOLD_BPS" | "abcd" | "collateralVault" | "currentCollateralValueUSD" | "currentDebtValueUSD" | "currentLtvBps" | "getRoleAdmin" | "grantRole" | "hasRole" | "healthFactor" | "isLiquidatable" | "liquidate" | "loanManager" | "loanNFT" | "oracle" | "p2pMarketplace" | "pause" | "paused" | "previewLiquidation" | "renounceRole" | "reserve" | "revokeRole" | "settlementPool" | "supportsInterface" | "syncRisk" | "totalDebt" | "unpause"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "LoanLiquidated" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "LoanLiquidated" | "Paused" | "RiskStateSynced" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'CLOSE_FACTOR_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ETH_ASSET', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LIQUIDATION_BONUS_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LIQUIDATION_THRESHOLD_BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'MARGIN_CALL_THRESHOLD_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'collateralVault', values?: undefined): string;
 encodeFunctionData(functionFragment: 'currentCollateralValueUSD', values: [BigNumberish]): string;
@@ -29,6 +30,7 @@ encodeFunctionData(functionFragment: 'liquidate', values: [BigNumberish]): strin
 encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanNFT', values?: undefined): string;
 encodeFunctionData(functionFragment: 'oracle', values?: undefined): string;
+encodeFunctionData(functionFragment: 'p2pMarketplace', values?: undefined): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
 encodeFunctionData(functionFragment: 'previewLiquidation', values: [BigNumberish]): string;
@@ -37,6 +39,7 @@ encodeFunctionData(functionFragment: 'reserve', values?: undefined): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'settlementPool', values?: undefined): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
+encodeFunctionData(functionFragment: 'syncRisk', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'totalDebt', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 
@@ -45,6 +48,7 @@ decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): R
 decodeFunctionResult(functionFragment: 'ETH_ASSET', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LIQUIDATION_BONUS_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LIQUIDATION_THRESHOLD_BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'MARGIN_CALL_THRESHOLD_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'abcd', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'collateralVault', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'currentCollateralValueUSD', data: BytesLike): Result;
@@ -59,6 +63,7 @@ decodeFunctionResult(functionFragment: 'liquidate', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanNFT', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'oracle', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'p2pMarketplace', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'previewLiquidation', data: BytesLike): Result;
@@ -67,6 +72,7 @@ decodeFunctionResult(functionFragment: 'reserve', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'settlementPool', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'syncRisk', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'totalDebt', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   }
@@ -88,6 +94,18 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       export type InputTuple = [account: AddressLike];
       export type OutputTuple = [account: string];
       export interface OutputObject {account: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace RiskStateSyncedEvent {
+      export type InputTuple = [loanId: BigNumberish, ltvBps: BigNumberish, state: BigNumberish];
+      export type OutputTuple = [loanId: bigint, ltvBps: bigint, state: bigint];
+      export interface OutputObject {loanId: bigint, ltvBps: bigint, state: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -218,6 +236,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    MARGIN_CALL_THRESHOLD_BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     abcd: TypedContractMethod<
       [],
       [string],
@@ -330,6 +356,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    p2pMarketplace: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     pause: TypedContractMethod<
       [],
       [void],
@@ -394,6 +428,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    syncRisk: TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     totalDebt: TypedContractMethod<
       [loanId: BigNumberish, ],
       [bigint],
@@ -433,6 +475,11 @@ getFunction(nameOrSignature: 'LIQUIDATION_BONUS_BPS'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'LIQUIDATION_THRESHOLD_BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'MARGIN_CALL_THRESHOLD_BPS'): TypedContractMethod<
       [],
       [bigint],
       'view'
@@ -507,6 +554,11 @@ getFunction(nameOrSignature: 'oracle'): TypedContractMethod<
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'p2pMarketplace'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'pause'): TypedContractMethod<
       [],
       [void],
@@ -547,6 +599,11 @@ getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod<
       [boolean],
       'view'
     >;
+getFunction(nameOrSignature: 'syncRisk'): TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'totalDebt'): TypedContractMethod<
       [loanId: BigNumberish, ],
       [bigint],
@@ -560,6 +617,7 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
 
     getEvent(key: 'LoanLiquidated'): TypedContractEvent<LoanLiquidatedEvent.InputTuple, LoanLiquidatedEvent.OutputTuple, LoanLiquidatedEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+getEvent(key: 'RiskStateSynced'): TypedContractEvent<RiskStateSyncedEvent.InputTuple, RiskStateSyncedEvent.OutputTuple, RiskStateSyncedEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
 getEvent(key: 'RoleGranted'): TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
 getEvent(key: 'RoleRevoked'): TypedContractEvent<RoleRevokedEvent.InputTuple, RoleRevokedEvent.OutputTuple, RoleRevokedEvent.OutputObject>;
@@ -573,6 +631,10 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
       'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
       Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+    
+
+      'RiskStateSynced(uint256,uint256,uint8)': TypedContractEvent<RiskStateSyncedEvent.InputTuple, RiskStateSyncedEvent.OutputTuple, RiskStateSyncedEvent.OutputObject>;
+      RiskStateSynced: TypedContractEvent<RiskStateSyncedEvent.InputTuple, RiskStateSyncedEvent.OutputTuple, RiskStateSyncedEvent.OutputObject>;
     
 
       'RoleAdminChanged(bytes32,bytes32,bytes32)': TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;

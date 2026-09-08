@@ -1,0 +1,256 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const bcrypt = require('bcrypt');
+
+const config = require('../config/default');
+const UserAccount = require('../modules/user/userAccount/userAccount.model');
+const controller = require('../modules/user/userAccount/userAccount.controller');
+
+function response() {
+  return {
+    statusCode: 200,
+    body: null,
+    status(code) { this.statusCode = code; return this; },
+    json(body) { this.body = body; return this; },
+  };
+}
+
+async function makeUser(role = 'admin') {
+  return {
+    _id: `${role}-login-user`, email: `${role}@example.test`, name: role,
+    password: await bcrypt.hash('StrongPass1!', 10), role, status: true,
+    is2FAEnabled: true, isSuspended: false, loginOtp: undefined,
+    loginOtpExpires: undefined, loginOtpPurpose: undefined,
+    loginHistory: [], activeSessions: [],
+    save: async () => {},
+  };
+}
+
+function installLookup(user) {
+  return async (query) => {
+    if (query.email) return query.email === user.email ? user : null;
+    if (query._id && Object.hasOwn(query, 'loginOtp')) {
+      return query._id === user._id
+        && query.loginOtp === user.loginOtp
+        && user.loginOtpExpires > query.loginOtpExpires.$gt
+        ? user
+        : null;
+    }
+    return null;
+  };
+}
+
+test('administrator login requires the persisted admin role, then the context-bound shared OTP', async () => {
+  const original = {
+    nodeEnv: config.node_env, developmentEnabled: config.development_auth_enabled,
+    jwt: config.jwt, refresh: config.refresh_secret, findOne: UserAccount.findOne,
+    findById: UserAccount.findById, ready: UserAccount.db.readyState, info: console.info,
+  };
+  const user = await makeUser('admin');
+  const logs = [];
+  try {
+    config.node_env = 'development';
+    config.development_auth_enabled = true;
+    config.jwt = 'test-access-secret';
+    config.refresh_secret = 'test-refresh-secret';
+    UserAccount.db.readyState = 1;
+    UserAccount.findOne = installLookup(user);
+    UserAccount.findById = async (id) => id === user._id ? user : null;
+    console.info = (...args) => logs.push(args);
+
+    const login = response();
+    await controller.adminLogin(
+      { body: { email: user.email, password: 'StrongPass1!' }, ip: '127.0.0.1', headers: {} },
+      login, (error) => { throw error; },
+    );
+    assert.equal(login.statusCode, 200);
+    assert.equal(login.body.require2FA, true);
+    assert.equal(Object.hasOwn(login.body, 'otp'), false);
+    assert.equal(user.loginOtpPurpose, 'admin');
+
+    const otp = String(logs.find(([line]) => String(line).includes('LOCAL DEVELOPMENT LOGIN OTP'))[0]).match(/code=(\d{6})/)[1];
+    assert.match(String(logs[0][0]), /type=ADMIN_LOGIN/);
+
+    const resend = response();
+    await controller.resendAdminLoginOtp(
+      { body: { userId: user._id }, ip: '127.0.0.1', headers: {} },
+      resend, (error) => { throw error; },
+    );
+    assert.equal(resend.statusCode, 200);
+    const resentOtp = String(logs.at(-1)[0]).match(/code=(\d{6})/)[1];
+    assert.notEqual(resentOtp, otp);
+
+    const oldOtp = response();
+    await controller.verifyAdminLoginOtp(
+      { body: { userId: user._id, otp }, ip: '127.0.0.1', headers: {} },
+      oldOtp, (error) => { throw error; },
+    );
+    assert.equal(oldOtp.statusCode, 400);
+
+    const wrongEndpoint = response();
+    await controller.verifyLoginOtp(
+      { body: { userId: user._id, otp: resentOtp }, ip: '127.0.0.1', headers: {} },
+      wrongEndpoint, (error) => { throw error; },
+    );
+    assert.equal(wrongEndpoint.statusCode, 400);
+
+    const verified = response();
+    await controller.verifyAdminLoginOtp(
+      { body: { userId: user._id, otp: resentOtp }, ip: '127.0.0.1', headers: {} },
+      verified, (error) => { throw error; },
+    );
+    assert.equal(verified.statusCode, 200);
+    assert.equal(verified.body.success, true);
+    assert.equal(verified.body.user.role, 'admin');
+    assert.equal(typeof verified.body.token, 'string');
+    assert.equal(user.loginOtp, undefined);
+    assert.equal(user.loginOtpPurpose, undefined);
+
+    const reused = response();
+    await controller.verifyAdminLoginOtp(
+      { body: { userId: user._id, otp: resentOtp }, ip: '127.0.0.1', headers: {} },
+      reused, (error) => { throw error; },
+    );
+    assert.equal(reused.statusCode, 400);
+  } finally {
+    config.node_env = original.nodeEnv;
+    config.development_auth_enabled = original.developmentEnabled;
+    config.jwt = original.jwt;
+    config.refresh_secret = original.refresh;
+    UserAccount.findOne = original.findOne;
+    UserAccount.findById = original.findById;
+    UserAccount.db.readyState = original.ready;
+    console.info = original.info;
+  }
+});
+
+test('administrator login rejects a non-admin and invalid credentials before issuing an OTP', async () => {
+  const original = {
+    nodeEnv: config.node_env, developmentEnabled: config.development_auth_enabled,
+    findOne: UserAccount.findOne, ready: UserAccount.db.readyState,
+  };
+  const user = await makeUser('user');
+  try {
+    config.node_env = 'development';
+    config.development_auth_enabled = true;
+    UserAccount.db.readyState = 1;
+    UserAccount.findOne = installLookup(user);
+
+    const normalUserResponse = response();
+    await controller.adminLogin(
+      { body: { email: user.email, password: 'StrongPass1!' }, ip: '127.0.0.1', headers: {} },
+      normalUserResponse, (error) => { throw error; },
+    );
+    assert.equal(normalUserResponse.statusCode, 403);
+    assert.equal(normalUserResponse.body.message, 'Administrator access denied');
+    assert.equal(user.loginOtp, undefined);
+
+    const invalidPasswordResponse = response();
+    await controller.adminLogin(
+      { body: { email: user.email, password: 'WrongPassword1!' }, ip: '127.0.0.1', headers: {} },
+      invalidPasswordResponse, (error) => { throw error; },
+    );
+    assert.equal(invalidPasswordResponse.statusCode, 401);
+    assert.equal(invalidPasswordResponse.body.message, 'Invalid credentials');
+    assert.equal(user.loginOtp, undefined);
+
+    UserAccount.findOne = async () => null;
+    const missingUserResponse = response();
+    await controller.adminLogin(
+      { body: { email: 'missing@example.test', password: 'StrongPass1!' }, ip: '127.0.0.1', headers: {} },
+      missingUserResponse, (error) => { throw error; },
+    );
+    assert.equal(missingUserResponse.statusCode, 401);
+    assert.equal(missingUserResponse.body.message, 'Invalid credentials');
+  } finally {
+    config.node_env = original.nodeEnv;
+    config.development_auth_enabled = original.developmentEnabled;
+    UserAccount.findOne = original.findOne;
+    UserAccount.db.readyState = original.ready;
+  }
+});
+
+test('administrator login never bypasses the OTP challenge for a legacy 2FA-disabled account', async () => {
+  const original = {
+    nodeEnv: config.node_env, developmentEnabled: config.development_auth_enabled,
+    findOne: UserAccount.findOne, ready: UserAccount.db.readyState, info: console.info,
+  };
+  const user = await makeUser('admin');
+  user.is2FAEnabled = false;
+  try {
+    config.node_env = 'development';
+    config.development_auth_enabled = true;
+    UserAccount.db.readyState = 1;
+    UserAccount.findOne = installLookup(user);
+    console.info = () => {};
+    const login = response();
+    await controller.adminLogin(
+      { body: { email: user.email, password: 'StrongPass1!' }, ip: '127.0.0.1', headers: {} },
+      login, (error) => { throw error; },
+    );
+    assert.equal(login.statusCode, 200);
+    assert.equal(login.body.require2FA, true);
+    assert.equal(user.loginOtpPurpose, 'admin');
+    assert.equal(Object.hasOwn(login.body, 'token'), false);
+  } finally {
+    config.node_env = original.nodeEnv;
+    config.development_auth_enabled = original.developmentEnabled;
+    UserAccount.findOne = original.findOne;
+    UserAccount.db.readyState = original.ready;
+    console.info = original.info;
+  }
+});
+
+test('administrator OTP rejects invalid and expired codes, while resend keeps the OTP out of the response', async () => {
+  const original = {
+    nodeEnv: config.node_env, developmentEnabled: config.development_auth_enabled,
+    findOne: UserAccount.findOne, findById: UserAccount.findById, ready: UserAccount.db.readyState, info: console.info,
+  };
+  const user = await makeUser('admin');
+  try {
+    config.node_env = 'development';
+    config.development_auth_enabled = true;
+    UserAccount.db.readyState = 1;
+    UserAccount.findById = async (id) => id === user._id ? user : null;
+    console.info = () => {};
+
+    user.loginOtp = 'not-a-real-otp-hash';
+    user.loginOtpExpires = new Date(Date.now() + 60_000);
+    user.loginOtpPurpose = 'admin';
+    UserAccount.findOne = installLookup(user);
+    const invalid = response();
+    await controller.verifyAdminLoginOtp(
+      { body: { userId: user._id, otp: '000000' }, ip: '127.0.0.1', headers: {} },
+      invalid, (error) => { throw error; },
+    );
+    assert.equal(invalid.statusCode, 400);
+    assert.equal(invalid.body.message, 'Invalid or expired Login OTP code');
+
+    user.loginOtpExpires = new Date(Date.now() - 1);
+    const expired = response();
+    await controller.verifyAdminLoginOtp(
+      { body: { userId: user._id, otp: '000000' }, ip: '127.0.0.1', headers: {} },
+      expired, (error) => { throw error; },
+    );
+    assert.equal(expired.statusCode, 400);
+
+    user.loginOtpExpires = new Date(Date.now() + 60_000);
+    user.otpLastSent = undefined;
+    const resent = response();
+    await controller.resendAdminLoginOtp(
+      { body: { userId: user._id }, ip: '127.0.0.1', headers: {} },
+      resent, (error) => { throw error; },
+    );
+    assert.equal(resent.statusCode, 200);
+    assert.equal(resent.body.success, true);
+    assert.equal(Object.hasOwn(resent.body, 'otp'), false);
+    assert.equal(user.loginOtpPurpose, 'admin');
+  } finally {
+    config.node_env = original.nodeEnv;
+    config.development_auth_enabled = original.developmentEnabled;
+    UserAccount.findOne = original.findOne;
+    UserAccount.findById = original.findById;
+    UserAccount.db.readyState = original.ready;
+    console.info = original.info;
+  }
+});

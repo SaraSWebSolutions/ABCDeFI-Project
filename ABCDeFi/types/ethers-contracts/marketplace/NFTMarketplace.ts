@@ -13,11 +13,12 @@ export declare namespace INFTMarketplace {
     }
 
   export interface NFTMarketplaceInterface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "buyNFT" | "cancelListing" | "getAllActiveListings" | "getListing" | "getRoleAdmin" | "grantRole" | "hasRole" | "listNFT" | "marketplaceFeeBps" | "pause" | "paused" | "renounceRole" | "revokeRole" | "setMarketplaceFee" | "setTreasury" | "supportsInterface" | "treasury" | "unpause" | "updateListingPrice"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "MAX_MARKETPLACE_FEE_BPS" | "buyNFT" | "cancelListing" | "getAllActiveListings" | "getListing" | "getRoleAdmin" | "grantRole" | "hasRole" | "listNFT" | "marketplaceFeeBps" | "pause" | "paused" | "renounceRole" | "revokeRole" | "setMarketplaceFee" | "setTreasury" | "supportsInterface" | "treasury" | "unpause" | "updateListingPrice"): FunctionFragment;
 
     getEvent(nameOrSignatureOrTopic: "ListingCancelled" | "ListingPriceUpdated" | "MarketplaceFeeUpdated" | "NFTListed" | "NFTSold" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'MAX_MARKETPLACE_FEE_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'buyNFT', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'cancelListing', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getAllActiveListings', values?: undefined): string;
@@ -39,6 +40,7 @@ encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'updateListingPrice', values: [BigNumberish, BigNumberish]): string;
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'MAX_MARKETPLACE_FEE_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'buyNFT', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'cancelListing', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getAllActiveListings', data: BytesLike): Result;
@@ -223,6 +225,14 @@ decodeFunctionResult(functionFragment: 'updateListingPrice', data: BytesLike): R
     
 
     
+    MAX_MARKETPLACE_FEE_BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     buyNFT: TypedContractMethod<
       [listingId: BigNumberish, ],
       [void],
@@ -380,6 +390,11 @@ decodeFunctionResult(functionFragment: 'updateListingPrice', data: BytesLike): R
     getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
       [],
       [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'MAX_MARKETPLACE_FEE_BPS'): TypedContractMethod<
+      [],
+      [bigint],
       'view'
     >;
 getFunction(nameOrSignature: 'buyNFT'): TypedContractMethod<

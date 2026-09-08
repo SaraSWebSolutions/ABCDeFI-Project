@@ -18,7 +18,11 @@ contract NFTMarketplace is AccessControl, ReentrancyGuard, Pausable, INFTMarketp
     uint256 private _nextListingId;
 
     address payable public treasury;
-    uint256 public marketplaceFeeBps; // Default 250 = 2.5%
+    /// @notice Whitepaper NFT buy/sell protocol fee: 0.1%.
+    /// Keeping the cap equal to the approved fee prevents an administrator
+    /// from silently raising a user-facing marketplace charge above policy.
+    uint256 public constant MAX_MARKETPLACE_FEE_BPS = 10;
+    uint256 public marketplaceFeeBps;
 
     mapping(uint256 => Listing) private _listings;
 
@@ -26,7 +30,7 @@ contract NFTMarketplace is AccessControl, ReentrancyGuard, Pausable, INFTMarketp
         if (treasuryAddress == address(0) || admin == address(0)) revert Errors.InvalidAddress();
 
         treasury = treasuryAddress;
-        marketplaceFeeBps = 250; // 2.5% Protocol Fee
+        marketplaceFeeBps = MAX_MARKETPLACE_FEE_BPS;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(Constants.MARKETPLACE_ADMIN_ROLE, admin);
@@ -85,11 +89,11 @@ contract NFTMarketplace is AccessControl, ReentrancyGuard, Pausable, INFTMarketp
         uint256 protocolFee = (listing.price * marketplaceFeeBps) / Constants.BPS_DENOMINATOR;
         uint256 sellerProceeds = listing.price - protocolFee;
 
-        // Transfer 97.5% proceeds to seller
+        // Transfer the exact post-fee proceeds to the seller.
         (bool successSeller, ) = listing.seller.call{value: sellerProceeds}("");
         if (!successSeller) revert Errors.NativeTransferFailed();
 
-        // Transfer 2.5% protocol fee to Treasury
+        // Transfer the whitepaper-approved protocol fee to Treasury.
         if (protocolFee > 0) {
             (bool successTreasury, ) = treasury.call{value: protocolFee}("");
             if (!successTreasury) revert Errors.NativeTransferFailed();
@@ -143,7 +147,7 @@ contract NFTMarketplace is AccessControl, ReentrancyGuard, Pausable, INFTMarketp
     // --- Admin Operations ---
 
     function setMarketplaceFee(uint256 newFeeBps) external override onlyRole(Constants.MARKETPLACE_ADMIN_ROLE) {
-        if (newFeeBps > 1000) revert Errors.ZeroAmount(); // Max 10% cap
+        if (newFeeBps > MAX_MARKETPLACE_FEE_BPS) revert Errors.ZeroAmount();
         marketplaceFeeBps = newFeeBps;
         emit MarketplaceFeeUpdated(newFeeBps);
     }

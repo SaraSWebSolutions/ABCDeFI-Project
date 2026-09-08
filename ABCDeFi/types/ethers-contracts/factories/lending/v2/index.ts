@@ -4,8 +4,10 @@
 export * as oracleAdapterV2Sol from './OracleAdapterV2.sol/index.js';
 export { CollateralVaultV2__factory } from './CollateralVaultV2__factory.js';
 export { EMIManagerV2__factory } from './EMIManagerV2__factory.js';
+export { IP2PSettlementCallbackV2__factory } from './IP2PSettlementCallbackV2__factory.js';
 export { InsuranceReserveV2__factory } from './InsuranceReserveV2__factory.js';
 export { LendingPoolV2__factory } from './LendingPoolV2__factory.js';
+export { LendingReferralManagerV2__factory } from './LendingReferralManagerV2__factory.js';
 export { LiquidationV2__factory } from './LiquidationV2__factory.js';
 export { LoanManagerV2__factory } from './LoanManagerV2__factory.js';
 export { LoanMarketplaceV2__factory } from './LoanMarketplaceV2__factory.js';

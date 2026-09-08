@@ -312,7 +312,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
       {activeTab === 'ico' && <PresaleICO />}
       {activeTab === 'lending' && <LendingV2 />}
       {activeTab === 'lending-v2' && <LendingV2 />}
-      {activeTab === 'p2p-loans' && <P2PLendingDashboard activeTab="p2p-loans" />}
+      {activeTab === 'p2p-loans' && <LendingV2 />}
       {(activeTab === 'deposit' || activeTab === 'withdraw') && (
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 max-w-3xl mx-auto font-mono">
           {/* Sub-Tab Navigation Header */}
@@ -349,9 +349,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
           {depositSubTab === 'withdraw' && <CollateralDepositForm mode="withdraw" />}
         </div>
       )}
-      {['borrow', 'repay', 'emi', 'view-all-loans', 'loan-monitoring', 'defaulted-loans', 'liquidation', 'loan-reports'].includes(activeTab) && (
-        <P2PLendingDashboard activeTab={activeTab} />
-      )}
+      {['borrow', 'repay', 'emi', 'view-all-loans', 'loan-monitoring', 'defaulted-loans', 'liquidation', 'loan-reports'].includes(activeTab) && <LendingV2 />}
 
       {activeTab === 'history' && <TransactionHistory />}
       {activeTab === 'ai-59c' && <AIGamesDashboard />}

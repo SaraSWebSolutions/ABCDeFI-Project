@@ -1,12 +1,13 @@
 const { Interface } = require('ethers');
 const SCOPE = 'canonical-lending-v2';
-const names = ['OracleAdapterV2', 'CollateralVaultV2', 'LoanManagerV2', 'LendingPoolV2', 'LiquidationV2', 'InsuranceReserveV2', 'LoanMarketplaceV2', 'EMIManagerV2', 'LoanNFTV2'];
+const requiredNames = ['OracleAdapterV2', 'CollateralVaultV2', 'LoanManagerV2', 'LendingPoolV2', 'LiquidationV2', 'InsuranceReserveV2', 'LoanMarketplaceV2', 'EMIManagerV2', 'LoanNFTV2'];
+const namesFor = (manifest) => manifest.contracts.LendingReferralManagerV2 ? [...requiredNames, 'LendingReferralManagerV2'] : requiredNames;
 const lower = (value) => typeof value === 'string' ? value.toLowerCase() : value;
 const decimal = (value) => typeof value === 'bigint' ? value.toString() : Array.isArray(value) ? value.map(decimal) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, decimal(item)])) : value;
 
 function registry(manifest, artifacts) {
   const result = new Map();
-  for (const name of names) {
+  for (const name of namesFor(manifest)) {
     const iface = new Interface(artifacts[name].abi);
     const address = lower(manifest.contracts[name].address);
     for (const fragment of iface.fragments.filter((item) => item.type === 'event')) result.set(`${address}:${lower(fragment.topicHash)}`, { name, iface, fragment });
@@ -16,13 +17,13 @@ function registry(manifest, artifacts) {
 
 class LendingV2Indexer {
   constructor({ manifest, artifacts, provider, models, logger = console, confirmations = 2, blockRange = 250 }) {
-    this.manifest = manifest; this.provider = provider; this.models = models; this.logger = logger; this.confirmations = confirmations; this.blockRange = blockRange; this.registry = registry(manifest, artifacts); this.timer = null;
+    this.manifest = manifest; this.provider = provider; this.models = models; this.logger = logger; this.confirmations = confirmations; this.blockRange = blockRange; this.names = namesFor(manifest); this.registry = registry(manifest, artifacts); this.timer = null;
   }
   identity() { return { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, scope: SCOPE }; }
   async assertDeployment() {
     const network = await this.provider.getNetwork();
     if (Number(network.chainId) !== this.manifest.chainId) throw new Error(`V2 RPC chain ${network.chainId} does not match 31337.`);
-    for (const name of names) if (await this.provider.getCode(this.manifest.contracts[name].address) === '0x') throw new Error(`V2 ${name} has no bytecode at its manifest address.`);
+    for (const name of this.names) if (await this.provider.getCode(this.manifest.contracts[name].address) === '0x') throw new Error(`V2 ${name} has no bytecode at its manifest address.`);
   }
   async syncOnce() {
     await this.assertDeployment();
@@ -34,7 +35,7 @@ class LendingV2Indexer {
       const block = await this.provider.getBlock(Number(checkpoint.lastProcessedBlock));
       if (!block || lower(block.hash) !== lower(checkpoint.lastProcessedBlockHash)) throw new Error('V2 checkpoint does not match the active chain; manual review is required before reindexing.');
     }
-    const addresses = names.map((name) => this.manifest.contracts[name].address);
+    const addresses = this.names.map((name) => this.manifest.contracts[name].address);
     while (from <= confirmed) {
       const to = Math.min(confirmed, from + this.blockRange - 1);
       const logs = await this.provider.getLogs({ address: addresses, fromBlock: from, toBlock: to });

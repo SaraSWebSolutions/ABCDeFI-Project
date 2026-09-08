@@ -6,6 +6,7 @@ const { createLendingV2ReadController } = require('./lendingV2Read.controller.cj
 const controller = createLendingV2ReadController({ manifest: loadLendingV2Manifest(), artifacts: loadLendingV2Artifacts(), models });
 const router = express.Router();
 router.get('/status', controller.status);
+router.get('/reserve', controller.reserve);
 router.get('/requests/open', controller.openRequests);
 router.get('/requests/:requestId', controller.request);
 router.get('/wallet/:address', controller.wallet);

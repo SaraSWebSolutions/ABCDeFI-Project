@@ -12,10 +12,23 @@ export declare namespace EMIManagerV2 {
   
     }
 
-  export interface EMIManagerV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "P2P_OPERATOR_ROLE" | "abcd" | "collateralVault" | "createSchedule" | "getRoleAdmin" | "getSchedule" | "grantRole" | "hasRole" | "loanManager" | "loanNFT" | "nextInstallment" | "pause" | "paused" | "payInstallment" | "payOutstanding" | "renounceRole" | "revokeRole" | "supportsInterface" | "syncLoan" | "totalScheduled" | "unpause"): FunctionFragment;
+export declare namespace LoanNFTV2 {
+      
+    export type MetadataStruct = {uri: string, hash: BytesLike}
 
-    getEvent(nameOrSignatureOrTopic: "InstallmentPaid" | "P2PCollateralReleased" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "ScheduleCreated" | "Unpaused"): EventFragment;
+    export type MetadataStructOutput = [uri: string, hash: string] & {uri: string, hash: string }
+  
+
+    export type CompletionMetadataStruct = {lender: LoanNFTV2.MetadataStruct, borrower: LoanNFTV2.MetadataStruct, platform: LoanNFTV2.MetadataStruct}
+
+    export type CompletionMetadataStructOutput = [lender: LoanNFTV2.MetadataStructOutput, borrower: LoanNFTV2.MetadataStructOutput, platform: LoanNFTV2.MetadataStructOutput] & {lender: LoanNFTV2.MetadataStructOutput, borrower: LoanNFTV2.MetadataStructOutput, platform: LoanNFTV2.MetadataStructOutput }
+  
+    }
+
+  export interface EMIManagerV2Interface extends Interface {
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "P2P_OPERATOR_ROLE" | "abcd" | "collateralVault" | "createSchedule" | "getRoleAdmin" | "getSchedule" | "grantRole" | "hasRole" | "lendingReferralManager" | "loanManager" | "loanNFT" | "marketplace" | "nextInstallment" | "pause" | "paused" | "payInstallment" | "payInstallmentWithCompletionMetadata" | "payOutstanding" | "payOutstandingWithCompletionMetadata" | "renounceRole" | "revokeRole" | "setMarketplace" | "supportsInterface" | "syncLoan" | "totalScheduled" | "unpause"): FunctionFragment;
+
+    getEvent(nameOrSignatureOrTopic: "InstallmentPaid" | "MarketplaceConfigured" | "P2PCollateralReleased" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "ScheduleCreated" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'P2P_OPERATOR_ROLE', values?: undefined): string;
@@ -26,15 +39,20 @@ encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): strin
 encodeFunctionData(functionFragment: 'getSchedule', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'lendingReferralManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanNFT', values?: undefined): string;
+encodeFunctionData(functionFragment: 'marketplace', values?: undefined): string;
 encodeFunctionData(functionFragment: 'nextInstallment', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
 encodeFunctionData(functionFragment: 'payInstallment', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'payInstallmentWithCompletionMetadata', values: [BigNumberish, LoanNFTV2.CompletionMetadataStruct]): string;
 encodeFunctionData(functionFragment: 'payOutstanding', values: [BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'payOutstandingWithCompletionMetadata', values: [BigNumberish, BigNumberish, LoanNFTV2.CompletionMetadataStruct]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'setMarketplace', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'syncLoan', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'totalScheduled', values: [BigNumberish]): string;
@@ -49,15 +67,20 @@ decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getSchedule', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'lendingReferralManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanNFT', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'marketplace', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'nextInstallment', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'payInstallment', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'payInstallmentWithCompletionMetadata', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'payOutstanding', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'payOutstandingWithCompletionMetadata', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setMarketplace', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'syncLoan', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'totalScheduled', data: BytesLike): Result;
@@ -69,6 +92,18 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       export type InputTuple = [loanId: BigNumberish, installment: BigNumberish, borrower: AddressLike, amount: BigNumberish];
       export type OutputTuple = [loanId: bigint, installment: bigint, borrower: string, amount: bigint];
       export interface OutputObject {loanId: bigint, installment: bigint, borrower: string, amount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace MarketplaceConfiguredEvent {
+      export type InputTuple = [marketplace: AddressLike];
+      export type OutputTuple = [marketplace: string];
+      export interface OutputObject {marketplace: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -267,6 +302,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    lendingReferralManager: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     loanManager: TypedContractMethod<
       [],
       [string],
@@ -276,6 +319,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
     
     loanNFT: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    marketplace: TypedContractMethod<
       [],
       [string],
       'view'
@@ -315,8 +366,24 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    payInstallmentWithCompletionMetadata: TypedContractMethod<
+      [loanId: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     payOutstanding: TypedContractMethod<
       [loanId: BigNumberish, amount: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    payOutstandingWithCompletionMetadata: TypedContractMethod<
+      [loanId: BigNumberish, amount: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
       [void],
       'nonpayable'
     >
@@ -333,6 +400,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
     revokeRole: TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    setMarketplace: TypedContractMethod<
+      [marketplace_: AddressLike, ],
       [void],
       'nonpayable'
     >
@@ -418,12 +493,22 @@ getFunction(nameOrSignature: 'hasRole'): TypedContractMethod<
       [boolean],
       'view'
     >;
+getFunction(nameOrSignature: 'lendingReferralManager'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'loanManager'): TypedContractMethod<
       [],
       [string],
       'view'
     >;
 getFunction(nameOrSignature: 'loanNFT'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'marketplace'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -448,8 +533,18 @@ getFunction(nameOrSignature: 'payInstallment'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'payInstallmentWithCompletionMetadata'): TypedContractMethod<
+      [loanId: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'payOutstanding'): TypedContractMethod<
       [loanId: BigNumberish, amount: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'payOutstandingWithCompletionMetadata'): TypedContractMethod<
+      [loanId: BigNumberish, amount: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
       [void],
       'nonpayable'
     >;
@@ -460,6 +555,11 @@ getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'setMarketplace'): TypedContractMethod<
+      [marketplace_: AddressLike, ],
       [void],
       'nonpayable'
     >;
@@ -485,6 +585,7 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
     >;
 
     getEvent(key: 'InstallmentPaid'): TypedContractEvent<InstallmentPaidEvent.InputTuple, InstallmentPaidEvent.OutputTuple, InstallmentPaidEvent.OutputObject>;
+getEvent(key: 'MarketplaceConfigured'): TypedContractEvent<MarketplaceConfiguredEvent.InputTuple, MarketplaceConfiguredEvent.OutputTuple, MarketplaceConfiguredEvent.OutputObject>;
 getEvent(key: 'P2PCollateralReleased'): TypedContractEvent<P2PCollateralReleasedEvent.InputTuple, P2PCollateralReleasedEvent.OutputTuple, P2PCollateralReleasedEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
@@ -497,6 +598,10 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       
       'InstallmentPaid(uint256,uint256,address,uint256)': TypedContractEvent<InstallmentPaidEvent.InputTuple, InstallmentPaidEvent.OutputTuple, InstallmentPaidEvent.OutputObject>;
       InstallmentPaid: TypedContractEvent<InstallmentPaidEvent.InputTuple, InstallmentPaidEvent.OutputTuple, InstallmentPaidEvent.OutputObject>;
+    
+
+      'MarketplaceConfigured(address)': TypedContractEvent<MarketplaceConfiguredEvent.InputTuple, MarketplaceConfiguredEvent.OutputTuple, MarketplaceConfiguredEvent.OutputObject>;
+      MarketplaceConfigured: TypedContractEvent<MarketplaceConfiguredEvent.InputTuple, MarketplaceConfiguredEvent.OutputTuple, MarketplaceConfiguredEvent.OutputObject>;
     
 
       'P2PCollateralReleased(uint256,address,uint256)': TypedContractEvent<P2PCollateralReleasedEvent.InputTuple, P2PCollateralReleasedEvent.OutputTuple, P2PCollateralReleasedEvent.OutputObject>;

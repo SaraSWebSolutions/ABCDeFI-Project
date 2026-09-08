@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
 import ts from 'typescript';
+import './test-lending-v2-ux.mjs';
 
 const sourcePath = new URL('../src/Utils/dashboardMode.ts', import.meta.url);
 const source = fs.readFileSync(sourcePath, 'utf8');
@@ -108,14 +109,51 @@ test('Staking Pools remains a labeled, reachable top-level dashboard destination
   assert.doesNotMatch(navbarSource, /Dashboard navigation/);
 });
 
-test('the primary UserDashboard lending tab uses V2 while V1 P2P remains reachable', () => {
+test('the primary UserDashboard lending and P2P tabs use the isolated V2 workflow', () => {
   const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
   assert.match(userDashboardSource, /\{ id: 'lending', label: 'Lending'/);
   assert.match(userDashboardSource, /\{ id: 'lending-v2', label: 'Lending V2'/);
   assert.match(userDashboardSource, /\{ id: 'p2p-loans', label: 'P2P Loans'/);
   assert.match(userDashboardSource, /activeTab === 'lending' && <LendingV2\s*\/>/);
   assert.match(userDashboardSource, /activeTab === 'lending-v2' && <LendingV2\s*\/>/);
-  assert.match(userDashboardSource, /activeTab === 'p2p-loans' && <P2PLendingDashboard/);
+  assert.match(userDashboardSource, /activeTab === 'p2p-loans' && <LendingV2\s*\/>/);
+});
+
+test('V2 direct lending exposes only the canonical V2 deposit handler while legacy V1 P2P is explicitly labelled', () => {
+  const v2Source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const v1P2pSource = fs.readFileSync(new URL('../src/components/P2PLendingDashboard.tsx', import.meta.url), 'utf8');
+  const legacyContractSource = fs.readFileSync(new URL('../src/components/ContractInteractDashboard.tsx', import.meta.url), 'utf8');
+  assert.match(v2Source, /aria-label="Lending V2 direct lending flow"/);
+  assert.match(v2Source, /depositV2Collateral\(collateral, progress\)/);
+  assert.match(v2Source, /LendingPoolV2/);
+  assert.match(v1P2pSource, /Legacy Lending V1 \/ P2P/);
+  assert.doesNotMatch(v1P2pSource, /<LendingPool/);
+  assert.match(legacyContractSource, /Legacy \/ Compatibility \/ Historical V1/);
+  assert.doesNotMatch(legacyContractSource, /<LendingPool/);
+});
+
+test('the V2 collateral-deposit trigger is a visible, guarded real transaction button', () => {
+  const v2Source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(v2Source, /aria-label="Deposit collateral into LendingPoolV2"/);
+  assert.match(v2Source, /disabled=\{!canWrite \|\| !positiveAmount\(collateral\)\}/);
+  assert.match(v2Source, /depositV2Collateral\(collateral, progress\)/);
+  assert.match(service, /pool\.depositCollateral\.estimateGas\(\{ value \}\)/);
+  assert.match(service, /pool\.depositCollateral\(\{ value, gasLimit: gas \}\)/);
+  assert.match(service, /pool\.maxBorrowable\(collateral\)/);
+  assert.doesNotMatch(service, /pool\.maxBorrowable\(depositId\)/);
+  assert.match(service, /log\.address\.toLowerCase\(\) !== expectedPool/);
+  assert.match(service, /eventBorrower !== expectedBorrower \|\| eventCollateral !== collateralETH/);
+});
+
+test('an active V2 deposit with authoritative capacity renders a constrained borrow form', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(source, /data-testid="v2-pending-deposit-preview"/);
+  assert.match(source, /data-testid="v2-borrow-form"/);
+  assert.match(source, /aria-label="Borrow ABCD against active V2 deposit"/);
+  assert.match(source, /borrowV2\(depositId, principal, Number\(term\), uri, metadataHash, progress\)/);
+  assert.match(service, /pool\.borrowABCD\.estimateGas\(depositId, amount, termDays \* 86400, uri\.trim\(\), hash\)/);
 });
 
 test('the header logo returns to the UserDashboard overview instead of an obsolete tab ID', () => {

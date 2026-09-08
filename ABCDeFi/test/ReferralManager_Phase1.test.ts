@@ -34,7 +34,7 @@ describe("Referral System Specification Verification", function () {
     presale = await PresaleFactory.deploy(
       await token.getAddress(), owner.address, ethers.parseUnits("1000", 18),
       ethers.parseEther("1"), ethers.parseEther("10"), ethers.parseEther("0.1"),
-      ethers.parseEther("10"), owner.address,
+      ethers.parseEther("10"), owner.address, true,
     );
     await presale.waitForDeployment();
     await token.connect(owner).transfer(await presale.getAddress(), ethers.parseUnits("100000", 18));

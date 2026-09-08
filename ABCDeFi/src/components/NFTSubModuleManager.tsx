@@ -100,7 +100,7 @@ export const NFTSubModuleManager: React.FC<NFTSubModuleManagerProps> = ({
             <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
               <div className="text-[10px] text-slate-500 uppercase font-bold">Total Fees Accrued</div>
               <div className="text-2xl font-black text-emerald-400">$142,500 USDC</div>
-              <div className="text-[10px] text-slate-400">Protocol Share: 0.5% per Tx</div>
+              <div className="text-[10px] text-slate-400">Protocol fee: 0.1% per sale</div>
             </div>
             <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1">
               <div className="text-[10px] text-slate-500 uppercase font-bold">Creator Royalty Rate</div>

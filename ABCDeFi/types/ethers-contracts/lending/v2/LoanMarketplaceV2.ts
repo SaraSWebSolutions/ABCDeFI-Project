@@ -6,14 +6,17 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface LoanMarketplaceV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "abcd" | "cancelRequest" | "collateralVault" | "createRequest" | "emiManager" | "fundRequest" | "getRoleAdmin" | "grantRole" | "hasRole" | "loanManager" | "loanNFT" | "nextRequestId" | "oracle" | "pause" | "paused" | "renounceRole" | "requests" | "revokeRole" | "setEMIManager" | "settleDefault" | "supportsInterface" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "LIQUIDATION_SETTLEMENT_ROLE" | "P2P_INITIAL_LTV_BPS" | "abcd" | "cancelRequest" | "collateralValueUSD" | "collateralVault" | "createRequest" | "emiManager" | "fundRequest" | "getRoleAdmin" | "grantRole" | "hasRole" | "isP2PLoan" | "lendingReferralManager" | "liquidationEngine" | "loanManager" | "loanNFT" | "markLoanRepaid" | "nextRequestId" | "oracle" | "pause" | "paused" | "previewMaxP2PPrincipal" | "renounceRole" | "requestByLoanId" | "requests" | "revokeRole" | "setEMIManager" | "setLiquidationEngine" | "settleDefault" | "settleLiquidation" | "supportsInterface" | "unpause"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "P2PDefaultSettled" | "Paused" | "RequestCancelled" | "RequestCreated" | "RequestFunded" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "P2PDefaultSettled" | "P2PLiquidationSettled" | "Paused" | "RequestCancelled" | "RequestCreated" | "RequestFunded" | "RequestRepaid" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ETH_ASSET', values?: undefined): string;
+encodeFunctionData(functionFragment: 'LIQUIDATION_SETTLEMENT_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'P2P_INITIAL_LTV_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'cancelRequest', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'collateralValueUSD', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'collateralVault', values?: undefined): string;
 encodeFunctionData(functionFragment: 'createRequest', values: [BigNumberish, BigNumberish, string, BytesLike]): string;
 encodeFunctionData(functionFragment: 'emiManager', values?: undefined): string;
@@ -21,24 +24,35 @@ encodeFunctionData(functionFragment: 'fundRequest', values: [BigNumberish]): str
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'isP2PLoan', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'lendingReferralManager', values?: undefined): string;
+encodeFunctionData(functionFragment: 'liquidationEngine', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanNFT', values?: undefined): string;
+encodeFunctionData(functionFragment: 'markLoanRepaid', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'nextRequestId', values?: undefined): string;
 encodeFunctionData(functionFragment: 'oracle', values?: undefined): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
+encodeFunctionData(functionFragment: 'previewMaxP2PPrincipal', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'requestByLoanId', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'requests', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'setEMIManager', values: [AddressLike]): string;
+encodeFunctionData(functionFragment: 'setLiquidationEngine', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'settleDefault', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'settleLiquidation', values: [BigNumberish, AddressLike, BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'ETH_ASSET', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'LIQUIDATION_SETTLEMENT_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'P2P_INITIAL_LTV_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'abcd', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'cancelRequest', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'collateralValueUSD', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'collateralVault', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'createRequest', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'emiManager', data: BytesLike): Result;
@@ -46,17 +60,25 @@ decodeFunctionResult(functionFragment: 'fundRequest', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'isP2PLoan', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'lendingReferralManager', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'liquidationEngine', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanNFT', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'markLoanRepaid', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'nextRequestId', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'oracle', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'previewMaxP2PPrincipal', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'requestByLoanId', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'requests', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setEMIManager', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setLiquidationEngine', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'settleDefault', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'settleLiquidation', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   }
@@ -66,6 +88,18 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       export type InputTuple = [requestId: BigNumberish, loanId: BigNumberish, lender: AddressLike, collateralToLender: BigNumberish, borrowerSurplus: BigNumberish, borrowerLiability: BigNumberish];
       export type OutputTuple = [requestId: bigint, loanId: bigint, lender: string, collateralToLender: bigint, borrowerSurplus: bigint, borrowerLiability: bigint];
       export interface OutputObject {requestId: bigint, loanId: bigint, lender: string, collateralToLender: bigint, borrowerSurplus: bigint, borrowerLiability: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace P2PLiquidationSettledEvent {
+      export type InputTuple = [requestId: BigNumberish, loanId: BigNumberish, liquidator: AddressLike, lender: AddressLike, debtCovered: BigNumberish, collateralToLiquidator: BigNumberish, reserveContribution: BigNumberish, badDebt: BigNumberish, borrowerSurplus: BigNumberish];
+      export type OutputTuple = [requestId: bigint, loanId: bigint, liquidator: string, lender: string, debtCovered: bigint, collateralToLiquidator: bigint, reserveContribution: bigint, badDebt: bigint, borrowerSurplus: bigint];
+      export interface OutputObject {requestId: bigint, loanId: bigint, liquidator: string, lender: string, debtCovered: bigint, collateralToLiquidator: bigint, reserveContribution: bigint, badDebt: bigint, borrowerSurplus: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -99,9 +133,9 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   
 
     export namespace RequestCreatedEvent {
-      export type InputTuple = [requestId: BigNumberish, borrower: AddressLike, principal: BigNumberish, collateral: BigNumberish, term: BigNumberish, metadataHash: BytesLike, metadataURI: string];
-      export type OutputTuple = [requestId: bigint, borrower: string, principal: bigint, collateral: bigint, term: bigint, metadataHash: string, metadataURI: string];
-      export interface OutputObject {requestId: bigint, borrower: string, principal: bigint, collateral: bigint, term: bigint, metadataHash: string, metadataURI: string };
+      export type InputTuple = [requestId: BigNumberish, borrower: AddressLike, principal: BigNumberish, collateral: BigNumberish, term: BigNumberish, metadataHash: BytesLike, metadataURI: string, initialLtvBps: BigNumberish];
+      export type OutputTuple = [requestId: bigint, borrower: string, principal: bigint, collateral: bigint, term: bigint, metadataHash: string, metadataURI: string, initialLtvBps: bigint];
+      export interface OutputObject {requestId: bigint, borrower: string, principal: bigint, collateral: bigint, term: bigint, metadataHash: string, metadataURI: string, initialLtvBps: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -114,6 +148,18 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       export type InputTuple = [requestId: BigNumberish, loanId: BigNumberish, lender: AddressLike, principal: BigNumberish, collateral: BigNumberish, maturity: BigNumberish];
       export type OutputTuple = [requestId: bigint, loanId: bigint, lender: string, principal: bigint, collateral: bigint, maturity: bigint];
       export interface OutputObject {requestId: bigint, loanId: bigint, lender: string, principal: bigint, collateral: bigint, maturity: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace RequestRepaidEvent {
+      export type InputTuple = [requestId: BigNumberish, loanId: BigNumberish, borrower: AddressLike, lender: AddressLike];
+      export type OutputTuple = [requestId: bigint, loanId: bigint, borrower: string, lender: string];
+      export interface OutputObject {requestId: bigint, loanId: bigint, borrower: string, lender: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -220,6 +266,22 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    LIQUIDATION_SETTLEMENT_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    P2P_INITIAL_LTV_BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     abcd: TypedContractMethod<
       [],
       [string],
@@ -232,6 +294,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       [requestId: BigNumberish, ],
       [void],
       'nonpayable'
+    >
+    
+
+    
+    collateralValueUSD: TypedContractMethod<
+      [collateralETH: BigNumberish, ],
+      [bigint],
+      'view'
     >
     
 
@@ -292,6 +362,30 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    isP2PLoan: TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [boolean],
+      'view'
+    >
+    
+
+    
+    lendingReferralManager: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    liquidationEngine: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     loanManager: TypedContractMethod<
       [],
       [string],
@@ -304,6 +398,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       [],
       [string],
       'view'
+    >
+    
+
+    
+    markLoanRepaid: TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [void],
+      'nonpayable'
     >
     
 
@@ -340,6 +442,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    previewMaxP2PPrincipal: TypedContractMethod<
+      [collateralETH: BigNumberish, ],
+      [bigint],
+      'view'
+    >
+    
+
+    
     renounceRole: TypedContractMethod<
       [role: BytesLike, callerConfirmation: AddressLike, ],
       [void],
@@ -348,9 +458,17 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    requestByLoanId: TypedContractMethod<
+      [arg0: BigNumberish, ],
+      [bigint],
+      'view'
+    >
+    
+
+    
     requests: TypedContractMethod<
       [arg0: BigNumberish, ],
-      [[string, bigint, bigint, bigint, bigint, string, string, string, bigint] & {borrower: string, principal: bigint, collateral: bigint, term: bigint, state: bigint, lender: string, metadataURI: string, metadataHash: string, loanId: bigint }],
+      [[string, bigint, bigint, bigint, bigint, string, string, string, bigint, bigint] & {borrower: string, principal: bigint, collateral: bigint, term: bigint, state: bigint, lender: string, metadataURI: string, metadataHash: string, loanId: bigint, initialLtvBps: bigint }],
       'view'
     >
     
@@ -372,8 +490,24 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    setLiquidationEngine: TypedContractMethod<
+      [engine_: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     settleDefault: TypedContractMethod<
       [requestId: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    settleLiquidation: TypedContractMethod<
+      [loanId: BigNumberish, liquidator: AddressLike, debtCovered: BigNumberish, collateralToLiquidator: BigNumberish, reserveContribution: BigNumberish, badDebt: BigNumberish, ],
       [void],
       'nonpayable'
     >
@@ -408,6 +542,16 @@ getFunction(nameOrSignature: 'ETH_ASSET'): TypedContractMethod<
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'LIQUIDATION_SETTLEMENT_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'P2P_INITIAL_LTV_BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
 getFunction(nameOrSignature: 'abcd'): TypedContractMethod<
       [],
       [string],
@@ -417,6 +561,11 @@ getFunction(nameOrSignature: 'cancelRequest'): TypedContractMethod<
       [requestId: BigNumberish, ],
       [void],
       'nonpayable'
+    >;
+getFunction(nameOrSignature: 'collateralValueUSD'): TypedContractMethod<
+      [collateralETH: BigNumberish, ],
+      [bigint],
+      'view'
     >;
 getFunction(nameOrSignature: 'collateralVault'): TypedContractMethod<
       [],
@@ -453,6 +602,21 @@ getFunction(nameOrSignature: 'hasRole'): TypedContractMethod<
       [boolean],
       'view'
     >;
+getFunction(nameOrSignature: 'isP2PLoan'): TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [boolean],
+      'view'
+    >;
+getFunction(nameOrSignature: 'lendingReferralManager'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'liquidationEngine'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'loanManager'): TypedContractMethod<
       [],
       [string],
@@ -462,6 +626,11 @@ getFunction(nameOrSignature: 'loanNFT'): TypedContractMethod<
       [],
       [string],
       'view'
+    >;
+getFunction(nameOrSignature: 'markLoanRepaid'): TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [void],
+      'nonpayable'
     >;
 getFunction(nameOrSignature: 'nextRequestId'): TypedContractMethod<
       [],
@@ -483,14 +652,24 @@ getFunction(nameOrSignature: 'paused'): TypedContractMethod<
       [boolean],
       'view'
     >;
+getFunction(nameOrSignature: 'previewMaxP2PPrincipal'): TypedContractMethod<
+      [collateralETH: BigNumberish, ],
+      [bigint],
+      'view'
+    >;
 getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
       [role: BytesLike, callerConfirmation: AddressLike, ],
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'requestByLoanId'): TypedContractMethod<
+      [arg0: BigNumberish, ],
+      [bigint],
+      'view'
+    >;
 getFunction(nameOrSignature: 'requests'): TypedContractMethod<
       [arg0: BigNumberish, ],
-      [[string, bigint, bigint, bigint, bigint, string, string, string, bigint] & {borrower: string, principal: bigint, collateral: bigint, term: bigint, state: bigint, lender: string, metadataURI: string, metadataHash: string, loanId: bigint }],
+      [[string, bigint, bigint, bigint, bigint, string, string, string, bigint, bigint] & {borrower: string, principal: bigint, collateral: bigint, term: bigint, state: bigint, lender: string, metadataURI: string, metadataHash: string, loanId: bigint, initialLtvBps: bigint }],
       'view'
     >;
 getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
@@ -503,8 +682,18 @@ getFunction(nameOrSignature: 'setEMIManager'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'setLiquidationEngine'): TypedContractMethod<
+      [engine_: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'settleDefault'): TypedContractMethod<
       [requestId: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'settleLiquidation'): TypedContractMethod<
+      [loanId: BigNumberish, liquidator: AddressLike, debtCovered: BigNumberish, collateralToLiquidator: BigNumberish, reserveContribution: BigNumberish, badDebt: BigNumberish, ],
       [void],
       'nonpayable'
     >;
@@ -520,10 +709,12 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
     >;
 
     getEvent(key: 'P2PDefaultSettled'): TypedContractEvent<P2PDefaultSettledEvent.InputTuple, P2PDefaultSettledEvent.OutputTuple, P2PDefaultSettledEvent.OutputObject>;
+getEvent(key: 'P2PLiquidationSettled'): TypedContractEvent<P2PLiquidationSettledEvent.InputTuple, P2PLiquidationSettledEvent.OutputTuple, P2PLiquidationSettledEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
 getEvent(key: 'RequestCancelled'): TypedContractEvent<RequestCancelledEvent.InputTuple, RequestCancelledEvent.OutputTuple, RequestCancelledEvent.OutputObject>;
 getEvent(key: 'RequestCreated'): TypedContractEvent<RequestCreatedEvent.InputTuple, RequestCreatedEvent.OutputTuple, RequestCreatedEvent.OutputObject>;
 getEvent(key: 'RequestFunded'): TypedContractEvent<RequestFundedEvent.InputTuple, RequestFundedEvent.OutputTuple, RequestFundedEvent.OutputObject>;
+getEvent(key: 'RequestRepaid'): TypedContractEvent<RequestRepaidEvent.InputTuple, RequestRepaidEvent.OutputTuple, RequestRepaidEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
 getEvent(key: 'RoleGranted'): TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
 getEvent(key: 'RoleRevoked'): TypedContractEvent<RoleRevokedEvent.InputTuple, RoleRevokedEvent.OutputTuple, RoleRevokedEvent.OutputObject>;
@@ -535,6 +726,10 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       P2PDefaultSettled: TypedContractEvent<P2PDefaultSettledEvent.InputTuple, P2PDefaultSettledEvent.OutputTuple, P2PDefaultSettledEvent.OutputObject>;
     
 
+      'P2PLiquidationSettled(uint256,uint256,address,address,uint256,uint256,uint256,uint256,uint256)': TypedContractEvent<P2PLiquidationSettledEvent.InputTuple, P2PLiquidationSettledEvent.OutputTuple, P2PLiquidationSettledEvent.OutputObject>;
+      P2PLiquidationSettled: TypedContractEvent<P2PLiquidationSettledEvent.InputTuple, P2PLiquidationSettledEvent.OutputTuple, P2PLiquidationSettledEvent.OutputObject>;
+    
+
       'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
       Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
     
@@ -543,12 +738,16 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       RequestCancelled: TypedContractEvent<RequestCancelledEvent.InputTuple, RequestCancelledEvent.OutputTuple, RequestCancelledEvent.OutputObject>;
     
 
-      'RequestCreated(uint256,address,uint256,uint256,uint48,bytes32,string)': TypedContractEvent<RequestCreatedEvent.InputTuple, RequestCreatedEvent.OutputTuple, RequestCreatedEvent.OutputObject>;
+      'RequestCreated(uint256,address,uint256,uint256,uint48,bytes32,string,uint16)': TypedContractEvent<RequestCreatedEvent.InputTuple, RequestCreatedEvent.OutputTuple, RequestCreatedEvent.OutputObject>;
       RequestCreated: TypedContractEvent<RequestCreatedEvent.InputTuple, RequestCreatedEvent.OutputTuple, RequestCreatedEvent.OutputObject>;
     
 
       'RequestFunded(uint256,uint256,address,uint256,uint256,uint48)': TypedContractEvent<RequestFundedEvent.InputTuple, RequestFundedEvent.OutputTuple, RequestFundedEvent.OutputObject>;
       RequestFunded: TypedContractEvent<RequestFundedEvent.InputTuple, RequestFundedEvent.OutputTuple, RequestFundedEvent.OutputObject>;
+    
+
+      'RequestRepaid(uint256,uint256,address,address)': TypedContractEvent<RequestRepaidEvent.InputTuple, RequestRepaidEvent.OutputTuple, RequestRepaidEvent.OutputObject>;
+      RequestRepaid: TypedContractEvent<RequestRepaidEvent.InputTuple, RequestRepaidEvent.OutputTuple, RequestRepaidEvent.OutputObject>;
     
 
       'RoleAdminChanged(bytes32,bytes32,bytes32)': TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;

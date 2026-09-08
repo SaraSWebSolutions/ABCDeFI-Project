@@ -88,10 +88,11 @@ describe("NFTMarketplace Contract Suite", function () {
       const finalSellerBal = await hardhatEthers.provider.getBalance(seller.address);
       const finalTreasuryBal = await hardhatEthers.provider.getBalance(await treasury.getAddress());
 
-      // 2.5% protocol fee of 1.0 ETH = 0.025 ETH to Treasury
-      expect(finalTreasuryBal - initialTreasuryBal).to.equal(ethers.parseEther("0.025"));
-      // 97.5% proceeds = 0.975 ETH to seller
-      expect(finalSellerBal - initialSellerBal).to.equal(ethers.parseEther("0.975"));
+      // Whitepaper NFT buy/sell fee: 0.1% of 1.0 ETH = 0.001 ETH to Treasury.
+      expect(await marketplace.marketplaceFeeBps()).to.equal(10);
+      expect(finalTreasuryBal - initialTreasuryBal).to.equal(ethers.parseEther("0.001"));
+      // The seller receives the exact 99.9% remainder.
+      expect(finalSellerBal - initialSellerBal).to.equal(ethers.parseEther("0.999"));
     });
   });
 
@@ -119,6 +120,13 @@ describe("NFTMarketplace Contract Suite", function () {
 
       expect(await loanNFT.ownerOf(1)).to.equal(seller.address);
     });
+  });
+
+  it("does not permit an administrator to raise the NFT fee above the approved 0.1% cap", async function () {
+    await expect(marketplace.connect(admin).setMarketplaceFee(11)).to.be.revert(ethers);
+    await expect(marketplace.connect(seller).setMarketplaceFee(10)).to.be.revert(ethers);
+    await marketplace.connect(admin).setMarketplaceFee(10);
+    expect(await marketplace.marketplaceFeeBps()).to.equal(10);
   });
 
   describe("3. Soulbound Protection", function () {

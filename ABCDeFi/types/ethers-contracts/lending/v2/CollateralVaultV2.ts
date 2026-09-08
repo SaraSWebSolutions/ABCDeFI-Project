@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface CollateralVaultV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "VAULT_OPERATOR_ROLE" | "bindDirectDeposit" | "bindRequest" | "depositForDirectDeposit" | "depositForRequest" | "directDepositCollateral" | "getRoleAdmin" | "grantRole" | "hasRole" | "loanCollateral" | "lockDirect" | "release" | "releaseDirectDeposit" | "releaseRequest" | "renounceRole" | "requestCollateral" | "revokeRole" | "seize" | "supportsInterface"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "VAULT_OPERATOR_ROLE" | "bindDirectDeposit" | "bindRequest" | "depositForDirectDeposit" | "depositForRequest" | "directDepositCollateral" | "getRoleAdmin" | "grantRole" | "hasRole" | "loanCollateral" | "lockDirect" | "release" | "releaseDirectDeposit" | "releaseRequest" | "renounceRole" | "requestCollateral" | "revokeRole" | "seize" | "supportsInterface" | "topUpLoanCollateral"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "CollateralLocked" | "CollateralReleased" | "CollateralSeized" | "DirectDepositCollateralDeposited" | "RequestCollateralDeposited" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "CollateralLocked" | "CollateralReleased" | "CollateralSeized" | "DirectDepositCollateralDeposited" | "LoanCollateralToppedUp" | "RequestCollateralDeposited" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'VAULT_OPERATOR_ROLE', values?: undefined): string;
@@ -30,6 +30,7 @@ encodeFunctionData(functionFragment: 'requestCollateral', values: [BigNumberish]
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'seize', values: [BigNumberish, AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
+encodeFunctionData(functionFragment: 'topUpLoanCollateral', values: [BigNumberish, AddressLike]): string;
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'VAULT_OPERATOR_ROLE', data: BytesLike): Result;
@@ -51,6 +52,7 @@ decodeFunctionResult(functionFragment: 'requestCollateral', data: BytesLike): Re
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'seize', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'topUpLoanCollateral', data: BytesLike): Result;
   }
 
   
@@ -94,6 +96,18 @@ decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Re
       export type InputTuple = [depositId: BigNumberish, borrower: AddressLike, amount: BigNumberish];
       export type OutputTuple = [depositId: bigint, borrower: string, amount: bigint];
       export interface OutputObject {depositId: bigint, borrower: string, amount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace LoanCollateralToppedUpEvent {
+      export type InputTuple = [loanId: BigNumberish, borrower: AddressLike, amount: BigNumberish, totalCollateral: BigNumberish];
+      export type OutputTuple = [loanId: bigint, borrower: string, amount: bigint, totalCollateral: bigint];
+      export interface OutputObject {loanId: bigint, borrower: string, amount: bigint, totalCollateral: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -343,6 +357,14 @@ decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Re
     >
     
 
+    
+    topUpLoanCollateral: TypedContractMethod<
+      [loanId: BigNumberish, borrower: AddressLike, ],
+      [void],
+      'payable'
+    >
+    
+
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
@@ -446,11 +468,17 @@ getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod<
       [boolean],
       'view'
     >;
+getFunction(nameOrSignature: 'topUpLoanCollateral'): TypedContractMethod<
+      [loanId: BigNumberish, borrower: AddressLike, ],
+      [void],
+      'payable'
+    >;
 
     getEvent(key: 'CollateralLocked'): TypedContractEvent<CollateralLockedEvent.InputTuple, CollateralLockedEvent.OutputTuple, CollateralLockedEvent.OutputObject>;
 getEvent(key: 'CollateralReleased'): TypedContractEvent<CollateralReleasedEvent.InputTuple, CollateralReleasedEvent.OutputTuple, CollateralReleasedEvent.OutputObject>;
 getEvent(key: 'CollateralSeized'): TypedContractEvent<CollateralSeizedEvent.InputTuple, CollateralSeizedEvent.OutputTuple, CollateralSeizedEvent.OutputObject>;
 getEvent(key: 'DirectDepositCollateralDeposited'): TypedContractEvent<DirectDepositCollateralDepositedEvent.InputTuple, DirectDepositCollateralDepositedEvent.OutputTuple, DirectDepositCollateralDepositedEvent.OutputObject>;
+getEvent(key: 'LoanCollateralToppedUp'): TypedContractEvent<LoanCollateralToppedUpEvent.InputTuple, LoanCollateralToppedUpEvent.OutputTuple, LoanCollateralToppedUpEvent.OutputObject>;
 getEvent(key: 'RequestCollateralDeposited'): TypedContractEvent<RequestCollateralDepositedEvent.InputTuple, RequestCollateralDepositedEvent.OutputTuple, RequestCollateralDepositedEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
 getEvent(key: 'RoleGranted'): TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
@@ -472,6 +500,10 @@ getEvent(key: 'RoleRevoked'): TypedContractEvent<RoleRevokedEvent.InputTuple, Ro
 
       'DirectDepositCollateralDeposited(uint256,address,uint256)': TypedContractEvent<DirectDepositCollateralDepositedEvent.InputTuple, DirectDepositCollateralDepositedEvent.OutputTuple, DirectDepositCollateralDepositedEvent.OutputObject>;
       DirectDepositCollateralDeposited: TypedContractEvent<DirectDepositCollateralDepositedEvent.InputTuple, DirectDepositCollateralDepositedEvent.OutputTuple, DirectDepositCollateralDepositedEvent.OutputObject>;
+    
+
+      'LoanCollateralToppedUp(uint256,address,uint256,uint256)': TypedContractEvent<LoanCollateralToppedUpEvent.InputTuple, LoanCollateralToppedUpEvent.OutputTuple, LoanCollateralToppedUpEvent.OutputObject>;
+      LoanCollateralToppedUp: TypedContractEvent<LoanCollateralToppedUpEvent.InputTuple, LoanCollateralToppedUpEvent.OutputTuple, LoanCollateralToppedUpEvent.OutputObject>;
     
 
       'RequestCollateralDeposited(uint256,address,uint256)': TypedContractEvent<RequestCollateralDepositedEvent.InputTuple, RequestCollateralDepositedEvent.OutputTuple, RequestCollateralDepositedEvent.OutputObject>;

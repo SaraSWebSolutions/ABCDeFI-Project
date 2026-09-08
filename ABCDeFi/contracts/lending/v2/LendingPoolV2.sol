@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./LoanManagerV2.sol";
 import "./CollateralVaultV2.sol";
 import "./OracleAdapterV2.sol";
+import "./LendingReferralManagerV2.sol";
 import "../../nft/LoanNFTV2.sol";
 
 /// @notice Isolated direct-lending V2 pool. V1 pool accounting and economics are never reused here.
@@ -16,7 +17,6 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint16 public constant MAX_INITIAL_LTV_BPS = 5_000;
-    uint16 public constant FIXED_APR_BPS = 1_200;
     uint256 private constant BPS = 10_000;
     address public constant ETH_ASSET = address(1);
 
@@ -26,6 +26,7 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
     CollateralVaultV2 public immutable collateralVault;
     OracleAdapterV2 public immutable oracle;
     LoanNFTV2 public immutable loanNFT;
+    LendingReferralManagerV2 public immutable lendingReferralManager;
     uint256 public liquidity;
     uint256 public nextCollateralDepositId = 1;
     struct PendingCollateral { address borrower; uint128 amount; bool active; }
@@ -36,11 +37,12 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
     event PendingCollateralWithdrawn(uint256 indexed depositId, address indexed borrower, uint256 collateralETH);
     event DirectLoanOpened(uint256 indexed loanId, uint256 indexed depositId, address indexed borrower, uint256 principal, uint256 collateralETH, uint48 term, uint48 maturity, bytes32 metadataHash, string metadataURI);
     event DirectLoanRepaid(uint256 indexed loanId, address indexed borrower, uint256 amount, uint256 fee, uint256 interest, uint256 principal);
+    event DirectLoanCollateralToppedUp(uint256 indexed loanId, address indexed borrower, uint256 amount, uint256 totalCollateral);
     event SettledCollateralWithdrawn(uint256 indexed loanId, address indexed borrower, uint256 amount);
 
-    constructor(address admin, address abcd_, address manager_, address vault_, address oracle_, address loanNFT_) {
-        require(admin != address(0) && abcd_ != address(0) && manager_ != address(0) && vault_ != address(0) && oracle_ != address(0) && loanNFT_ != address(0), "invalid address");
-        abcd = IERC20(abcd_); loanManager = LoanManagerV2(manager_); collateralVault = CollateralVaultV2(vault_); oracle = OracleAdapterV2(oracle_); loanNFT = LoanNFTV2(loanNFT_);
+    constructor(address admin, address abcd_, address manager_, address vault_, address oracle_, address loanNFT_, address lendingReferralManager_) {
+        require(admin != address(0) && abcd_ != address(0) && manager_ != address(0) && vault_ != address(0) && oracle_ != address(0) && loanNFT_ != address(0) && lendingReferralManager_ != address(0), "invalid address");
+        abcd = IERC20(abcd_); loanManager = LoanManagerV2(manager_); collateralVault = CollateralVaultV2(vault_); oracle = OracleAdapterV2(oracle_); loanNFT = LoanNFTV2(loanNFT_); lendingReferralManager = LendingReferralManagerV2(lendingReferralManager_);
         _grantRole(DEFAULT_ADMIN_ROLE, admin); _grantRole(LIQUIDITY_MANAGER_ROLE, admin);
     }
 
@@ -54,6 +56,8 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
         uint256 usd = collateralValueUSD(collateralETH) * MAX_INITIAL_LTV_BPS / BPS;
         return usd * 1e18 / oracle.priceUSD(address(abcd));
     }
+    /// @notice The rate applied only to loans originated after the current governance setting.
+    function currentNewLoanAprBps() external view returns (uint16) { return loanManager.newLoanAprBps(); }
 
     /// @notice Deposits ETH into a unique direct-pool collateral namespace before borrowing.
     function depositCollateral() external payable whenNotPaused nonReentrant returns (uint256 depositId) {
@@ -98,9 +102,12 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
         require(bytes(metadataURI).length != 0 && metadataHash != bytes32(0), "metadata required");
         require(principal <= maxBorrowable(collateral), "ltv exceeded");
         require(liquidity >= principal, "insufficient liquidity");
-        loanId = loanManager.create(msg.sender, address(this), collateral, principal, FIXED_APR_BPS, term);
+        uint16 aprBps = loanManager.newLoanAprBps();
+        loanId = loanManager.create(msg.sender, address(this), collateral, principal, aprBps, term);
+        // A direct loan is rewardable only after the principal was actually
+        // disbursed and the authoritative LoanManager record exists.
+        lendingReferralManager.registerLoan(loanId, 0, false);
         LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
-        loanNFT.mintDirect(msg.sender, loanId, principal, collateral, FIXED_APR_BPS, loan.start, loan.maturity, metadataURI, metadataHash);
         liquidity -= principal;
         abcd.safeTransfer(msg.sender, principal);
         emit DirectLoanOpened(loanId, depositId, msg.sender, principal, collateral, term, loan.maturity, metadataHash, metadataURI);
@@ -117,12 +124,21 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
         return loanManager.previewOutstanding(loanId);
     }
 
+    /// @notice Lets the borrower cure an on-chain risk state by increasing only that loan's collateral.
+    function addCollateralToLoan(uint256 loanId) external payable whenNotPaused nonReentrant {
+        LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
+        require(loan.borrower == msg.sender && msg.value != 0, "invalid collateral top up");
+        require(loan.state == LoanManagerV2.State.ACTIVE || loan.state == LoanManagerV2.State.MARGIN_CALL || loan.state == LoanManagerV2.State.GRACE_PERIOD, "loan not active");
+        collateralVault.topUpLoanCollateral{value: msg.value}(loanId, msg.sender);
+        emit DirectLoanCollateralToppedUp(loanId, msg.sender, msg.value, collateralVault.loanCollateral(loanId));
+    }
+
     /// @notice A repayment must not exceed the current exact on-chain obligation.
     function repay(uint256 loanId, uint256 amount) external nonReentrant returns (uint256 fee, uint256 interest, uint256 principal) {
         LoanManagerV2.Loan memory beforeLoan = loanManager.getLoan(loanId);
         require(beforeLoan.borrower == msg.sender, "not borrower");
         syncLoan(loanId);
-        return _repay(loanId, amount);
+        return _repay(loanId, amount, false, _emptyCompletionMetadata());
     }
 
     /// @notice Settles the exact in-transaction obligation, preventing a one-block interest-dust balance.
@@ -130,25 +146,52 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
         LoanManagerV2.Loan memory beforeLoan = loanManager.getLoan(loanId);
         require(beforeLoan.borrower == msg.sender, "not borrower");
         syncLoan(loanId);
-        return _repay(loanId, outstanding(loanId));
+        return _repay(loanId, outstanding(loanId), false, _emptyCompletionMetadata());
     }
 
-    function _repay(uint256 loanId, uint256 amount) internal returns (uint256 fee, uint256 interest, uint256 principal) {
+    /// @notice Uses publisher-produced metadata to create the three completion
+    /// certificates in the same transaction as a terminal repayment.
+    function repayWithCompletionMetadata(uint256 loanId, uint256 amount, LoanNFTV2.CompletionMetadata calldata metadata)
+        external nonReentrant returns (uint256 fee, uint256 interest, uint256 principal)
+    {
+        LoanManagerV2.Loan memory beforeLoan = loanManager.getLoan(loanId);
+        require(beforeLoan.borrower == msg.sender, "not borrower");
+        syncLoan(loanId);
+        return _repay(loanId, amount, true, metadata);
+    }
+
+    function repayAllWithCompletionMetadata(uint256 loanId, LoanNFTV2.CompletionMetadata calldata metadata)
+        external nonReentrant returns (uint256 fee, uint256 interest, uint256 principal)
+    {
+        LoanManagerV2.Loan memory beforeLoan = loanManager.getLoan(loanId);
+        require(beforeLoan.borrower == msg.sender, "not borrower");
+        syncLoan(loanId);
+        return _repay(loanId, outstanding(loanId), true, metadata);
+    }
+
+    function _repay(uint256 loanId, uint256 amount, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata)
+        internal returns (uint256 fee, uint256 interest, uint256 principal)
+    {
         uint256 due = outstanding(loanId); require(amount != 0 && amount <= due, "invalid repayment");
         abcd.safeTransferFrom(msg.sender, address(this), amount);
         (fee, interest, principal) = loanManager.repay(loanId, msg.sender, amount);
         liquidity += amount;
         LoanManagerV2.Loan memory afterLoan = loanManager.getLoan(loanId);
-        if (afterLoan.state == LoanManagerV2.State.REPAID) loanNFT.setStatus(loanId, LoanNFTV2.Status.REPAID);
+        if (afterLoan.state == LoanManagerV2.State.REPAID) {
+            require(hasCompletionMetadata, "completion metadata required");
+            loanNFT.mintCompletionCertificates(loanId, 0, false, metadata);
+        }
         emit DirectLoanRepaid(loanId, msg.sender, amount, fee, interest, principal);
     }
+
+    function _emptyCompletionMetadata() private pure returns (LoanNFTV2.CompletionMetadata memory metadata) { }
 
     /// @notice ETH can leave the loan-scoped vault only after full settlement.
     function withdrawSettledCollateral(uint256 loanId) external nonReentrant {
         LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
-        require(loan.borrower == msg.sender && loan.state == LoanManagerV2.State.REPAID, "not settled");
+        require(loan.borrower == msg.sender && loan.state == LoanManagerV2.State.REPAID && loanNFT.completionCreated(loanId), "not settled");
         loanManager.close(loanId);
-        loanNFT.setStatus(loanId, LoanNFTV2.Status.CLOSED);
+        lendingReferralManager.recordLoanCompletion(loanId);
         uint256 amount = collateralVault.release(loanId, payable(msg.sender));
         emit SettledCollateralWithdrawn(loanId, msg.sender, amount);
     }

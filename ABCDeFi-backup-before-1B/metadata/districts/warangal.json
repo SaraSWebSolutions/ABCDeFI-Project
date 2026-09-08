@@ -1,0 +1,45 @@
+{
+  "name": "Warangal",
+  "district": "Warangal",
+  "state": "Telangana",
+  "country": "India",
+  "continent": "Asia",
+  "mascot": "District Knight",
+  "description": "Official ABCDeFi Legion District Territory NFT for Warangal, Telangana, India.",
+  "image": "ipfs://QmA2d5aKw7Jv3pD8mN4L6R2t1Y5c0A3e8F9e/districts/warangal.png",
+  "level": "District",
+  "attributes": [
+    {
+      "trait_type": "Level",
+      "value": "District"
+    },
+    {
+      "trait_type": "District",
+      "value": "Warangal"
+    },
+    {
+      "trait_type": "State",
+      "value": "Telangana"
+    },
+    {
+      "trait_type": "Country",
+      "value": "India"
+    },
+    {
+      "trait_type": "Parent NFT ID",
+      "value": 201
+    },
+    {
+      "trait_type": "Character",
+      "value": "District Knight"
+    },
+    {
+      "trait_type": "Treasury Share Bps",
+      "value": 50
+    },
+    {
+      "trait_type": "Mascot",
+      "value": "District Knight"
+    }
+  ]
+}
