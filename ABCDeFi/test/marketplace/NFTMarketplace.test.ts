@@ -6,12 +6,12 @@ let hardhatEthers: any;
 beforeEach(async function () {
   hardhatEthers = (await network.connect()).ethers;
 });
-import { NFTMarketplace, LoanNFT, ReputationNFT, Treasury } from "../../abcdefi-token/typechain-types";
+import { NFTMarketplace, ParticipantNFT, ReputationNFT, Treasury } from "../../abcdefi-token/typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("NFTMarketplace Contract Suite", function () {
   let marketplace: NFTMarketplace;
-  let loanNFT: LoanNFT;
+  let participantNFT: ParticipantNFT;
   let reputationNFT: ReputationNFT;
   let treasury: Treasury;
 
@@ -40,26 +40,16 @@ describe("NFTMarketplace Contract Suite", function () {
     marketplace = (await MarketplaceFactory.deploy(await treasury.getAddress(), admin.address)) as unknown as NFTMarketplace;
     await marketplace.waitForDeployment();
 
-    const LoanNFTFactory = await hardhatEthers.getContractFactory("LoanNFT");
-    loanNFT = (await LoanNFTFactory.deploy(admin.address)) as unknown as LoanNFT;
-    await loanNFT.waitForDeployment();
+    const ParticipantFactory = await hardhatEthers.getContractFactory("ParticipantNFT");
+    participantNFT = (await ParticipantFactory.deploy(admin.address)) as unknown as ParticipantNFT;
+    await participantNFT.waitForDeployment();
 
     const ReputationFactory = await hardhatEthers.getContractFactory("ReputationNFT");
     reputationNFT = (await ReputationFactory.deploy(admin.address)) as unknown as ReputationNFT;
     await reputationNFT.waitForDeployment();
 
-    // Mint a LoanNFT certificate to seller
-    await loanNFT.connect(admin).mintLoanNFT(
-      1,
-      seller.address,
-      admin.address,
-      ethers.parseUnits("1000", 18),
-      ethers.parseEther("1.0"),
-      500,
-      12,
-      "ipfs://loan-1",
-      0
-    );
+    // Use a transferable participant NFT for the ordinary marketplace flow.
+    await participantNFT.connect(admin).mintParticipantNFT(seller.address, "Marketplace test", 1, "ipfs://participant-1");
   });
 
   describe("1. Listing & Purchasing Mechanics", function () {
@@ -67,14 +57,14 @@ describe("NFTMarketplace Contract Suite", function () {
       const listingPrice = ethers.parseEther("1.0");
       const marketplaceAddr = await marketplace.getAddress();
 
-      // Approve marketplace to transfer seller's LoanNFT
-      await loanNFT.connect(seller).approve(marketplaceAddr, 1);
+      // Approve marketplace to transfer seller's transferable participant NFT.
+      await participantNFT.connect(seller).approve(marketplaceAddr, 1);
 
-      await expect(marketplace.connect(seller).listNFT(await loanNFT.getAddress(), 1, listingPrice))
+      await expect(marketplace.connect(seller).listNFT(await participantNFT.getAddress(), 1, listingPrice))
         .to.emit(marketplace, "NFTListed")
-        .withArgs(1, await loanNFT.getAddress(), 1, seller.address, listingPrice);
+        .withArgs(1, await participantNFT.getAddress(), 1, seller.address, listingPrice);
 
-      expect(await loanNFT.ownerOf(1)).to.equal(marketplaceAddr);
+      expect(await participantNFT.ownerOf(1)).to.equal(marketplaceAddr);
 
       const initialSellerBal = await hardhatEthers.provider.getBalance(seller.address);
       const initialTreasuryBal = await hardhatEthers.provider.getBalance(await treasury.getAddress());
@@ -83,7 +73,7 @@ describe("NFTMarketplace Contract Suite", function () {
       await expect(marketplace.connect(buyer).buyNFT(1, { value: listingPrice }))
         .to.emit(marketplace, "NFTSold");
 
-      expect(await loanNFT.ownerOf(1)).to.equal(buyer.address);
+      expect(await participantNFT.ownerOf(1)).to.equal(buyer.address);
 
       const finalSellerBal = await hardhatEthers.provider.getBalance(seller.address);
       const finalTreasuryBal = await hardhatEthers.provider.getBalance(await treasury.getAddress());
@@ -99,8 +89,8 @@ describe("NFTMarketplace Contract Suite", function () {
   describe("2. Price Updates & Cancellations", function () {
     beforeEach(async function () {
       const marketplaceAddr = await marketplace.getAddress();
-      await loanNFT.connect(seller).approve(marketplaceAddr, 1);
-      await marketplace.connect(seller).listNFT(await loanNFT.getAddress(), 1, ethers.parseEther("1.0"));
+      await participantNFT.connect(seller).approve(marketplaceAddr, 1);
+      await marketplace.connect(seller).listNFT(await participantNFT.getAddress(), 1, ethers.parseEther("1.0"));
     });
 
     it("should allow seller to update listing price", async function () {
@@ -118,11 +108,27 @@ describe("NFTMarketplace Contract Suite", function () {
         .to.emit(marketplace, "ListingCancelled")
         .withArgs(1);
 
-      expect(await loanNFT.ownerOf(1)).to.equal(seller.address);
+      expect(await participantNFT.ownerOf(1)).to.equal(seller.address);
+    });
+
+    it("rejects cancellation by a wallet that is neither the seller nor marketplace administrator", async function () {
+      await expect(marketplace.connect(buyer).cancelListing(1)).to.be.revert(ethers);
+      expect((await marketplace.getListing(1)).active).to.equal(true);
+      expect(await participantNFT.ownerOf(1)).to.equal(await marketplace.getAddress());
     });
   });
 
-  it("does not permit an administrator to raise the NFT fee above the approved 0.1% cap", async function () {
+  it("rejects a non-owner listing and a zero-price listing", async function () {
+    await expect(
+      marketplace.connect(buyer).listNFT(await participantNFT.getAddress(), 1, ethers.parseEther("1"))
+    ).to.be.revert(ethers);
+    await expect(
+      marketplace.connect(seller).listNFT(await participantNFT.getAddress(), 1, 0)
+    ).to.be.revert(ethers);
+  });
+
+  it("keeps the NFT fee fixed at the whitepaper-approved 0.1%", async function () {
+    await expect(marketplace.connect(admin).setMarketplaceFee(0)).to.be.revert(ethers);
     await expect(marketplace.connect(admin).setMarketplaceFee(11)).to.be.revert(ethers);
     await expect(marketplace.connect(seller).setMarketplaceFee(10)).to.be.revert(ethers);
     await marketplace.connect(admin).setMarketplaceFee(10);
@@ -144,7 +150,33 @@ describe("NFTMarketplace Contract Suite", function () {
     });
   });
 
-  describe("4. Franchise transfer-lock protection", function () {
+  describe("4. Reentrancy protection", function () {
+    it("rejects a nested cancellation of a separate escrowed listing during the buyer excess-ETH refund", async function () {
+      const marketplaceAddress = await marketplace.getAddress();
+      await participantNFT.connect(seller).approve(marketplaceAddress, 1);
+      await marketplace.connect(seller).listNFT(await participantNFT.getAddress(), 1, ethers.parseEther("1"));
+
+      const ReentrantBuyer = await hardhatEthers.getContractFactory("ReentrantMarketplaceBuyer");
+      const attacker = await ReentrantBuyer.connect(buyer).deploy(marketplaceAddress);
+      await attacker.waitForDeployment();
+
+      // A separate listing owned by the receiver is active when its refund
+      // callback runs. Without nonReentrant, that callback could cancel it.
+      await participantNFT.connect(admin).mintParticipantNFT(await attacker.getAddress(), "Reentrancy test", 2, "ipfs://participant-2");
+      await attacker.connect(buyer).prepareListing(await participantNFT.getAddress(), 2, ethers.parseEther("1"));
+
+      await attacker.connect(buyer).buy(1, 2, { value: ethers.parseEther("1.1") });
+
+      expect(await attacker.reentryAttempted()).to.equal(true);
+      expect(await attacker.reentrySucceeded()).to.equal(false);
+      expect(await participantNFT.ownerOf(1)).to.equal(await attacker.getAddress());
+      expect((await marketplace.getListing(1)).active).to.equal(false);
+      expect((await marketplace.getListing(2)).active).to.equal(true);
+      expect(await participantNFT.ownerOf(2)).to.equal(marketplaceAddress);
+    });
+  });
+
+  describe("5. Franchise transfer-lock protection", function () {
     it("rejects escrow listing during the three-year lock and allows the real marketplace flow only after expiry", async function () {
       const FranchiseFactory = await hardhatEthers.getContractFactory("FranchiseNFT");
       const franchise = await FranchiseFactory.deploy(admin.address, admin.address);

@@ -50,8 +50,6 @@ async function main() {
   const loanNFT = await hh.getContractAt("LoanNFTV2", address("LoanNFTV2"));
   const ethFeed = await hh.getContractAt("MockAggregatorV3V2", address("MockAggregatorV3V2_ETH_USD"));
   const poolAddress = await pool.getAddress();
-  const metadataURI = "ipfs://bafybeigdyrzt5xw5ahm6tv5hryfxewq5r2y6d3kktm6rq5i4te2zo5x7lm";
-  const metadataHash = ethers.keccak256(ethers.toUtf8Bytes(metadataURI));
   const collateral = ethers.parseEther("0.1");
   const principal = ethers.parseUnits("50", 18);
   const term = 30 * 24 * 60 * 60;
@@ -70,7 +68,7 @@ async function main() {
   assert.ok(capacity >= principal, "authoritative V2 capacity is insufficient for the safe test principal");
 
   const borrowerBefore = await token.balanceOf(borrower.address);
-  const borrowTx = await pool.connect(borrower).borrowABCD(depositId, principal, term, metadataURI, metadataHash);
+  const borrowTx = await pool.connect(borrower).borrowABCD(depositId, principal, term);
   const borrowReceipt = await mined(borrowTx, poolAddress, "direct borrow");
   const borrowArgs = eventArgs(borrowReceipt, pool, "DirectLoanOpened");
   const directLoanId = borrowArgs.loanId as bigint;
@@ -111,7 +109,7 @@ async function main() {
   assert.equal((await manager.getLoan(directLoanId)).state, 5n, "loan did not close after collateral withdrawal");
 
   // Margin call and cure: top-up only changes the loan-scoped collateral mapping.
-  const marginOpenTx = await pool.connect(marginBorrower).openLoan(principal, term, metadataURI, metadataHash, { value: collateral });
+  const marginOpenTx = await pool.connect(marginBorrower).openLoan(principal, term, { value: collateral });
   const marginOpenReceipt = await mined(marginOpenTx, poolAddress, "margin-test loan opening");
   const marginLoanId = eventArgs(marginOpenReceipt, pool, "DirectLoanOpened").loanId as bigint;
   await mined(await ethFeed.connect(admin).setAnswer(700n * 10n ** 8n), await ethFeed.getAddress(), "margin-test oracle update");
@@ -133,7 +131,7 @@ async function main() {
 
   // Separate full-close liquidation with reserve use: local mock oracle only.
   await mined(await ethFeed.connect(admin).setAnswer(2_000n * 10n ** 8n), await ethFeed.getAddress(), "oracle reset before liquidation loan");
-  const liquidateOpenTx = await pool.connect(liquidationBorrower).openLoan(principal, term, metadataURI, metadataHash, { value: collateral });
+  const liquidateOpenTx = await pool.connect(liquidationBorrower).openLoan(principal, term, { value: collateral });
   const liquidateOpenReceipt = await mined(liquidateOpenTx, poolAddress, "liquidation-test loan opening");
   const liquidationLoanId = eventArgs(liquidateOpenReceipt, pool, "DirectLoanOpened").loanId as bigint;
   let liquiditySigner: any = null;

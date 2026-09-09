@@ -54,6 +54,10 @@ export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> =
         deployment manifest and use the connected MetaMask account for authorized writes.
       </p>
       <p className="mt-2 text-xs text-amber-100/70">
+        Application administrator access does not grant any on-chain role. Every write independently checks the connected signer’s
+        contract permission and waits for a real receipt. The canonical ICO remains inactive because no approved sale inventory exists.
+      </p>
+      <p className="mt-2 text-xs text-amber-100/70">
         TVL, revenue, user counts, KYC, AML, generic analytics, support, and fabricated loan metrics are unavailable
         because this deployment has no canonical backend or on-chain source for them.
       </p>

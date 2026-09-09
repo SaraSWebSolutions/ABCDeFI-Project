@@ -33,10 +33,12 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant LIQUIDATION_SETTLEMENT_ROLE = keccak256("LIQUIDATION_SETTLEMENT_ROLE");
     uint256 public nextRequestId = 1;
     enum RequestState { OPEN, FUNDED, CANCELLED, SETTLED }
-    struct Request { address borrower; uint128 principal; uint128 collateral; uint48 term; RequestState state; address lender; string metadataURI; bytes32 metadataHash; uint256 loanId; uint16 initialLtvBps; }
+    // A request does not create a LoanNFT. Completion provenance belongs to
+    // the settled loan, not to an unfunded request.
+    struct Request { address borrower; uint128 principal; uint128 collateral; uint48 term; RequestState state; address lender; uint256 loanId; uint16 initialLtvBps; }
     mapping(uint256 => Request) public requests;
     mapping(uint256 => uint256) public requestByLoanId;
-    event RequestCreated(uint256 indexed requestId, address indexed borrower, uint256 principal, uint256 collateral, uint48 term, bytes32 metadataHash, string metadataURI, uint16 initialLtvBps);
+    event RequestCreated(uint256 indexed requestId, address indexed borrower, uint256 principal, uint256 collateral, uint48 term, uint16 initialLtvBps);
     event RequestFunded(uint256 indexed requestId, uint256 indexed loanId, address indexed lender, uint256 principal, uint256 collateral, uint48 maturity);
     event RequestRepaid(uint256 indexed requestId, uint256 indexed loanId, address indexed borrower, address lender);
     event RequestCancelled(uint256 indexed requestId);
@@ -64,15 +66,14 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
         uint256 abcdPrice = oracle.priceUSD(address(abcd));
         return collateralValueUSD(collateralETH) * P2P_INITIAL_LTV_BPS / BPS_DENOMINATOR * 1e18 / abcdPrice;
     }
-    function createRequest(uint128 principal, uint48 term, string calldata metadataURI, bytes32 metadataHash) external payable whenNotPaused nonReentrant returns(uint256 requestId) {
+    function createRequest(uint128 principal, uint48 term) external payable whenNotPaused nonReentrant returns(uint256 requestId) {
         require(principal != 0 && msg.value != 0 && (term==30 days || term==90 days || term==180 days), "invalid request");
-        require(bytes(metadataURI).length != 0 && metadataHash != bytes32(0), "metadata required");
         require(principal <= previewMaxP2PPrincipal(msg.value), "p2p ltv exceeded");
         requestId=nextRequestId++; collateralVault.depositForRequest{value:msg.value}(requestId,msg.sender);
         // Record the accepted policy on the request so later policy changes do
         // not change how this historical request is interpreted.
-        requests[requestId]=Request(msg.sender,principal,uint128(msg.value),term,RequestState.OPEN,address(0),metadataURI,metadataHash,0,P2P_INITIAL_LTV_BPS);
-        emit RequestCreated(requestId,msg.sender,principal,msg.value,term,metadataHash,metadataURI,P2P_INITIAL_LTV_BPS);
+        requests[requestId]=Request(msg.sender,principal,uint128(msg.value),term,RequestState.OPEN,address(0),0,P2P_INITIAL_LTV_BPS);
+        emit RequestCreated(requestId,msg.sender,principal,msg.value,term,P2P_INITIAL_LTV_BPS);
     }
     function cancelRequest(uint256 requestId) external nonReentrant { Request storage r=requests[requestId]; require(r.borrower==msg.sender && r.state==RequestState.OPEN,"not cancellable"); r.state=RequestState.CANCELLED; collateralVault.releaseRequest(requestId,payable(msg.sender)); emit RequestCancelled(requestId); }
     function fundRequest(uint256 requestId) external whenNotPaused nonReentrant returns(uint256 loanId) {

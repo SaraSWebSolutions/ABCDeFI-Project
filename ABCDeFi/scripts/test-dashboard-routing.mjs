@@ -88,6 +88,43 @@ test('administrator issuance remains structurally isolated in AdminPortalEngine'
   assert.match(adminSource, /<AdminAuthenticationDiagnostics\s*\/>/);
 });
 
+test('the active admin route is narrow, real-capability-only, and separate from legacy mock controls', () => {
+  const adminSource = fs.readFileSync(new URL('../src/components/AdminPortalEngine.tsx', import.meta.url), 'utf8');
+  const activeAdminSource = adminSource.slice(
+    adminSource.indexOf('export const AdminPortalEngine'),
+    adminSource.indexOf('// Legacy mock-backed control-center'),
+  );
+
+  assert.match(activeAdminSource, /user\?\.role !== 'admin'/);
+  assert.match(activeAdminSource, /Application administrator access does not grant any on-chain role/);
+  assert.match(activeAdminSource, /canonical ICO remains inactive/);
+  assert.match(activeAdminSource, /<AdminAuthenticationDiagnostics\s*\/>/);
+  assert.match(activeAdminSource, /<ICOAdmin\s*\/>/);
+  assert.match(activeAdminSource, /<AdminNftIssuance\s*\/>/);
+  assert.doesNotMatch(activeAdminSource, /mockApiStore/);
+  assert.doesNotMatch(activeAdminSource, /RoleManager/);
+  assert.doesNotMatch(activeAdminSource, /AdminPanel/);
+});
+
+test('unconfigured governance remains fail-closed instead of exposing mock proposals or votes', () => {
+  const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+  const governanceServiceSource = fs.readFileSync(new URL('../src/Services/governance.ts', import.meta.url), 'utf8');
+  const ecosystemDeploymentSource = fs.readFileSync(new URL('./deploy-ecosystem.ts', import.meta.url), 'utf8');
+  const v2DeploymentSource = fs.readFileSync(new URL('./deploy-lending-v2-local.ts', import.meta.url), 'utf8');
+
+  // The whitepaper describes democratic governing as a principle, but does
+  // not specify voting power, quorum, duration, execution authority, or a
+  // proposal payload. Until those mechanics are approved, mock records must
+  // never become an active user-facing governance surface.
+  assert.match(governanceServiceSource, /COMMUNITY_PROPOSALS/);
+  assert.match(governanceServiceSource, /setTimeout/);
+  assert.doesNotMatch(appSource, /FinancialWellnessDashboard|AdminGovernanceDashboard|NFTMarketplaceGovernancePortal/);
+  assert.doesNotMatch(userDashboardSource, /FinancialWellnessDashboard|AdminGovernanceDashboard|NFTMarketplaceGovernancePortal/);
+  assert.doesNotMatch(ecosystemDeploymentSource, /getContractFactory\(["'](?:Governance|ABCDeFiGovernor)["']\)/);
+  assert.doesNotMatch(v2DeploymentSource, /getContractFactory\(["'](?:Governance|ABCDeFiGovernor)["']\)/);
+});
+
 test('App mounts admin controls only for the explicit admin route branch', () => {
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   assert.match(appSource, /dashboardMode === 'admin' \? \(\s*<AdminPortalEngine/s);
@@ -117,6 +154,42 @@ test('the primary UserDashboard lending and P2P tabs use the isolated V2 workflo
   assert.match(userDashboardSource, /activeTab === 'lending' && <LendingV2\s*\/>/);
   assert.match(userDashboardSource, /activeTab === 'lending-v2' && <LendingV2\s*\/>/);
   assert.match(userDashboardSource, /activeTab === 'p2p-loans' && <LendingV2\s*\/>/);
+});
+
+test('active summary and NFT surfaces do not query legacy V1 lending or LoanNFT state', () => {
+  const overviewSource = fs.readFileSync(new URL('../src/components/NextGenProtocolDashboard.tsx', import.meta.url), 'utf8');
+  const portfolioSource = fs.readFileSync(new URL('../src/components/PortfolioDashboard.tsx', import.meta.url), 'utf8');
+  const ecosystemSource = fs.readFileSync(new URL('../src/components/NFTEcosystem.tsx', import.meta.url), 'utf8');
+  const ecosystemServiceSource = fs.readFileSync(new URL('../src/Services/nftEcosystem.ts', import.meta.url), 'utf8');
+  const activeSnapshotSource = ecosystemServiceSource.slice(
+    ecosystemServiceSource.indexOf('export async function getNftEcosystemSnapshot'),
+    ecosystemServiceSource.indexOf('interface IndexedEvidence'),
+  );
+
+  assert.match(overviewSource, /getV2WalletSummary/);
+  assert.match(portfolioSource, /getV2WalletSummary/);
+  assert.doesNotMatch(overviewSource, /getCanonicalLendingReadState/);
+  assert.doesNotMatch(portfolioSource, /getLendingPoolState/);
+  assert.doesNotMatch(ecosystemSource, /getLoanNftCertificateSnapshot|LoanNFT certificates/);
+  assert.doesNotMatch(activeSnapshotSource, /assertLoanNftDeployment|loan\.balanceOf/);
+});
+
+test('the active Treasury dashboard uses canonical balances and approved eight-way allocation policy', () => {
+  const protocolDashboardSource = fs.readFileSync(new URL('../src/components/ProtocolDashboard.tsx', import.meta.url), 'utf8');
+  const treasuryServiceSource = fs.readFileSync(new URL('../src/Services/treasury.ts', import.meta.url), 'utf8');
+
+  assert.match(treasuryServiceSource, /return \{ ethBalance: state\.ethBalance, abcdBalance: state\.abcdBalance \};/);
+  assert.match(protocolDashboardSource, /treasury\.abcdBalance/);
+  assert.match(protocolDashboardSource, /Canonical contract read/);
+  assert.match(protocolDashboardSource, /Allocation policy percentages are not live Treasury asset holdings/);
+  assert.doesNotMatch(protocolDashboardSource, /treasuryEth: '50\.50'/);
+  assert.doesNotMatch(protocolDashboardSource, /treasuryAbcd: '2,500,000'/);
+  for (const allocation of ['Infrastructure', 'Liquidity & Financial Activities', 'Marketing / Ad / Promo / PR', 'Contracts / Endorsements / Tie-ups', 'Community', 'ACF Education / Welfare / Excellence', 'Contingency', 'Reserve']) {
+    assert.match(protocolDashboardSource, new RegExp(allocation.replace(/[.*+?^$\{\}()|[\]\\]/g, '\\$&')));
+  }
+  for (const legacyAllocation of ['Staking Rewards', 'Public Presale', 'ETH Reserve', 'Yield Farming']) {
+    assert.doesNotMatch(protocolDashboardSource, new RegExp(`name: '${legacyAllocation}'`));
+  }
 });
 
 test('V2 direct lending exposes only the canonical V2 deposit handler while legacy V1 P2P is explicitly labelled', () => {
@@ -152,8 +225,8 @@ test('an active V2 deposit with authoritative capacity renders a constrained bor
   assert.match(source, /data-testid="v2-pending-deposit-preview"/);
   assert.match(source, /data-testid="v2-borrow-form"/);
   assert.match(source, /aria-label="Borrow ABCD against active V2 deposit"/);
-  assert.match(source, /borrowV2\(depositId, principal, Number\(term\), uri, metadataHash, progress\)/);
-  assert.match(service, /pool\.borrowABCD\.estimateGas\(depositId, amount, termDays \* 86400, uri\.trim\(\), hash\)/);
+  assert.match(source, /borrowV2\(depositId, principal, Number\(term\), progress\)/);
+  assert.match(service, /pool\.borrowABCD\.estimateGas\(depositId, amount, termDays \* 86400\)/);
 });
 
 test('the header logo returns to the UserDashboard overview instead of an obsolete tab ID', () => {

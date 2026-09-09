@@ -107,8 +107,9 @@ contract Treasury is AccessControl, Pausable, ReentrancyGuard, ITreasury {
 
     function withdrawETH(address payable recipient, uint256 amount) external override onlyRole(Constants.WITHDRAWER_ROLE) whenNotPaused nonReentrant {
         if (recipient == address(0)) revert Errors.InvalidAddress();
+        if (amount == 0) revert Errors.ZeroAmount();
         uint256 reserved = interestPoolBalance + burnPoolBalance;
-        if (amount == 0 || amount > address(this).balance - reserved) {
+        if (amount > address(this).balance - reserved) {
             revert Errors.InsufficientBalance(amount, address(this).balance > reserved ? address(this).balance - reserved : 0);
         }
         (bool ok, ) = recipient.call{value: amount}("");
@@ -178,6 +179,7 @@ contract Treasury is AccessControl, Pausable, ReentrancyGuard, ITreasury {
 
     function transferFunds(address payable to, uint256 amount, string memory reason) external onlyRole(Constants.TREASURY_ADMIN_ROLE) whenNotPaused nonReentrant {
         if (to == address(0)) revert Errors.InvalidAddress();
+        if (amount == 0) revert Errors.ZeroAmount();
         uint256 reserved = interestPoolBalance + burnPoolBalance;
         uint256 available = address(this).balance > reserved ? address(this).balance - reserved : 0;
         if (amount > available) revert Errors.InsufficientBalance(amount, available);

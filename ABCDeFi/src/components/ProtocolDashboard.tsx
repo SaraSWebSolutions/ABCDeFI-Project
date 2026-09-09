@@ -84,9 +84,9 @@ export const ProtocolDashboard: React.FC = () => {
 
   // Live Card States (10 Core Metrics)
   const [liveCards, setLiveCards] = useState({
-    tvl: '12,450,000',
-    treasuryEth: '50.50',
-    treasuryAbcd: '2,500,000',
+    tvl: 'Unavailable',
+    treasuryEth: 'Unavailable',
+    treasuryAbcd: 'Unavailable',
     abcdBalance: null as string | null,
     totalStaked: '500,000',
     userStaked: '2,500',
@@ -128,13 +128,17 @@ export const ProtocolDashboard: React.FC = () => {
     { month: 'Jun', tvl: 12.45, eth: 2450 },
   ];
 
-  const tokenDistributionData = [
-    { name: 'Staking Rewards', value: 35 },
-    { name: 'Public Presale', value: 25 },
-    { name: 'Ecosystem Reserve', value: 20 },
-    { name: 'Team & Founders', value: 12 },
-    { name: 'Liquidity Pool', value: 8 },
+  const approvedAllocationData = [
+    { name: 'Infrastructure', value: 15 },
+    { name: 'Liquidity & Financial Activities', value: 40 },
+    { name: 'Marketing / Ad / Promo / PR', value: 5 },
+    { name: 'Contracts / Endorsements / Tie-ups', value: 15 },
+    { name: 'Community', value: 5 },
+    { name: 'ACF Education / Welfare / Excellence', value: 10 },
+    { name: 'Contingency', value: 8 },
+    { name: 'Reserve', value: 2 },
   ];
+  const tokenDistributionData = approvedAllocationData;
 
   const vestingUnlockData = [
     { month: 'Q1 2026', unlocked: 10, locked: 90 },
@@ -144,12 +148,7 @@ export const ProtocolDashboard: React.FC = () => {
     { month: 'Q1 2027', unlocked: 100, locked: 0 },
   ];
 
-  const treasuryAllocationData = [
-    { name: 'ETH Reserve', value: 50 },
-    { name: 'ABCD Tokens', value: 30 },
-    { name: 'Stablecoin Reserves', value: 15 },
-    { name: 'Yield Farming', value: 5 },
-  ];
+  const treasuryAllocationData = approvedAllocationData;
 
   // Refresh live metrics across all 10 cards
   const loadDashboardData = async () => {
@@ -177,15 +176,20 @@ export const ProtocolDashboard: React.FC = () => {
         const parsedReleasable = parseFloat(vesting.releasable) || 0;
         const parsedVestingTotal = parseFloat(vesting.totalAmount) || 50000;
         const parsedRefRewards = parseFloat(referral.rewards) || 0;
-        const parsedTreasuryEth = parseFloat(treasury.ethBalance) || 50.5;
+        const parsedTreasuryEth = Number.parseFloat(treasury.ethBalance);
+        const hasTreasuryEth = Number.isFinite(parsedTreasuryEth);
+        const parsedTreasuryAbcd = Number.parseFloat(treasury.abcdBalance);
+        const hasTreasuryAbcd = Number.isFinite(parsedTreasuryAbcd);
 
         // Calculate approximate protocol TVL in USD (ETH @ $2500, ABCD @ $1)
-        const totalTVL = Math.round((parsedTreasuryEth * 2500) + parsedTotalStaked + (parseFloat(loan.collateral || '0') * 2500));
+        const totalTVL = hasTreasuryEth
+          ? Math.round((parsedTreasuryEth * 2500) + parsedTotalStaked + (parseFloat(loan.collateral || '0') * 2500))
+          : null;
 
         setLiveCards({
-          tvl: totalTVL > 0 ? totalTVL.toLocaleString() : '12,450,000',
-          treasuryEth: parsedTreasuryEth.toFixed(2),
-          treasuryAbcd: '2,500,000',
+          tvl: totalTVL !== null ? totalTVL.toLocaleString() : 'Unavailable',
+          treasuryEth: hasTreasuryEth ? parsedTreasuryEth.toFixed(2) : 'Unavailable',
+          treasuryAbcd: hasTreasuryAbcd ? parsedTreasuryAbcd.toLocaleString() : 'Unavailable',
           abcdBalance: parsedAbcd.toLocaleString(),
           totalStaked: parsedTotalStaked.toLocaleString(),
           userStaked: parsedUserStaked.toLocaleString(),
@@ -362,7 +366,9 @@ export const ProtocolDashboard: React.FC = () => {
                 <Vault className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-xl font-black text-emerald-400 font-mono tracking-tight">${liveCards.tvl}</div>
+            <div className="text-xl font-black text-emerald-400 font-mono tracking-tight">
+              {liveCards.tvl === 'Unavailable' ? 'Unavailable' : '$' + liveCards.tvl}
+            </div>
             <div className="flex items-center justify-between mt-3 text-[11px] text-slate-400 border-t border-slate-800/80 pt-2">
               <span>Staked + Loans + Treasury</span>
               <span className="text-emerald-400 font-semibold flex items-center gap-0.5">
@@ -380,10 +386,12 @@ export const ProtocolDashboard: React.FC = () => {
                 <Landmark className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-xl font-black text-indigo-300 font-mono tracking-tight">{liveCards.treasuryEth} ETH</div>
+            <div className="text-xl font-black text-indigo-300 font-mono tracking-tight">
+              {liveCards.treasuryEth === 'Unavailable' ? 'Unavailable' : liveCards.treasuryEth + ' ETH'}
+            </div>
             <div className="flex items-center justify-between mt-3 text-[11px] text-slate-400 border-t border-slate-800/80 pt-2">
-              <span>{liveCards.treasuryAbcd} ABCD</span>
-              <span className="text-indigo-400 font-semibold">Vault Reserve</span>
+              <span>{liveCards.treasuryAbcd === 'Unavailable' ? 'Unavailable' : liveCards.treasuryAbcd + ' ABCD'}</span>
+              <span className="text-indigo-400 font-semibold">Canonical contract read</span>
             </div>
           </div>
 
@@ -613,7 +621,7 @@ export const ProtocolDashboard: React.FC = () => {
           <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-3xl shadow-xl">
             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
               <PieIcon className="w-4 h-4 text-indigo-400" />
-              Token Allocation Distribution (%)
+              Approved ABCD Allocation Policy (%)
             </h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -661,7 +669,7 @@ export const ProtocolDashboard: React.FC = () => {
           <div className="bg-slate-900/90 border border-slate-800 p-5 rounded-3xl shadow-xl">
             <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Landmark className="w-4 h-4 text-amber-400" />
-              Treasury Reserve Allocation (%)
+              Approved ICO Fund Allocation Policy (%)
             </h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -682,6 +690,9 @@ export const ProtocolDashboard: React.FC = () => {
                 </PieChart>
               </ResponsiveContainer>
             </div>
+            <p className="mt-3 text-xs text-slate-400">
+              Allocation policy percentages are not live Treasury asset holdings.
+            </p>
           </div>
         </div>
       </div>

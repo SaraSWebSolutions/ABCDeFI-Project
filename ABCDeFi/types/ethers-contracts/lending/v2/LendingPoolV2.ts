@@ -28,7 +28,7 @@ encodeFunctionData(functionFragment: 'LIQUIDITY_MANAGER_ROLE', values?: undefine
 encodeFunctionData(functionFragment: 'MAX_INITIAL_LTV_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'addCollateralToLoan', values: [BigNumberish]): string;
-encodeFunctionData(functionFragment: 'borrowABCD', values: [BigNumberish, BigNumberish, BigNumberish, string, BytesLike]): string;
+encodeFunctionData(functionFragment: 'borrowABCD', values: [BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'collateralValueUSD', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'collateralVault', values?: undefined): string;
 encodeFunctionData(functionFragment: 'currentNewLoanAprBps', values?: undefined): string;
@@ -44,7 +44,7 @@ encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanNFT', values?: undefined): string;
 encodeFunctionData(functionFragment: 'maxBorrowable', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'nextCollateralDepositId', values?: undefined): string;
-encodeFunctionData(functionFragment: 'openLoan', values: [BigNumberish, BigNumberish, string, BytesLike]): string;
+encodeFunctionData(functionFragment: 'openLoan', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'oracle', values?: undefined): string;
 encodeFunctionData(functionFragment: 'outstanding', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
@@ -129,9 +129,9 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
   
 
     export namespace DirectLoanOpenedEvent {
-      export type InputTuple = [loanId: BigNumberish, depositId: BigNumberish, borrower: AddressLike, principal: BigNumberish, collateralETH: BigNumberish, term: BigNumberish, maturity: BigNumberish, metadataHash: BytesLike, metadataURI: string];
-      export type OutputTuple = [loanId: bigint, depositId: bigint, borrower: string, principal: bigint, collateralETH: bigint, term: bigint, maturity: bigint, metadataHash: string, metadataURI: string];
-      export interface OutputObject {loanId: bigint, depositId: bigint, borrower: string, principal: bigint, collateralETH: bigint, term: bigint, maturity: bigint, metadataHash: string, metadataURI: string };
+      export type InputTuple = [loanId: BigNumberish, depositId: BigNumberish, borrower: AddressLike, principal: BigNumberish, collateralETH: BigNumberish, term: BigNumberish, maturity: BigNumberish];
+      export type OutputTuple = [loanId: bigint, depositId: bigint, borrower: string, principal: bigint, collateralETH: bigint, term: bigint, maturity: bigint];
+      export interface OutputObject {loanId: bigint, depositId: bigint, borrower: string, principal: bigint, collateralETH: bigint, term: bigint, maturity: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -331,7 +331,7 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
 
     
     borrowABCD: TypedContractMethod<
-      [depositId: BigNumberish, principal: BigNumberish, term: BigNumberish, metadataURI: string, metadataHash: BytesLike, ],
+      [depositId: BigNumberish, principal: BigNumberish, term: BigNumberish, ],
       [bigint],
       'nonpayable'
     >
@@ -459,7 +459,7 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
 
     
     openLoan: TypedContractMethod<
-      [principal: BigNumberish, term: BigNumberish, metadataURI: string, metadataHash: BytesLike, ],
+      [principal: BigNumberish, term: BigNumberish, ],
       [bigint],
       'payable'
     >
@@ -627,7 +627,7 @@ getFunction(nameOrSignature: 'addCollateralToLoan'): TypedContractMethod<
       'payable'
     >;
 getFunction(nameOrSignature: 'borrowABCD'): TypedContractMethod<
-      [depositId: BigNumberish, principal: BigNumberish, term: BigNumberish, metadataURI: string, metadataHash: BytesLike, ],
+      [depositId: BigNumberish, principal: BigNumberish, term: BigNumberish, ],
       [bigint],
       'nonpayable'
     >;
@@ -707,7 +707,7 @@ getFunction(nameOrSignature: 'nextCollateralDepositId'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'openLoan'): TypedContractMethod<
-      [principal: BigNumberish, term: BigNumberish, metadataURI: string, metadataHash: BytesLike, ],
+      [principal: BigNumberish, term: BigNumberish, ],
       [bigint],
       'payable'
     >;
@@ -815,7 +815,7 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       DirectLoanCollateralToppedUp: TypedContractEvent<DirectLoanCollateralToppedUpEvent.InputTuple, DirectLoanCollateralToppedUpEvent.OutputTuple, DirectLoanCollateralToppedUpEvent.OutputObject>;
     
 
-      'DirectLoanOpened(uint256,uint256,address,uint256,uint256,uint48,uint48,bytes32,string)': TypedContractEvent<DirectLoanOpenedEvent.InputTuple, DirectLoanOpenedEvent.OutputTuple, DirectLoanOpenedEvent.OutputObject>;
+      'DirectLoanOpened(uint256,uint256,address,uint256,uint256,uint48,uint48)': TypedContractEvent<DirectLoanOpenedEvent.InputTuple, DirectLoanOpenedEvent.OutputTuple, DirectLoanOpenedEvent.OutputObject>;
       DirectLoanOpened: TypedContractEvent<DirectLoanOpenedEvent.InputTuple, DirectLoanOpenedEvent.OutputTuple, DirectLoanOpenedEvent.OutputObject>;
     
 

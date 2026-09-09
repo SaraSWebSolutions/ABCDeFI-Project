@@ -5,6 +5,7 @@ import { useWallet } from '../Context/WalletContext';
 import {
   approveStaking,
   claimStakingRewards,
+  emergencyWithdrawStaking,
   getStakingInfo,
   stakeTokens,
   stakingErrorMessage,
@@ -139,7 +140,7 @@ export const StakingPools: React.FC = () => {
     }
   };
 
-  const runPositionAction = async (positionIndex: number, kind: 'unstake' | 'claim') => {
+  const runPositionAction = async (positionIndex: number, kind: 'unstake' | 'claim' | 'emergency') => {
     if (isPending || !staking) return;
     if (!isConnected || !address) {
       setStatus('error');
@@ -163,22 +164,29 @@ export const StakingPools: React.FC = () => {
       setMessage('There are no claimable rewards for this position.');
       return;
     }
+    if (kind === 'emergency' && !staking.paused) {
+      setStatus('error');
+      setMessage('Emergency withdrawal is available only while the StakingPool is paused.');
+      return;
+    }
 
     setApprovalHash(null);
     setTransactionHash(null);
     setStatus('awaiting-wallet');
-    setMessage(`Confirm ${kind === 'unstake' ? 'unstake' : 'reward claim'} in your wallet.`);
+    setMessage(`Confirm ${kind === 'unstake' ? 'unstake' : kind === 'claim' ? 'reward claim' : 'principal-only emergency withdrawal'} in your wallet.`);
     try {
       const receipt = await (kind === 'unstake'
         ? unstakeTokens(positionIndex, (hash) => {
             setTransactionHash(hash); setStatus('confirming'); setMessage('Unstake submitted. Waiting for on-chain confirmation...');
           })
-        : claimStakingRewards(positionIndex, (hash) => {
+        : kind === 'claim' ? claimStakingRewards(positionIndex, (hash) => {
             setTransactionHash(hash); setStatus('confirming'); setMessage('Reward claim submitted. Waiting for on-chain confirmation...');
+          }) : emergencyWithdrawStaking(positionIndex, (hash) => {
+            setTransactionHash(hash); setStatus('confirming'); setMessage('Emergency withdrawal submitted. Waiting for on-chain confirmation...');
           }));
       setTransactionHash(receipt.hash);
       setStatus('success');
-      setMessage(`${kind === 'unstake' ? 'Unstake' : 'Reward claim'} confirmed in block ${receipt.blockNumber}.`);
+      setMessage(`${kind === 'unstake' ? 'Unstake' : kind === 'claim' ? 'Reward claim' : 'Emergency withdrawal'} confirmed in block ${receipt.blockNumber}.`);
       await Promise.all([loadStaking(), refreshBalances()]);
     } catch (error: unknown) {
       console.error(`Staking ${kind} failed:`, error);
@@ -249,7 +257,7 @@ export const StakingPools: React.FC = () => {
                   <div className="mt-2 flex justify-between gap-3"><span className="text-slate-400">Started</span><span>{formatDate(position.startTime)}</span></div>
                   <div className="mt-2 flex justify-between gap-3"><span className="text-slate-400">Lock period</span><span>{formatDuration(Number(position.lockDuration))}</span></div>
                   <div className="mt-2 text-slate-400">{position.isUnlocked ? 'Unlocked' : `Locked until ${formatDate(position.unlockTime)}`}</div>
-                  <div className="mt-3 flex gap-2"><button type="button" onClick={() => void runPositionAction(position.index, 'claim')} disabled={isPending || !isCorrectNetwork || position.pendingRewardsRaw === 0n} className="flex-1 rounded-lg bg-slate-800 px-2 py-2 font-bold text-slate-100 disabled:opacity-40">Claim</button><button type="button" onClick={() => void runPositionAction(position.index, 'unstake')} disabled={isPending || !isCorrectNetwork || !position.isUnlocked} className="flex-1 rounded-lg bg-rose-600 px-2 py-2 font-bold text-white disabled:opacity-40">Unstake</button></div>
+                  {staking.paused ? <div className="mt-3 space-y-2"><p className="text-amber-200">Emergency mode: rewards are forfeited; only principal may be withdrawn.</p><button type="button" onClick={() => void runPositionAction(position.index, 'emergency')} disabled={isPending || !isCorrectNetwork} className="w-full rounded-lg bg-amber-500 px-2 py-2 font-bold text-slate-950 disabled:opacity-40">Emergency withdraw principal</button></div> : <div className="mt-3 flex gap-2"><button type="button" onClick={() => void runPositionAction(position.index, 'claim')} disabled={isPending || !isCorrectNetwork || position.pendingRewardsRaw === 0n} className="flex-1 rounded-lg bg-slate-800 px-2 py-2 font-bold text-slate-100 disabled:opacity-40">Claim</button><button type="button" onClick={() => void runPositionAction(position.index, 'unstake')} disabled={isPending || !isCorrectNetwork || !position.isUnlocked} className="flex-1 rounded-lg bg-rose-600 px-2 py-2 font-bold text-white disabled:opacity-40">Unstake</button></div>}
                 </div>
               ))}
             </div>

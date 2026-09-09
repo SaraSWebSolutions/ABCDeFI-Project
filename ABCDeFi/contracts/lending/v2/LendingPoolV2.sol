@@ -35,7 +35,10 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
     event LiquidityFunded(address indexed funder, uint256 amount);
     event CollateralDepositCreated(uint256 indexed depositId, address indexed borrower, uint256 collateralETH);
     event PendingCollateralWithdrawn(uint256 indexed depositId, address indexed borrower, uint256 collateralETH);
-    event DirectLoanOpened(uint256 indexed loanId, uint256 indexed depositId, address indexed borrower, uint256 principal, uint256 collateralETH, uint48 term, uint48 maturity, bytes32 metadataHash, string metadataURI);
+    // Completion certificates are deliberately not prepared at origination.
+    // The three role-specific provenance records are validated and minted only
+    // in the atomic terminal-repayment path below.
+    event DirectLoanOpened(uint256 indexed loanId, uint256 indexed depositId, address indexed borrower, uint256 principal, uint256 collateralETH, uint48 term, uint48 maturity);
     event DirectLoanRepaid(uint256 indexed loanId, address indexed borrower, uint256 amount, uint256 fee, uint256 interest, uint256 principal);
     event DirectLoanCollateralToppedUp(uint256 indexed loanId, address indexed borrower, uint256 amount, uint256 totalCollateral);
     event SettledCollateralWithdrawn(uint256 indexed loanId, address indexed borrower, uint256 amount);
@@ -77,29 +80,28 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
         emit PendingCollateralWithdrawn(depositId, msg.sender, deposit.amount);
     }
 
-    function borrowABCD(uint256 depositId, uint128 principal, uint48 term, string calldata metadataURI, bytes32 metadataHash)
+    function borrowABCD(uint256 depositId, uint128 principal, uint48 term)
         external whenNotPaused nonReentrant returns (uint256 loanId)
     {
         PendingCollateral memory deposit = pendingCollateral[depositId];
         require(deposit.active && deposit.borrower == msg.sender, "not pending collateral owner");
-        loanId = _createLoan(depositId, principal, term, metadataURI, metadataHash, deposit.amount);
+        loanId = _createLoan(depositId, principal, term, deposit.amount);
         delete pendingCollateral[depositId];
         collateralVault.bindDirectDeposit(depositId, loanId, msg.sender);
     }
 
-    function openLoan(uint128 principal, uint48 term, string calldata metadataURI, bytes32 metadataHash)
+    function openLoan(uint128 principal, uint48 term)
         external payable whenNotPaused nonReentrant returns (uint256 loanId)
     {
         require(msg.value != 0, "zero amount");
-        loanId = _createLoan(0, principal, term, metadataURI, metadataHash, uint128(msg.value));
+        loanId = _createLoan(0, principal, term, uint128(msg.value));
         collateralVault.lockDirect{value: msg.value}(loanId, msg.sender);
     }
 
-    function _createLoan(uint256 depositId, uint128 principal, uint48 term, string calldata metadataURI, bytes32 metadataHash, uint128 collateral)
+    function _createLoan(uint256 depositId, uint128 principal, uint48 term, uint128 collateral)
         internal returns (uint256 loanId)
     {
         require(principal != 0 && collateral != 0, "zero amount");
-        require(bytes(metadataURI).length != 0 && metadataHash != bytes32(0), "metadata required");
         require(principal <= maxBorrowable(collateral), "ltv exceeded");
         require(liquidity >= principal, "insufficient liquidity");
         uint16 aprBps = loanManager.newLoanAprBps();
@@ -110,7 +112,7 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
         LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
         liquidity -= principal;
         abcd.safeTransfer(msg.sender, principal);
-        emit DirectLoanOpened(loanId, depositId, msg.sender, principal, collateral, term, loan.maturity, metadataHash, metadataURI);
+        emit DirectLoanOpened(loanId, depositId, msg.sender, principal, collateral, term, loan.maturity);
     }
 
     function syncLoan(uint256 loanId) public {

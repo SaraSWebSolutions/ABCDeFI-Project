@@ -37,6 +37,9 @@ export type CompletionCertificateMetadata = {
   borrower: { metadataUri: string; metadataHash: string };
   platform: { metadataUri: string; metadataHash: string };
 };
+/** The authenticated platform prepares real role-specific IPFS provenance
+ * immediately before a terminal repayment. It never supplies origin metadata. */
+export type CompletionMetadataPreparer = (loanId: string) => Promise<CompletionCertificateMetadata>;
 
 export function repayAllApprovalAmount(
   outstanding: bigint,
@@ -70,9 +73,19 @@ export type V2Read = {
   schedule: { installmentAmount: string; installmentCount: string; paidInstallments: string; nextDueAt: string; completed: boolean } | null;
 };
 export type V2PendingDeposit = { depositId: string; borrower: string; collateralETH: string; maxBorrowable: string; collateralUSD: string; active: boolean };
-export type V2Request = { requestId: string; borrower: string; lender: string; principal: string; collateralETH: string; termSeconds: string; state: number; loanId: string; metadataURI: string; metadataHash: string; initialLtvBps: string };
+export type V2Request = { requestId: string; borrower: string; lender: string; principal: string; collateralETH: string; termSeconds: string; state: number; loanId: string; initialLtvBps: string };
 export type V2P2PCapacity = { collateralETH: string; collateralUSD: string; maxPrincipal: string; initialLtvBps: string };
 export type V2WalletHistory = { status: string; source?: { kind?: string }; directPositions: V2PendingDeposit[]; loans: Array<Record<string, unknown>>; requests: V2Request[]; events: Array<Record<string, unknown>> };
+export type V2WalletSummary = {
+  /** Current contract-read debt for loans discoverable by the confirmed V2 projection. */
+  outstanding: string;
+  /** Capacity held in current, active V2 direct-collateral deposits. */
+  availableToBorrow: string;
+  /** The lowest current V2 health factor for a loan with debt, when present. */
+  healthFactor: string | null;
+  /** Completion certificates currently owned by this wallet. */
+  completionCertificateCount: string;
+};
 export type V2ProtocolState = {
   poolLiquidity: string; poolTokenBalance: string; reserveBalance: string;
   initialLtvBps: string; marginCallThresholdBps: string; marginCallCureSeconds: string; aprBps: string; lateFeeBps: string;
@@ -330,7 +343,7 @@ export async function getV2Request(requestId: string): Promise<V2Request> {
   await assertV2Read();
   const market = new Contract(v2Contracts().marketplace, MarketplaceArtifact.abi, canonicalProvider);
   const request = await market.requests(requestId);
-  return { requestId, borrower: request.borrower, lender: request.lender, principal: formatEther(request.principal), collateralETH: formatEther(request.collateral), termSeconds: request.term.toString(), state: Number(request.state), loanId: request.loanId.toString(), metadataURI: request.metadataURI, metadataHash: request.metadataHash, initialLtvBps: request.initialLtvBps.toString() };
+  return { requestId, borrower: request.borrower, lender: request.lender, principal: formatEther(request.principal), collateralETH: formatEther(request.collateral), termSeconds: request.term.toString(), state: Number(request.state), loanId: request.loanId.toString(), initialLtvBps: request.initialLtvBps.toString() };
 }
 /** Reads the P2P marketplace's own oracle-priced ETH capacity; React is never the financial authority. */
 export async function getV2P2PRequestCapacity(collateral: string): Promise<V2P2PCapacity> {
@@ -348,6 +361,47 @@ export async function getV2WalletHistory(wallet: string): Promise<V2WalletHistor
   if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) throw new Error('Connected wallet address is invalid.');
   const response = await apiGet<{ status: string; source?: { kind?: string }; data: Omit<V2WalletHistory, 'status' | 'source'> }>(`/api/lending-v2/wallet/${wallet}?limit=100`);
   return { status: response.status, source: response.source, ...response.data };
+}
+
+/**
+ * Compact active-dashboard read model. The V2 indexer supplies only the
+ * wallet's discoverable IDs; the lending-v2 API then refreshes every loan's
+ * financial fields from the canonical V2 contracts. This deliberately never
+ * falls back to the legacy V1 LendingPool or LoanNFT contracts.
+ */
+export async function getV2WalletSummary(wallet: string): Promise<V2WalletSummary> {
+  const history = await getV2WalletHistory(wallet);
+  if (history.status !== 'AVAILABLE' || history.source?.kind !== 'canonical-v2-indexed-on-chain') {
+    throw new Error('Canonical Lending V2 wallet state is not available for this deployment.');
+  }
+  const expectedWallet = getAddress(wallet).toLowerCase();
+  const asWei = (value: unknown) => typeof value === 'string' && /^\d+$/.test(value) ? BigInt(value) : 0n;
+  let outstanding = 0n;
+  let availableToBorrow = 0n;
+  let lowestHealth: bigint | null = null;
+  let completionCertificateCount = 0n;
+
+  for (const deposit of history.directPositions) {
+    if (deposit.active) availableToBorrow += asWei(deposit.maxBorrowable);
+  }
+  for (const entry of history.loans) {
+    const previews = entry.previews as Record<string, unknown> | undefined;
+    const debt = asWei(previews?.outstanding);
+    outstanding += debt;
+    const health = asWei(previews?.healthFactor);
+    if (debt > 0n && health > 0n && (lowestHealth === null || health < lowestHealth)) lowestHealth = health;
+    const certificates = Array.isArray(entry.certificates) ? entry.certificates : [];
+    completionCertificateCount += BigInt(certificates.filter((certificate) => {
+      const owner = certificate && typeof certificate === 'object' ? (certificate as Record<string, unknown>).owner : null;
+      return typeof owner === 'string' && owner.toLowerCase() === expectedWallet;
+    }).length);
+  }
+  return {
+    outstanding: formatEther(outstanding),
+    availableToBorrow: formatEther(availableToBorrow),
+    healthFactor: lowestHealth === null ? null : formatEther(lowestHealth),
+    completionCertificateCount: completionCertificateCount.toString(),
+  };
 }
 
 /**
@@ -403,13 +457,13 @@ export async function depositV2Collateral(amount: string, progress?: V2ProgressL
   const gas = await pool.depositCollateral.estimateGas({ value }); await assertGasBalance(signer, gas, value);
   return depositReceipt(() => pool.depositCollateral({ value, gasLimit: gas }), contracts.pool, borrower, value, progress);
 }
-export async function borrowV2(depositId: string, principal: string, termDays: number, uri: string, hash: string, progress?: V2ProgressListener) {
+export async function borrowV2(depositId: string, principal: string, termDays: number, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'borrowV2' });
   const amount = requireAmount(principal); requireId(depositId, 'Deposit ID');
-  if (!terms.has(termDays * 86400)) throw new Error('Use a supported 30, 90, or 180 day term.'); requireMetadata(uri, hash); await assertV2Write();
+  if (!terms.has(termDays * 86400)) throw new Error('Use a supported 30, 90, or 180 day term.'); await assertV2Write();
   const signer = await getSigner(); const pool = new Contract(v2Contracts().pool, PoolArtifact.abi, signer);
-  const gas = await pool.borrowABCD.estimateGas(depositId, amount, termDays * 86400, uri.trim(), hash); await assertGasBalance(signer, gas);
-  return receipt('Borrow', () => pool.borrowABCD(depositId, amount, termDays * 86400, uri.trim(), hash, { gasLimit: gas }), new Interface(PoolArtifact.abi), [], progress);
+  const gas = await pool.borrowABCD.estimateGas(depositId, amount, termDays * 86400); await assertGasBalance(signer, gas);
+  return receipt('Borrow', () => pool.borrowABCD(depositId, amount, termDays * 86400, { gasLimit: gas }), new Interface(PoolArtifact.abi), [], progress);
 }
 export async function repayV2(loanId: string, amount: string, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'repayV2' });
@@ -418,7 +472,7 @@ export async function repayV2(loanId: string, amount: string, progress?: V2Progr
   const gas = await pool.repay.estimateGas(loanId, value); await assertGasBalance(signer, gas);
   return receipt('Repayment', () => pool.repay(loanId, value, { gasLimit: gas }), new Interface(PoolArtifact.abi), approval ? [approval] : [], progress);
 }
-export async function repayAllV2(loanId: string, completionMetadata: CompletionCertificateMetadata, progress?: V2ProgressListener) {
+export async function repayAllV2(loanId: string, prepareCompletionMetadata: CompletionMetadataPreparer, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'repayAllV2' });
   requireId(loanId, 'Loan ID'); await assertV2Write(); const manager = new Contract(v2Contracts().manager, ManagerArtifact.abi, canonicalProvider);
   const [outstanding, loan, latestBlock] = await Promise.all([manager.previewOutstanding(loanId), manager.getLoan(loanId), canonicalProvider.getBlock('latest')]);
@@ -427,9 +481,10 @@ export async function repayAllV2(loanId: string, completionMetadata: CompletionC
   // transactions. On localhost, the next mined block can also advance a stale
   // latest-block timestamp. Cover both cases with a capped buffer; the pool
   // still transfers exactly the then-current obligation.
+  progress?.({ stage: 'preparing', action: 'prepareCompletionMetadata' });
+  const completion = completionMetadataArgument(await prepareCompletionMetadata(loanId));
   const approvalAmount = repayAllApprovalAmount(outstanding, loan, BigInt(latestBlock.timestamp));
   const approval = await approveIfNeeded(v2Contracts().pool, approvalAmount, progress); const signer = await getSigner(); const pool = new Contract(v2Contracts().pool, PoolArtifact.abi, signer);
-  const completion = completionMetadataArgument(completionMetadata);
   const gas = await pool.repayAllWithCompletionMetadata.estimateGas(loanId, completion); await assertGasBalance(signer, gas);
   return receipt('Full repayment', () => pool.repayAllWithCompletionMetadata(loanId, completion, { gasLimit: gas }), new Interface(PoolArtifact.abi), approval ? [approval] : [], progress);
 }
@@ -453,15 +508,15 @@ export async function syncV2LoanRisk(loanId: string, progress?: V2ProgressListen
   const gas = await liquidation.syncRisk.estimateGas(loanId); await assertGasBalance(signer, gas);
   return receipt('Risk-state synchronization', () => liquidation.syncRisk(loanId, { gasLimit: gas }), new Interface(LiquidationArtifact.abi), [], progress);
 }
-export async function createV2Request(principal: string, collateral: string, termDays: number, uri: string, hash: string, progress?: V2ProgressListener) {
+export async function createV2Request(principal: string, collateral: string, termDays: number, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'createV2Request' });
   const amount = requireAmount(principal); const value = requireAmount(collateral);
-  if (!terms.has(termDays * 86400)) throw new Error('Use a supported 30, 90, or 180 day term.'); requireMetadata(uri, hash); await assertV2Write();
+  if (!terms.has(termDays * 86400)) throw new Error('Use a supported 30, 90, or 180 day term.'); await assertV2Write();
   const signer = await getSigner(); const market = new Contract(v2Contracts().marketplace, MarketplaceArtifact.abi, signer);
   const maximum = await market.previewMaxP2PPrincipal(value);
   if (amount > maximum) throw new Error('Requested P2P principal exceeds the current on-chain 35% ETH LTV capacity.');
-  const gas = await market.createRequest.estimateGas(amount, termDays * 86400, uri.trim(), hash, { value }); await assertGasBalance(signer, gas, value);
-  return receipt('P2P request', () => market.createRequest(amount, termDays * 86400, uri.trim(), hash, { value, gasLimit: gas }), new Interface(MarketplaceArtifact.abi), [], progress);
+  const gas = await market.createRequest.estimateGas(amount, termDays * 86400, { value }); await assertGasBalance(signer, gas, value);
+  return receipt('P2P request', () => market.createRequest(amount, termDays * 86400, { value, gasLimit: gas }), new Interface(MarketplaceArtifact.abi), [], progress);
 }
 export async function fundV2Request(requestId: string, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'fundV2Request' });
@@ -471,27 +526,25 @@ export async function fundV2Request(requestId: string, progress?: V2ProgressList
   const gas = await market.fundRequest.estimateGas(requestId); await assertGasBalance(signer, gas);
   return receipt('P2P funding', () => market.fundRequest(requestId, { gasLimit: gas }), new Interface(MarketplaceArtifact.abi), approval ? [approval] : [], progress);
 }
-export async function payV2Emi(loanId: string, completionMetadata: CompletionCertificateMetadata | null, progress?: V2ProgressListener) {
+export async function payV2Emi(loanId: string, prepareCompletionMetadata: CompletionMetadataPreparer, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'payV2Emi' });
   requireId(loanId, 'Loan ID'); await assertV2Write(); const emiRead = new Contract(v2Contracts().emi, EMIArtifact.abi, canonicalProvider);
   const [schedule, nextInstallment] = await Promise.all([emiRead.getSchedule(loanId), emiRead.nextInstallment(loanId)]);
   const installment = schedule[Number(nextInstallment)]; if (!installment) throw new Error('This EMI schedule is already settled.');
-  const approval = await approveIfNeeded(v2Contracts().emi, installment.amount, progress); const signer = await getSigner(); const emi = new Contract(v2Contracts().emi, EMIArtifact.abi, signer);
   const isTerminal = Number(nextInstallment) + 1 >= Number(schedule.length);
-  if (isTerminal && !completionMetadata) throw new Error('Publish the three completion certificate metadata records before the final EMI payment.');
-  const completion = completionMetadata ? completionMetadataArgument(completionMetadata) : null;
+  const completion = isTerminal ? completionMetadataArgument(await prepareCompletionMetadata(loanId)) : null;
+  const approval = await approveIfNeeded(v2Contracts().emi, installment.amount, progress); const signer = await getSigner(); const emi = new Contract(v2Contracts().emi, EMIArtifact.abi, signer);
   const gas = completion ? await emi.payInstallmentWithCompletionMetadata.estimateGas(loanId, completion) : await emi.payInstallment.estimateGas(loanId); await assertGasBalance(signer, gas);
   return receipt('EMI payment', () => completion ? emi.payInstallmentWithCompletionMetadata(loanId, completion, { gasLimit: gas }) : emi.payInstallment(loanId, { gasLimit: gas }), new Interface(EMIArtifact.abi), approval ? [approval] : [], progress);
 }
-export async function payV2OutstandingEmi(loanId: string, amount: string, completionMetadata: CompletionCertificateMetadata | null, progress?: V2ProgressListener) {
+export async function payV2OutstandingEmi(loanId: string, amount: string, prepareCompletionMetadata: CompletionMetadataPreparer, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'payV2OutstandingEmi' });
   const value = requireAmount(amount); requireId(loanId, 'Loan ID'); await assertV2Write();
   const manager = new Contract(v2Contracts().manager, ManagerArtifact.abi, canonicalProvider);
   const outstanding = await manager.previewOutstanding(loanId);
   const terminal = value === outstanding;
-  if (terminal && !completionMetadata) throw new Error('Publish the three completion certificate metadata records before settling the remaining P2P debt.');
+  const completion = terminal ? completionMetadataArgument(await prepareCompletionMetadata(loanId)) : null;
   const approval = await approveIfNeeded(v2Contracts().emi, value, progress); const signer = await getSigner(); const emi = new Contract(v2Contracts().emi, EMIArtifact.abi, signer);
-  const completion = completionMetadata ? completionMetadataArgument(completionMetadata) : null;
   const gas = completion ? await emi.payOutstandingWithCompletionMetadata.estimateGas(loanId, value, completion) : await emi.payOutstanding.estimateGas(loanId, value); await assertGasBalance(signer, gas);
   return receipt('Outstanding EMI repayment', () => completion ? emi.payOutstandingWithCompletionMetadata(loanId, value, completion, { gasLimit: gas }) : emi.payOutstanding(loanId, value, { gasLimit: gas }), new Interface(EMIArtifact.abi), approval ? [approval] : [], progress);
 }

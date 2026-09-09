@@ -14,16 +14,9 @@ export function sameAmount(value: string, other: string): boolean {
   try { return positiveAmount(value) && positiveAmount(other) && parseEther(value) === parseEther(other); } catch { return false; }
 }
 export const validTerm = (value: string) => ['30', '90', '180'].includes(value);
-export const metadataValid = (uri: string, hash: string) => /^(ipfs:\/\/|https:\/\/).+/.test(uri.trim()) && /^0x[a-fA-F0-9]{64}$/.test(hash) && !/^0x0{64}$/.test(hash);
 export const sameWallet = (a?: string | null, b?: string | null) => Boolean(a && b && a.toLowerCase() === b.toLowerCase());
 
-/** A published certificate must remain bound to the exact draft the borrower signs. */
-export function metadataMatchesLoanIntent(intent: { depositId: string; borrower: string; principalWei: string; termSeconds: string } | null, input: { depositId: string; borrower: string; principal: string; term: string }): boolean {
-  if (!intent || !validId(input.depositId) || !sameWallet(intent.borrower, input.borrower) || String(intent.depositId) !== input.depositId || !validTerm(input.term)) return false;
-  try { return intent.principalWei === parseEther(input.principal).toString() && intent.termSeconds === String(Number(input.term) * 86_400); } catch { return false; }
-}
-
-export function borrowBlocker(input: { deposit: V2PendingDeposit | null; depositId: string; address?: string | null; connected: boolean; correctNetwork: boolean; loading: boolean; error: string | null; principal: string; term: string; uri: string; hash: string; metadataMatches?: boolean }): string | null {
+export function borrowBlocker(input: { deposit: V2PendingDeposit | null; depositId: string; address?: string | null; connected: boolean; correctNetwork: boolean; loading: boolean; error: string | null; principal: string; term: string }): string | null {
   const { deposit } = input;
   if (!input.connected || !input.address) return 'Connect your wallet to borrow.';
   if (!input.correctNetwork) return 'Switch your wallet to Hardhat Local (31337).';
@@ -35,8 +28,6 @@ export function borrowBlocker(input: { deposit: V2PendingDeposit | null; deposit
   if (!positiveAmount(input.principal)) return 'Enter a positive ABCD principal (up to 18 decimal places).';
   if (!withinCapacity(input.principal, deposit.maxBorrowable)) return `Principal exceeds the on-chain maximum of ${deposit.maxBorrowable} ABCD.`;
   if (!validTerm(input.term)) return 'Choose a 30, 90, or 180 day term.';
-  if (!metadataValid(input.uri, input.hash)) return 'Provide a metadata URI and non-zero bytes32 metadata hash before borrowing.';
-  if (input.metadataMatches === false) return 'Publish signed LoanNFT metadata for this exact deposit, borrower, principal, and term before borrowing.';
   return null;
 }
 

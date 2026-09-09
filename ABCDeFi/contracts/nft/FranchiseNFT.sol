@@ -158,6 +158,19 @@ contract FranchiseNFT is ERC721URIStorage, Ownable, AccessControl, Pausable, Ree
         return block.timestamp < _franchiseDetails[tokenId].lockExpiryTimestamp;
     }
 
+    /**
+     * @notice Pause new Franchise certificate issuance during an incident.
+     * @dev Existing certificates retain their separately enforced transfer lock.
+     */
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    /** @notice Resume Franchise certificate issuance after an authorized review. */
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
+    }
+
     function supportsInterface(bytes4 interfaceId)
         public
         view

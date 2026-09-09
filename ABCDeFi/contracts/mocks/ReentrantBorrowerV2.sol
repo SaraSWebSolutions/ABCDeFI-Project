@@ -16,8 +16,8 @@ contract ReentrantBorrowerV2 is IERC721Receiver {
 
     constructor(address pool_, address token_) { pool = LendingPoolV2(pool_); token = IERC20(token_); }
 
-    function open(uint128 principal, uint48 term, string calldata uri, bytes32 metadataHash) external payable returns (uint256) {
-        return pool.openLoan{value: msg.value}(principal, term, uri, metadataHash);
+    function open(uint128 principal, uint48 term) external payable returns (uint256) {
+        return pool.openLoan{value: msg.value}(principal, term);
     }
     function repay(uint256 loanId, uint256 amount) external {
         token.approve(address(pool), amount); pool.repay(loanId, amount);

@@ -18,7 +18,7 @@ encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'cancelRequest', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'collateralValueUSD', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'collateralVault', values?: undefined): string;
-encodeFunctionData(functionFragment: 'createRequest', values: [BigNumberish, BigNumberish, string, BytesLike]): string;
+encodeFunctionData(functionFragment: 'createRequest', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'emiManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'fundRequest', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
@@ -133,9 +133,9 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   
 
     export namespace RequestCreatedEvent {
-      export type InputTuple = [requestId: BigNumberish, borrower: AddressLike, principal: BigNumberish, collateral: BigNumberish, term: BigNumberish, metadataHash: BytesLike, metadataURI: string, initialLtvBps: BigNumberish];
-      export type OutputTuple = [requestId: bigint, borrower: string, principal: bigint, collateral: bigint, term: bigint, metadataHash: string, metadataURI: string, initialLtvBps: bigint];
-      export interface OutputObject {requestId: bigint, borrower: string, principal: bigint, collateral: bigint, term: bigint, metadataHash: string, metadataURI: string, initialLtvBps: bigint };
+      export type InputTuple = [requestId: BigNumberish, borrower: AddressLike, principal: BigNumberish, collateral: BigNumberish, term: BigNumberish, initialLtvBps: BigNumberish];
+      export type OutputTuple = [requestId: bigint, borrower: string, principal: bigint, collateral: bigint, term: bigint, initialLtvBps: bigint];
+      export interface OutputObject {requestId: bigint, borrower: string, principal: bigint, collateral: bigint, term: bigint, initialLtvBps: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -315,7 +315,7 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
     
     createRequest: TypedContractMethod<
-      [principal: BigNumberish, term: BigNumberish, metadataURI: string, metadataHash: BytesLike, ],
+      [principal: BigNumberish, term: BigNumberish, ],
       [bigint],
       'payable'
     >
@@ -468,7 +468,7 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
     requests: TypedContractMethod<
       [arg0: BigNumberish, ],
-      [[string, bigint, bigint, bigint, bigint, string, string, string, bigint, bigint] & {borrower: string, principal: bigint, collateral: bigint, term: bigint, state: bigint, lender: string, metadataURI: string, metadataHash: string, loanId: bigint, initialLtvBps: bigint }],
+      [[string, bigint, bigint, bigint, bigint, string, bigint, bigint] & {borrower: string, principal: bigint, collateral: bigint, term: bigint, state: bigint, lender: string, loanId: bigint, initialLtvBps: bigint }],
       'view'
     >
     
@@ -573,7 +573,7 @@ getFunction(nameOrSignature: 'collateralVault'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'createRequest'): TypedContractMethod<
-      [principal: BigNumberish, term: BigNumberish, metadataURI: string, metadataHash: BytesLike, ],
+      [principal: BigNumberish, term: BigNumberish, ],
       [bigint],
       'payable'
     >;
@@ -669,7 +669,7 @@ getFunction(nameOrSignature: 'requestByLoanId'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'requests'): TypedContractMethod<
       [arg0: BigNumberish, ],
-      [[string, bigint, bigint, bigint, bigint, string, string, string, bigint, bigint] & {borrower: string, principal: bigint, collateral: bigint, term: bigint, state: bigint, lender: string, metadataURI: string, metadataHash: string, loanId: bigint, initialLtvBps: bigint }],
+      [[string, bigint, bigint, bigint, bigint, string, bigint, bigint] & {borrower: string, principal: bigint, collateral: bigint, term: bigint, state: bigint, lender: string, loanId: bigint, initialLtvBps: bigint }],
       'view'
     >;
 getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
@@ -738,7 +738,7 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       RequestCancelled: TypedContractEvent<RequestCancelledEvent.InputTuple, RequestCancelledEvent.OutputTuple, RequestCancelledEvent.OutputObject>;
     
 
-      'RequestCreated(uint256,address,uint256,uint256,uint48,bytes32,string,uint16)': TypedContractEvent<RequestCreatedEvent.InputTuple, RequestCreatedEvent.OutputTuple, RequestCreatedEvent.OutputObject>;
+      'RequestCreated(uint256,address,uint256,uint256,uint48,uint16)': TypedContractEvent<RequestCreatedEvent.InputTuple, RequestCreatedEvent.OutputTuple, RequestCreatedEvent.OutputObject>;
       RequestCreated: TypedContractEvent<RequestCreatedEvent.InputTuple, RequestCreatedEvent.OutputTuple, RequestCreatedEvent.OutputObject>;
     
 

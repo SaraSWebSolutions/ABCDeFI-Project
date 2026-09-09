@@ -13,7 +13,7 @@ import {
 import { getStakingInfo } from '../Services/staking';
 import { getNftEcosystemSnapshot } from '../Services/nftEcosystem';
 import { getBalanceOf } from '../Services/token';
-import { getCanonicalLendingReadState } from '../Services/lending';
+import { getV2WalletSummary } from '../Services/lendingV2';
 import { CONTRACTS } from '../Config/contracts';
 
 interface NextGenProtocolDashboardProps {
@@ -84,19 +84,20 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
       getStakingInfo(wallet.address),
       getNftEcosystemSnapshot(wallet.address),
       getBalanceOf(CONTRACTS.treasury),
-      getCanonicalLendingReadState(wallet.address),
+      getV2WalletSummary(wallet.address),
     ]).then(([staking, nfts, treasury, lending]) => {
       if (!active) return;
       setOnChainData({
         stakedAbcd: staking.status === 'fulfilled' ? staking.value.stakedAmount : null,
         pendingRewardsAbcd: staking.status === 'fulfilled' ? staking.value.rewards : null,
         supportedNftCount: nfts.status === 'fulfilled'
-          ? (BigInt(nfts.value.participantBalance) + BigInt(nfts.value.guruBalance) + BigInt(nfts.value.loanBalance) + (nfts.value.reputation ? 1n : 0n)).toString()
+          && lending.status === 'fulfilled'
+          ? (BigInt(nfts.value.participantBalance) + BigInt(nfts.value.guruBalance) + BigInt(lending.value.completionCertificateCount) + (nfts.value.reputation ? 1n : 0n)).toString()
           : null,
         treasuryAbcd: treasury.status === 'fulfilled' ? treasury.value : null,
-        borrowedAbcd: lending.status === 'fulfilled' ? lending.value.directPool.borrowed : null,
-        availableToBorrowAbcd: lending.status === 'fulfilled' ? lending.value.directPool.availableToBorrow : null,
-        healthFactor: lending.status === 'fulfilled' ? lending.value.liquidationHealthFactor : null,
+        borrowedAbcd: lending.status === 'fulfilled' ? lending.value.outstanding : null,
+        availableToBorrowAbcd: lending.status === 'fulfilled' ? lending.value.availableToBorrow : null,
+        healthFactor: lending.status === 'fulfilled' ? lending.value.healthFactor : null,
       });
       if ([staking, nfts, treasury, lending].some((result) => result.status === 'rejected')) {
         setOnChainError('Some on-chain dashboard data is unavailable.');
@@ -283,7 +284,7 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
           <div className="bg-slate-900 border border-slate-800 hover:border-rose-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Borrowed</span>
             <div className="text-2xl font-black text-rose-400">{onChainLoading ? 'Loading…' : formatAbcdWithUnit(onChainData.borrowedAbcd)}</div>
-            <span className="text-[9px] text-slate-400 block">LendingPool.getLoanPosition(current wallet)</span>
+            <span className="text-[9px] text-slate-400 block">Canonical Lending V2 contract read</span>
           </div>
 
           {/* Card 3: Lent */}

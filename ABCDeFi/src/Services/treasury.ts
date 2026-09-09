@@ -96,7 +96,7 @@ export async function getTreasuryState(account?: string): Promise<TreasuryState>
 /** Backwards-compatible real read for the existing dashboard refresh path. */
 export async function getTreasuryBalances() {
   const state = await getTreasuryState();
-  return { ethBalance: state.ethBalance };
+  return { ethBalance: state.ethBalance, abcdBalance: state.abcdBalance };
 }
 
 export async function depositTreasuryETH(amountEthString: string) {

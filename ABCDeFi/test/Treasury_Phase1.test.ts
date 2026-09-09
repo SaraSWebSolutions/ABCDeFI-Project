@@ -68,16 +68,40 @@ describe("Treasury System Specification Verification", function () {
       });
 
       const initialDevBal = await hardhatEthers.provider.getBalance(dev.address);
+      const initialLiquidityBal = await hardhatEthers.provider.getBalance(liquidity.address);
+      const initialMarketingBal = await hardhatEthers.provider.getBalance(marketing.address);
+      const initialContractsBal = await hardhatEthers.provider.getBalance(contractsVault.address);
+      const initialCommunityBal = await hardhatEthers.provider.getBalance(community.address);
+      const initialEducationBal = await hardhatEthers.provider.getBalance(education.address);
+      const initialContingencyBal = await hardhatEthers.provider.getBalance(contingency.address);
+      const initialReserveBal = await hardhatEthers.provider.getBalance(reserve.address);
       await treasury.connect(owner).distributeFunds();
 
       const finalDevBal = await hardhatEthers.provider.getBalance(dev.address);
       expect(finalDevBal - initialDevBal).to.equal(ethers.parseEther("15")); // 15% Dev share
+      expect((await hardhatEthers.provider.getBalance(liquidity.address)) - initialLiquidityBal).to.equal(ethers.parseEther("40"));
+      expect((await hardhatEthers.provider.getBalance(marketing.address)) - initialMarketingBal).to.equal(ethers.parseEther("5"));
+      expect((await hardhatEthers.provider.getBalance(contractsVault.address)) - initialContractsBal).to.equal(ethers.parseEther("15"));
+      expect((await hardhatEthers.provider.getBalance(community.address)) - initialCommunityBal).to.equal(ethers.parseEther("5"));
+      expect((await hardhatEthers.provider.getBalance(education.address)) - initialEducationBal).to.equal(ethers.parseEther("10"));
+      expect((await hardhatEthers.provider.getBalance(contingency.address)) - initialContingencyBal).to.equal(ethers.parseEther("8"));
+      expect((await hardhatEthers.provider.getBalance(reserve.address)) - initialReserveBal).to.equal(ethers.parseEther("2"));
 
       const reports = await treasury.getReports();
       expect(reports.length).to.equal(1);
       expect(reports[0].totalAmount).to.equal(ethers.parseEther("100"));
       expect(reports[0].devShare).to.equal(ethers.parseEther("15"));
       expect(reports[0].liquidityShare).to.equal(ethers.parseEther("40"));
+      expect(
+        reports[0].devShare
+        + reports[0].liquidityShare
+        + reports[0].marketingShare
+        + reports[0].contractsShare
+        + reports[0].communityShare
+        + reports[0].educationShare
+        + reports[0].contingencyShare
+        + reports[0].reserveShare
+      ).to.equal(reports[0].totalAmount);
     });
   });
 

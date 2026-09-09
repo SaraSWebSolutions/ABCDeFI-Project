@@ -10,8 +10,8 @@ import {
   syncV2LoanRisk, withdrawV2Collateral,
   type CompletionCertificateMetadata, type V2PendingDeposit, type V2ProgressListener, type V2Read, type V2Tx,
 } from '../Services/lendingV2';
-import { borrowBlocker, directStage, loanActions, metadataMatchesLoanIntent, positiveAmount, sameAmount, sameWallet, validId, validTerm, withinCapacity } from '../Utils/lendingV2Flow';
-import { publishDirectLoanMetadata, publishLoanCompletionMetadata, publishP2PRequestMetadata, type PublishedCompletionMetadata, type PublishedDirectLoanMetadata, type PublishedP2PRequestMetadata } from '../Services/lendingV2Metadata';
+import { borrowBlocker, directStage, loanActions, positiveAmount, sameAmount, sameWallet, validId, validTerm, withinCapacity } from '../Utils/lendingV2Flow';
+import { prepareLoanCompletionMetadata, type PublishedCompletionMetadata } from '../Services/lendingV2Metadata';
 import { Card, Empty, Field, Term, Metric, Metrics, ReadError, V2TransactionStatus, primary, secondary, percent, timestamp, type TransactionState } from './lendingV2/LendingV2Presentation';
 
 // Each response belongs to its exact wallet/selection key. A slow old request
@@ -42,15 +42,6 @@ function useRead<T>(key: string | null, read: () => Promise<T>) {
 type Scope = 'direct' | 'p2p';
 type Selection = { wallet: string; depositId: string; loanId: string; requestId: string; p2pLoanId: string };
 const emptySelection = (wallet: string): Selection => ({ wallet, depositId: '', loanId: '', requestId: '', p2pLoanId: '' });
-const decimalWei = (value: string): string => {
-  try { return positiveAmount(value) ? parseEther(value).toString() : ''; } catch { return ''; }
-};
-const clearP2pPublishedMetadata = (
-  setUri: (value: string) => void,
-  setHash: (value: string) => void,
-  setPublished: (value: PublishedP2PRequestMetadata | null) => void,
-  setMessage: (value: string | null) => void,
-) => { setUri(''); setHash(''); setPublished(null); setMessage(null); };
 
 export const LendingV2: React.FC = () => {
   const { address, isConnected, isCorrectNetwork, refreshBalances } = useWallet();
@@ -67,22 +58,11 @@ export const LendingV2: React.FC = () => {
   const [term, setTerm] = useState('30');
   const [repayment, setRepayment] = useState('');
   const [topUp, setTopUp] = useState('');
-  const [uri, setUri] = useState(''); const [metadataHash, setMetadataHash] = useState('');
-  const [metadataAsset, setMetadataAsset] = useState<File | null>(null);
-  const [publishedMetadata, setPublishedMetadata] = useState<PublishedDirectLoanMetadata | null>(null);
-  const [metadataBusy, setMetadataBusy] = useState(false);
-  const [metadataMessage, setMetadataMessage] = useState<string | null>(null);
-  const [completionAsset, setCompletionAsset] = useState<File | null>(null);
-  const [completionMetadata, setCompletionMetadata] = useState<CompletionCertificateMetadata | null>(null);
   const [publishedCompletionMetadata, setPublishedCompletionMetadata] = useState<PublishedCompletionMetadata | null>(null);
   const [completionBusy, setCompletionBusy] = useState(false);
   const [completionMessage, setCompletionMessage] = useState<string | null>(null);
   const [p2pPrincipal, setP2pPrincipal] = useState(''); const [p2pCollateral, setP2pCollateral] = useState('');
-  const [p2pTerm, setP2pTerm] = useState('30'); const [p2pUri, setP2pUri] = useState(''); const [p2pHash, setP2pHash] = useState('');
-  const [p2pMetadataAsset, setP2pMetadataAsset] = useState<File | null>(null);
-  const [publishedP2pMetadata, setPublishedP2pMetadata] = useState<PublishedP2PRequestMetadata | null>(null);
-  const [p2pMetadataBusy, setP2pMetadataBusy] = useState(false);
-  const [p2pMetadataMessage, setP2pMetadataMessage] = useState<string | null>(null);
+  const [p2pTerm, setP2pTerm] = useState('30');
   const [p2pPayment, setP2pPayment] = useState('');
   const [transaction, setTransaction] = useState<TransactionState | null>(null);
   const [operation, setOperation] = useState<{ scope: Scope; name: string } | null>(null);
@@ -109,9 +89,9 @@ export const LendingV2: React.FC = () => {
 
   useEffect(() => {
     setSelection(emptySelection(wallet)); setDepositReceipt(null); setTransaction(null);
-    setPrincipal(''); setRepayment(''); setTopUp(''); setUri(''); setMetadataHash(''); setMetadataAsset(null); setPublishedMetadata(null); setMetadataMessage(null);
-    setCompletionAsset(null); setCompletionMetadata(null); setPublishedCompletionMetadata(null); setCompletionMessage(null);
-    setP2pPrincipal(''); setP2pCollateral(''); setP2pTerm('30'); setP2pUri(''); setP2pHash(''); setP2pMetadataAsset(null); setPublishedP2pMetadata(null); setP2pMetadataMessage(null);
+    setPrincipal(''); setRepayment(''); setTopUp('');
+    setPublishedCompletionMetadata(null); setCompletionMessage(null);
+    setP2pPrincipal(''); setP2pCollateral(''); setP2pTerm('30');
   }, [wallet]);
 
   // Restore only an actual current canonical pool event for this wallet.
@@ -156,7 +136,7 @@ export const LendingV2: React.FC = () => {
   // Never allow a record prepared for a previous selection to be reused for a
   // different direct/P2P loan after a dashboard selection change.
   useEffect(() => {
-    setCompletionAsset(null); setCompletionMetadata(null); setPublishedCompletionMetadata(null); setCompletionMessage(null);
+    setPublishedCompletionMetadata(null); setCompletionMessage(null);
   }, [tab, loanId, p2pLoanId]);
 
   const refresh = async () => {
@@ -200,23 +180,13 @@ export const LendingV2: React.FC = () => {
     inFlight.current = false; setOperation(null);
   };
   const readBorrowCapacity = () => { void pending.reload().catch(() => {}); };
-  const metadataMatches = metadataMatchesLoanIntent(publishedMetadata?.intent ?? null, { depositId, borrower: wallet, principal, term });
-  const p2pMetadataMatches = Boolean(
-    publishedP2pMetadata
-    && publishedP2pMetadata.intent.borrower.toLowerCase() === wallet
-    && publishedP2pMetadata.intent.principalWei === decimalWei(p2pPrincipal)
-    && publishedP2pMetadata.intent.collateralWei === decimalWei(p2pCollateral)
-    && publishedP2pMetadata.intent.termSeconds === String(Number(p2pTerm) * 86_400)
-    && p2pUri === publishedP2pMetadata.metadataUri
-    && p2pHash === publishedP2pMetadata.metadataHash,
-  );
   const p2pWithinCapacity = Boolean(p2pCapacity.data && withinCapacity(p2pPrincipal, p2pCapacity.data.maxPrincipal));
   const p2pRemainingCapacity = (() => {
     if (!p2pCapacity.data || !positiveAmount(p2pPrincipal) || !p2pWithinCapacity) return 'Unavailable';
     try { return formatEther(parseEther(p2pCapacity.data.maxPrincipal) - parseEther(p2pPrincipal)); }
     catch { return 'Unavailable'; }
   })();
-  const blocker = borrowBlocker({ deposit, depositId, address: wallet, connected: isConnected, correctNetwork: isCorrectNetwork, loading: pending.loading, error: pending.error, principal, term, uri, hash: metadataHash, metadataMatches });
+  const blocker = borrowBlocker({ deposit, depositId, address: wallet, connected: isConnected, correctNetwork: isCorrectNetwork, loading: pending.loading, error: pending.error, principal, term });
   const stage = directStage({ loan, deposit, capacityLoading: pending.loading, operation: operation?.scope === 'direct' ? operation.name : null, depositConfirmed: !!depositReceipt });
   const stageText = stage.replace(/_/g, ' ').toLowerCase();
   const p = protocol.data;
@@ -231,44 +201,20 @@ export const LendingV2: React.FC = () => {
     if (!validId(requestId)) return;
     void request.reload().catch(() => {});
   };
-  const publishMetadata = async () => {
-    if (!metadataAsset || !wallet || !validId(depositId) || !positiveAmount(principal) || !validTerm(term)) {
-      setMetadataMessage('Select PNG artwork, an active deposit, a principal, and a supported term first.'); return;
-    }
-    setMetadataBusy(true); setMetadataMessage('Waiting for the borrower wallet signature…');
+  const prepareCompletionMetadata = async (selectedLoanId: string): Promise<CompletionCertificateMetadata> => {
+    if (!wallet || !validId(selectedLoanId)) throw new Error('Load the borrower loan before completing settlement.');
+    setCompletionBusy(true); setCompletionMessage('ABCDeFi is preparing the three platform completion records…');
     try {
-      const result = await publishDirectLoanMetadata({ asset: metadataAsset, depositId, principal, termDays: Number(term), borrower: wallet });
-      setUri(result.metadataUri); setMetadataHash(result.metadataHash); setPublishedMetadata(result);
-      setMetadataMessage(`Published canonical LoanNFT metadata: ${result.metadataUri}`);
-    } catch (error) { setMetadataMessage(lendingV2ErrorMessage(error)); }
-    finally { setMetadataBusy(false); }
-  };
-  const publishP2pMetadata = async () => {
-    if (!p2pMetadataAsset || !wallet || !positiveAmount(p2pPrincipal) || !positiveAmount(p2pCollateral) || !validTerm(p2pTerm)) {
-      setP2pMetadataMessage('Select PNG artwork, positive principal and collateral, and a supported term first.'); return;
-    }
-    setP2pMetadataBusy(true); setP2pMetadataMessage('Waiting for the borrower wallet signature…');
-    try {
-      const result = await publishP2PRequestMetadata({ asset: p2pMetadataAsset, principal: p2pPrincipal, collateral: p2pCollateral, termDays: Number(p2pTerm), borrower: wallet });
-      setP2pUri(result.metadataUri); setP2pHash(result.metadataHash); setPublishedP2pMetadata(result);
-      setP2pMetadataMessage(`Published canonical P2P LoanNFT metadata: ${result.metadataUri}`);
-    } catch (error) { setP2pMetadataMessage(lendingV2ErrorMessage(error)); }
-    finally { setP2pMetadataBusy(false); }
-  };
-  const publishCompletionMetadata = async () => {
-    const selectedLoanId = tab === 'direct' ? loanId : p2pLoanId;
-    if (!completionAsset || !wallet || !validId(selectedLoanId)) { setCompletionMessage('Select a genuine PNG certificate artwork and load the borrower loan first.'); return; }
-    setCompletionBusy(true); setCompletionMessage('Waiting for the borrower wallet signature…');
-    try {
-      const result = await publishLoanCompletionMetadata({ asset: completionAsset, loanId: selectedLoanId, borrower: wallet });
+      const result = await prepareLoanCompletionMetadata({ loanId: selectedLoanId, borrower: wallet });
       const metadata = {
         lender: { metadataUri: result.lender.metadataUri, metadataHash: result.lender.metadataHash },
         borrower: { metadataUri: result.borrower.metadataUri, metadataHash: result.borrower.metadataHash },
         platform: { metadataUri: result.platform.metadataUri, metadataHash: result.platform.metadataHash },
       };
-      setCompletionMetadata(metadata); setPublishedCompletionMetadata(result);
-      setCompletionMessage(`Published lender, borrower, and platform completion metadata for loan #${selectedLoanId}.`);
-    } catch (error) { setCompletionMessage(lendingV2ErrorMessage(error)); }
+      setPublishedCompletionMetadata(result);
+      setCompletionMessage(`Prepared lender, borrower, and platform completion records for loan #${selectedLoanId}.`);
+      return metadata;
+    } catch (error) { setCompletionMessage(lendingV2ErrorMessage(error)); throw error; }
     finally { setCompletionBusy(false); }
   };
 
@@ -301,8 +247,8 @@ export const LendingV2: React.FC = () => {
         {pending.loading && <p role="status" className="text-sm text-cyan-200">Loading authoritative borrowing capacity…</p>}
         {!deposit && !pending.loading && !pending.error && <Empty>Deposit ETH collateral to begin lending, or enter an existing deposit ID.</Empty>}
         {deposit && <div data-testid="v2-pending-deposit-preview" className="space-y-4"><p className="font-bold text-emerald-200">Pending Deposit ID: <code>{deposit.depositId}</code></p><Metrics><Metric label="Collateral" value={`${deposit.collateralETH} ETH`} /><Metric label="Oracle value" value={`$${deposit.collateralUSD}`} /><Metric label="Maximum LTV" value={percent(p?.initialLtvBps)} /><Metric label="Max borrow" value={`${deposit.maxBorrowable} ABCD`} /><Metric label="Borrower" value={deposit.borrower} /><Metric label="Active" value={deposit.active ? 'Yes' : 'No'} /></Metrics></div>}
-        <V2BorrowForm deposit={deposit} principal={principal} setPrincipal={setPrincipal} term={term} setTerm={setTerm} blocker={blocker} busy={busy} apr={p?.aprBps} ltv={p?.initialLtvBps} onBorrow={() => { if (!blocker) void execute('direct', 'Borrow', progress => borrowV2(depositId, principal, Number(term), uri, metadataHash, progress)); }} />
-        <LoanMetadata uri={uri} hash={metadataHash} asset={metadataAsset} setAsset={setMetadataAsset} publishing={metadataBusy} message={metadataMessage} ready={Boolean(deposit?.active && positiveAmount(principal) && validTerm(term) && wallet)} onPublish={() => void publishMetadata()} />
+        <V2BorrowForm deposit={deposit} principal={principal} setPrincipal={setPrincipal} term={term} setTerm={setTerm} blocker={blocker} busy={busy} apr={p?.aprBps} ltv={p?.initialLtvBps} onBorrow={() => { if (!blocker) void execute('direct', 'Borrow', progress => borrowV2(depositId, principal, Number(term), progress)); }} />
+        <CompletionLifecycleNotice />
       </Card>
       <Card title="Loan Status">
         <LoanSelector value={loanId} onChange={value => select('loanId', value)} records={knownLoans.filter(record => sameWallet((record.loan as Record<string, unknown> | undefined)?.lender as string, contracts.pool))} />
@@ -314,7 +260,7 @@ export const LendingV2: React.FC = () => {
         {loan ? <LoanStatus loan={loan} loanId={loanId} wallet={wallet} /> : <Empty>No direct loan selected. A confirmed borrow creates your Loan ID automatically.</Empty>}
       </Card>
       <Card title="3. Repay ABCD">
-        {actions.repay ? <><Metrics><Metric label="Loan ID" value={loanId} /><Metric label="Current outstanding debt" value={`${loan!.outstanding} ABCD`} /><Metric label="Accrued interest" value={`${loan!.accruedInterest} ABCD`} /><Metric label="Late fee" value={`${loan!.lateFee} ABCD`} /></Metrics><Field label="Partial ABCD amount" inputMode="decimal" value={repayment} onChange={setRepayment} /><p className="text-xs text-slate-400">If needed, MetaMask first confirms Approve ABCD, then Repay. A full settlement additionally requires the three real IPFS completion records below.</p><CompletionMetadataPanel asset={completionAsset} setAsset={setCompletionAsset} publishing={completionBusy} message={completionMessage} metadata={publishedCompletionMetadata} ready={Boolean(wallet && sameWallet(loan!.borrower, wallet))} onPublish={() => void publishCompletionMetadata()} /><div className="flex flex-wrap gap-3"><button className={primary} disabled={!canWrite || !withinCapacity(repayment, loan!.outstanding) || sameAmount(repayment, loan!.outstanding)} onClick={() => void execute('direct', 'Partial repayment', progress => repayV2(loanId, repayment, progress))}>Repay partial</button><button className={secondary} disabled={!canWrite || !completionMetadata} onClick={() => void execute('direct', 'Full repayment', progress => repayAllV2(loanId, completionMetadata!, progress))}>Repay all & create certificates</button></div></> : <Empty>{!loan ? 'Repayment becomes available after a loan is created.' : 'Repayment is unavailable for this wallet or the current loan state.'}</Empty>}
+        {actions.repay ? <><Metrics><Metric label="Loan ID" value={loanId} /><Metric label="Current outstanding debt" value={`${loan!.outstanding} ABCD`} /><Metric label="Accrued interest" value={`${loan!.accruedInterest} ABCD`} /><Metric label="Late fee" value={`${loan!.lateFee} ABCD`} /></Metrics><Field label="Partial ABCD amount" inputMode="decimal" value={repayment} onChange={setRepayment} /><CompletionSettlementNotice busy={completionBusy} message={completionMessage} metadata={publishedCompletionMetadata} /><div className="flex flex-wrap gap-3"><button className={primary} disabled={!canWrite || !withinCapacity(repayment, loan!.outstanding) || sameAmount(repayment, loan!.outstanding)} onClick={() => void execute('direct', 'Partial repayment', progress => repayV2(loanId, repayment, progress))}>Repay partial</button><button className={secondary} disabled={!canWrite || completionBusy} onClick={() => void execute('direct', 'Full repayment', progress => repayAllV2(loanId, prepareCompletionMetadata, progress))}>Repay all & create certificates</button></div></> : <Empty>{!loan ? 'Repayment becomes available after a loan is created.' : 'Repayment is unavailable for this wallet or the current loan state.'}</Empty>}
       </Card>
       <Card title="4. Add collateral / cure">
         {loan?.state === 6 && <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-4 text-amber-100"><p className="font-bold">Margin Call Active</p><p>{p ? Number(p.marginCallCureSeconds) / 3600 : 'Unavailable'}-hour cure period</p><p>Deadline: {timestamp(loan.marginCallCureEnd)}</p><p className="mt-2 text-sm">Repay to cure or add collateral to cure. Refresh and sync risk state to confirm whether the margin call is cleared.</p></div>}
@@ -330,9 +276,9 @@ export const LendingV2: React.FC = () => {
       <Card title="Create Request">
         <p className="text-sm text-slate-300">Create an ETH-collateral-backed request for another wallet to fund. The marketplace contract independently prices collateral through the canonical oracle and enforces the ETH-specific 35% initial LTV policy.</p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="ABCD principal" value={p2pPrincipal} onChange={value => { setP2pPrincipal(value); clearP2pPublishedMetadata(setP2pUri, setP2pHash, setPublishedP2pMetadata, setP2pMetadataMessage); }} inputMode="decimal" />
-          <Field label="ETH collateral" value={p2pCollateral} onChange={value => { setP2pCollateral(value); clearP2pPublishedMetadata(setP2pUri, setP2pHash, setPublishedP2pMetadata, setP2pMetadataMessage); }} inputMode="decimal" />
-          <Term value={p2pTerm} onChange={value => { setP2pTerm(value); clearP2pPublishedMetadata(setP2pUri, setP2pHash, setPublishedP2pMetadata, setP2pMetadataMessage); }} />
+          <Field label="ABCD principal" value={p2pPrincipal} onChange={setP2pPrincipal} inputMode="decimal" />
+          <Field label="ETH collateral" value={p2pCollateral} onChange={setP2pCollateral} inputMode="decimal" />
+          <Term value={p2pTerm} onChange={setP2pTerm} />
         </div>
         <ReadError error={p2pCapacity.error} retry={() => void p2pCapacity.reload().catch(() => {})} />
         {p2pCapacity.loading && <p role="status">Reading canonical P2P ETH capacity from LoanMarketplaceV2…</p>}
@@ -343,12 +289,12 @@ export const LendingV2: React.FC = () => {
           <Metric label="Remaining capacity" value={p2pRemainingCapacity === 'Unavailable' ? 'Enter a valid principal' : `${p2pRemainingCapacity} ABCD`} />
         </Metrics>}
         {positiveAmount(p2pPrincipal) && p2pCapacity.data && !p2pWithinCapacity && <p role="alert" className="text-sm text-amber-200">Requested principal exceeds the contract-authoritative P2P capacity.</p>}
-        <P2PMetadata uri={p2pUri} hash={p2pHash} asset={p2pMetadataAsset} setAsset={setP2pMetadataAsset} publishing={p2pMetadataBusy} message={p2pMetadataMessage} ready={Boolean(wallet && p2pWithinCapacity && validTerm(p2pTerm))} onPublish={() => void publishP2pMetadata()} />
-        <button className={primary} disabled={!canWrite || !p2pWithinCapacity || !validTerm(p2pTerm) || !p2pMetadataMatches} onClick={() => void execute('p2p', 'P2P request', progress => createV2Request(p2pPrincipal, p2pCollateral, Number(p2pTerm), p2pUri, p2pHash, progress))}>Create P2P request</button>
+        <CompletionLifecycleNotice />
+        <button className={primary} disabled={!canWrite || !p2pWithinCapacity || !validTerm(p2pTerm)} onClick={() => void execute('p2p', 'P2P request', progress => createV2Request(p2pPrincipal, p2pCollateral, Number(p2pTerm), progress))}>Create P2P request</button>
       </Card>
       <Card title="Fund Request"><div className="grid items-end gap-4 sm:grid-cols-[1fr_auto]"><Field label="Request ID" value={requestId} onChange={value => { select('requestId', value); select('p2pLoanId', ''); }} inputMode="numeric" /><button type="button" aria-label="Load P2P request from LoanMarketplaceV2" className={secondary} disabled={!validId(requestId) || request.loading} onClick={loadP2PRequest}>{request.loading ? 'Loading request…' : 'Load request'}</button></div>{!validId(requestId) && <p className="text-sm text-slate-400">Enter an existing positive request ID to read its current canonical marketplace state.</p>}<ReadError error={request.error} retry={loadP2PRequest} />{request.loading && <p role="status">Reading request directly from LoanMarketplaceV2…</p>}{currentRequest ? <><Metrics><Metric label="Request" value={`#${requestId}`} /><Metric label="Principal" value={`${currentRequest.principal} ABCD`} /><Metric label="Collateral" value={`${currentRequest.collateralETH} ETH`} /><Metric label="Borrower" value={currentRequest.borrower} /><Metric label="Status" value={['Open', 'Funded', 'Cancelled', 'Settled'][currentRequest.state] || 'Unavailable'} /><Metric label="Lender" value={currentRequest.state === 0 ? 'Awaiting funding' : currentRequest.lender} /></Metrics><button className={primary} disabled={!canWrite || currentRequest.state !== 0 || sameWallet(currentRequest.borrower, wallet)} onClick={() => void execute('p2p', 'P2P funding', progress => fundV2Request(requestId, progress))}>Approve ABCD & fund request</button></> : <Empty>Enter a real request ID and select Load request to review it before funding.</Empty>}</Card>
-      <Card title="Active Loan & EMI"><LoanSelector value={p2pLoanId} onChange={value => select('p2pLoanId', value)} records={knownLoans.filter(record => !sameWallet((record.loan as Record<string, unknown> | undefined)?.lender as string, contracts.pool))} /><ReadError error={peerLoan.error} retry={() => void peerLoan.reload().catch(() => {})} />{peerLoan.loading && <p role="status">Reading P2P loan…</p>}{peerLoan.data?.isDirect && <Empty>This is a direct loan. Use Direct Lending.</Empty>}{p2pLoan ? <><LoanStatus loan={p2pLoan} loanId={p2pLoanId} wallet={wallet} />{p2pLoan.schedule ? <><Metrics><Metric label="Next EMI" value={`${p2pLoan.schedule.installmentAmount} ABCD`} /><Metric label="Installments paid" value={`${p2pLoan.schedule.paidInstallments} / ${p2pLoan.schedule.installmentCount}`} /><Metric label="Next due" value={timestamp(p2pLoan.schedule.nextDueAt)} /></Metrics>{sameWallet(p2pLoan.borrower, wallet) && <CompletionMetadataPanel asset={completionAsset} setAsset={setCompletionAsset} publishing={completionBusy} message={completionMessage} metadata={publishedCompletionMetadata} ready={Boolean(wallet)} onPublish={() => void publishCompletionMetadata()} />}<button className={primary} disabled={!canWrite || !peerActions.repay || p2pLoan.schedule.completed || (Number(p2pLoan.schedule.paidInstallments) + 1 >= Number(p2pLoan.schedule.installmentCount) && !completionMetadata)} onClick={() => void execute('p2p', 'EMI payment', progress => payV2Emi(p2pLoanId, completionMetadata, progress))}>Approve ABCD & pay next EMI</button></> : <Empty>No EMI schedule is available for this loan.</Empty>}</> : <Empty>A funded P2P request creates a loan and its EMI schedule.</Empty>}</Card>
-      <Card title="Settlement & Default Recovery">{p2pLoan ? <><Field label="Outstanding ABCD payment" value={p2pPayment} onChange={setP2pPayment} inputMode="decimal" /><button className={secondary} disabled={!canWrite || !peerActions.repay || !withinCapacity(p2pPayment, p2pLoan.outstanding) || (sameAmount(p2pPayment, p2pLoan.outstanding) && !completionMetadata)} onClick={() => void execute('p2p', 'Outstanding EMI repayment', progress => payV2OutstandingEmi(p2pLoanId, p2pPayment, completionMetadata, progress))}>Approve ABCD & settle outstanding</button><p className="text-sm text-slate-300">Collateral release and lender settlement follow the on-chain EMI and marketplace state.</p><button className={secondary} disabled={!canWrite || !currentRequest || currentRequest.state !== 1 || currentRequest.loanId !== p2pLoanId || p2pLoan.state !== 3} onClick={() => void execute('p2p', 'P2P default settlement', progress => settleV2Default(requestId, progress))}>Settle eligible default</button></> : <Empty>Load a funded request and loan to review settlement or default recovery.</Empty>}</Card>
+      <Card title="Active Loan & EMI"><LoanSelector value={p2pLoanId} onChange={value => select('p2pLoanId', value)} records={knownLoans.filter(record => !sameWallet((record.loan as Record<string, unknown> | undefined)?.lender as string, contracts.pool))} /><ReadError error={peerLoan.error} retry={() => void peerLoan.reload().catch(() => {})} />{peerLoan.loading && <p role="status">Reading P2P loan…</p>}{peerLoan.data?.isDirect && <Empty>This is a direct loan. Use Direct Lending.</Empty>}{p2pLoan ? <><LoanStatus loan={p2pLoan} loanId={p2pLoanId} wallet={wallet} />{p2pLoan.schedule ? <><Metrics><Metric label="Next EMI" value={`${p2pLoan.schedule.installmentAmount} ABCD`} /><Metric label="Installments paid" value={`${p2pLoan.schedule.paidInstallments} / ${p2pLoan.schedule.installmentCount}`} /><Metric label="Next due" value={timestamp(p2pLoan.schedule.nextDueAt)} /></Metrics>{sameWallet(p2pLoan.borrower, wallet) && <CompletionSettlementNotice busy={completionBusy} message={completionMessage} metadata={publishedCompletionMetadata} />}<button className={primary} disabled={!canWrite || !peerActions.repay || p2pLoan.schedule.completed || completionBusy} onClick={() => void execute('p2p', 'EMI payment', progress => payV2Emi(p2pLoanId, prepareCompletionMetadata, progress))}>Approve ABCD & pay next EMI</button></> : <Empty>No EMI schedule is available for this loan.</Empty>}</> : <Empty>A funded P2P request creates a loan and its EMI schedule.</Empty>}</Card>
+      <Card title="Settlement & Default Recovery">{p2pLoan ? <><Field label="Outstanding ABCD payment" value={p2pPayment} onChange={setP2pPayment} inputMode="decimal" /><button className={secondary} disabled={!canWrite || !peerActions.repay || !withinCapacity(p2pPayment, p2pLoan.outstanding) || completionBusy} onClick={() => void execute('p2p', 'Outstanding EMI repayment', progress => payV2OutstandingEmi(p2pLoanId, p2pPayment, prepareCompletionMetadata, progress))}>Approve ABCD & settle outstanding</button><p className="text-sm text-slate-300">Collateral release and lender settlement follow the on-chain EMI and marketplace state.</p><button className={secondary} disabled={!canWrite || !currentRequest || currentRequest.state !== 1 || currentRequest.loanId !== p2pLoanId || p2pLoan.state !== 3} onClick={() => void execute('p2p', 'P2P default settlement', progress => settleV2Default(requestId, progress))}>Settle eligible default</button></> : <Empty>Load a funded request and loan to review settlement or default recovery.</Empty>}</Card>
     </section>}
     <Card title="Your positions & history">
       <ReadError error={history.error} retry={() => void history.reload().catch(() => {})} />
@@ -376,14 +322,11 @@ export function V2BorrowForm({ deposit, principal, setPrincipal, term, setTerm, 
     <button type="button" aria-label="Borrow ABCD against active V2 deposit" className={primary} disabled={busy || !!blocker} onClick={onBorrow}>{positiveAmount(principal) ? `Borrow ${principal} ABCD` : 'Borrow ABCD'}</button>
   </div>;
 }
-function LoanMetadata({ uri, hash, asset, setAsset, publishing, message, ready, onPublish }: { uri: string; hash: string; asset: File | null; setAsset: (asset: File | null) => void; publishing: boolean; message: string | null; ready: boolean; onPublish: () => void }) {
-  return <div className="space-y-3 rounded-xl border border-slate-700 p-4"><h4 className="font-semibold text-slate-200">LoanNFT certificate metadata (required)</h4><p className="text-xs text-slate-400">For this local V2 deployment, select genuine PNG certificate artwork. ABCDeFi signs the exact deposit, borrower, principal, and term with your connected wallet, then publishes ERC-721 metadata through the configured public IPFS provider.</p><label className="block text-sm text-slate-200">LoanNFT certificate artwork (PNG)<input aria-label="LoanNFT certificate artwork PNG" type="file" accept="image/png" disabled={publishing} onChange={event => setAsset(event.target.files?.[0] ?? null)} className="mt-1 block w-full text-xs text-slate-200" /></label>{asset && <p className="text-xs text-slate-300">Selected artwork: {asset.name}</p>}<button type="button" className={secondary} disabled={!ready || !asset || publishing} onClick={onPublish}>{publishing ? 'Publishing signed metadata…' : 'Create & publish signed LoanNFT metadata'}</button>{message && <p role="status" className="break-all text-xs text-cyan-200">{message}</p>}{uri && <Metrics><Metric label="Published metadata URI" value={uri} /><Metric label="URI provenance hash" value={hash || 'Unavailable'} /></Metrics>}<p className="text-xs text-slate-400">No local HTTP URI, made-up CID, or manual hash is accepted for this borrowing workflow.</p></div>;
+function CompletionLifecycleNotice() {
+  return <p className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3 text-xs text-slate-300">Completion LoanNFTs are not created at origination. During a full-settlement action, ABCDeFi prepares genuine role-specific IPFS provenance; the same successful repayment transaction atomically mints the lender, borrower, and platform certificates.</p>;
 }
-function CompletionMetadataPanel({ asset, setAsset, publishing, message, metadata, ready, onPublish }: { asset: File | null; setAsset: (asset: File | null) => void; publishing: boolean; message: string | null; metadata: PublishedCompletionMetadata | null; ready: boolean; onPublish: () => void }) {
-  return <div className="space-y-3 rounded-xl border border-violet-500/30 bg-violet-500/5 p-4"><h4 className="font-semibold text-violet-100">Completion LoanNFT metadata (required for final settlement)</h4><p className="text-xs text-slate-300">The borrower signs this exact loan, then the authenticated backend publishes three role-specific public IPFS records. Their on-chain 1% valuation is non-redeemable accounting metadata only.</p><label className="block text-sm text-slate-200">Completion certificate artwork (PNG)<input aria-label="Completion certificate artwork PNG" type="file" accept="image/png" disabled={publishing} onChange={event => setAsset(event.target.files?.[0] ?? null)} className="mt-1 block w-full text-xs text-slate-200" /></label>{asset && <p className="text-xs text-slate-300">Selected artwork: {asset.name}</p>}<button type="button" className={secondary} disabled={!ready || !asset || publishing} onClick={onPublish}>{publishing ? 'Publishing three completion records…' : 'Create & publish completion metadata'}</button>{message && <p role="status" className="break-all text-xs text-cyan-200">{message}</p>}{metadata && <Metrics><Metric label="Lender metadata URI" value={metadata.lender.metadataUri} /><Metric label="Borrower metadata URI" value={metadata.borrower.metadataUri} /><Metric label="Platform metadata URI" value={metadata.platform.metadataUri} /></Metrics>}<p className="text-xs text-slate-400">No made-up CID, local HTTP URI, or arbitrary manual hash is accepted.</p></div>;
-}
-function P2PMetadata({ uri, hash, asset, setAsset, publishing, message, ready, onPublish }: { uri: string; hash: string; asset: File | null; setAsset: (asset: File | null) => void; publishing: boolean; message: string | null; ready: boolean; onPublish: () => void }) {
-  return <div className="space-y-3 rounded-xl border border-slate-700 p-4"><h4 className="font-semibold text-slate-200">P2P LoanNFT metadata (required)</h4><p className="text-xs text-slate-400">Select genuine PNG certificate artwork. ABCDeFi signs the exact borrower, principal, collateral, and term before publishing public IPFS metadata for this request.</p><label className="block text-sm text-slate-200">P2P LoanNFT certificate artwork (PNG)<input aria-label="P2P LoanNFT certificate artwork PNG" type="file" accept="image/png" disabled={publishing} onChange={event => setAsset(event.target.files?.[0] ?? null)} className="mt-1 block w-full text-xs text-slate-200" /></label>{asset && <p className="text-xs text-slate-300">Selected artwork: {asset.name}</p>}<button type="button" className={secondary} disabled={!ready || !asset || publishing} onClick={onPublish}>{publishing ? 'Publishing signed P2P metadata…' : 'Create & publish signed P2P LoanNFT metadata'}</button>{message && <p role="status" className="break-all text-xs text-cyan-200">{message}</p>}{uri && <Metrics><Metric label="Published metadata URI" value={uri} /><Metric label="URI provenance hash" value={hash || 'Unavailable'} /></Metrics>}<p className="text-xs text-slate-400">No local HTTP URI, made-up CID, or manual hash is accepted for this P2P request.</p></div>;
+function CompletionSettlementNotice({ busy, message, metadata }: { busy: boolean; message: string | null; metadata: PublishedCompletionMetadata | null }) {
+  return <div className="space-y-3 rounded-xl border border-violet-500/30 bg-violet-500/5 p-4"><h4 className="font-semibold text-violet-100">Completion LoanNFT certificates</h4><p className="text-xs text-slate-300">On a full settlement, the authenticated ABCDeFi platform prepares three genuine public-IPFS provenance records from canonical loan state, then the same settlement transaction mints the lender, borrower, and platform certificates. No borrower artwork, manual URI, or manual hash is accepted.</p>{busy && <p role="status" className="text-xs text-cyan-200">Preparing completion records…</p>}{message && <p role="status" className="break-all text-xs text-cyan-200">{message}</p>}{metadata && <Metrics><Metric label="Lender metadata URI" value={metadata.lender.metadataUri} /><Metric label="Borrower metadata URI" value={metadata.borrower.metadataUri} /><Metric label="Platform metadata URI" value={metadata.platform.metadataUri} /></Metrics>}</div>;
 }
 function LoanSelector({ value, onChange, records }: { value: string; onChange: (v: string) => void; records: Array<Record<string, unknown>> }) {
   return <div className="space-y-3"><Field label="Loan ID" inputMode="numeric" value={value} onChange={onChange} /><div className="flex flex-wrap gap-2">{records.filter(record => validId(String(record.loanId))).map(record => <button key={String(record.loanId)} className={secondary} onClick={() => onChange(String(record.loanId))}>Load loan #{String(record.loanId)}</button>)}</div></div>;

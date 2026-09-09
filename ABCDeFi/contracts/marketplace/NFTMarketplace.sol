@@ -147,7 +147,10 @@ contract NFTMarketplace is AccessControl, ReentrancyGuard, Pausable, INFTMarketp
     // --- Admin Operations ---
 
     function setMarketplaceFee(uint256 newFeeBps) external override onlyRole(Constants.MARKETPLACE_ADMIN_ROLE) {
-        if (newFeeBps > MAX_MARKETPLACE_FEE_BPS) revert Errors.ZeroAmount();
+        // The whitepaper fixes the NFT buy/sell fee at 0.1% (10 BPS). A cap
+        // alone would still let an administrator silently lower the fee to
+        // zero or another unapproved rate, so preserve the approved policy.
+        if (newFeeBps != MAX_MARKETPLACE_FEE_BPS) revert Errors.ZeroAmount();
         marketplaceFeeBps = newFeeBps;
         emit MarketplaceFeeUpdated(newFeeBps);
     }

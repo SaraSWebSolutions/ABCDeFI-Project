@@ -5,7 +5,7 @@ import { CONTRACTS, DEPLOYMENT_CHAIN_ID } from '../Config/contracts';
 import { assertCanonicalContractDeployment, provider as canonicalProvider } from './contractProvider';
 import { getSigner } from './wallet';
 
-export const STAKING_LOCK_DURATIONS = [30 * 24 * 60 * 60, 90 * 24 * 60 * 60, 180 * 24 * 60 * 60] as const;
+export const STAKING_LOCK_DURATIONS = [30 * 24 * 60 * 60, 90 * 24 * 60 * 60, 180 * 24 * 60 * 60, 365 * 24 * 60 * 60] as const;
 
 export interface StakingPosition {
   index: number;
@@ -141,13 +141,13 @@ export async function stakeTokens(amount: string, lockDuration?: number, onSubmi
   return confirm(await contract.stake(value, lockDuration), onSubmitted);
 }
 
-async function getActivePosition(signer: Awaited<ReturnType<typeof getSignerOnDeploymentChain>>, stakeIndex: number) {
+async function getActivePosition(signer: Awaited<ReturnType<typeof getSignerOnDeploymentChain>>, stakeIndex: number, requireUnpaused = true) {
   if (!Number.isInteger(stakeIndex) || stakeIndex < 0) throw new Error('Select a valid staking position.');
   await assertCanonicalContractDeployment('StakingPool', CONTRACTS.staking);
   const account = await signer.getAddress();
   const contract = new Contract(CONTRACTS.staking, StakingPoolArtifact.abi, signer);
   const [paused, stakes, block] = await Promise.all([contract.paused(), contract.getStakes(account), signer.provider!.getBlock('latest')]);
-  if (paused) throw new Error('StakingPool is paused. This action is unavailable.');
+  if (requireUnpaused && paused) throw new Error('StakingPool is paused. This action is unavailable.');
   const position = stakes[stakeIndex];
   if (!position || position.amount === 0n) throw new Error('This staking position is unavailable.');
   return { account, contract, position, timestamp: BigInt(block?.timestamp ?? 0) };
@@ -172,6 +172,16 @@ export async function claimStakingRewards(stakeIndex?: number, onSubmitted?: Tra
   if (reward === 0n) throw new Error('There are no claimable rewards for this position.');
   if (reward > rewardPoolBalance) throw new Error('Staking reward pool is depleted.');
   return confirm(await contract.claimRewards(stakeIndex), onSubmitted);
+}
+
+/** Whitepaper emergency exit: only while paused, principal only, no reward. */
+export async function emergencyWithdrawStaking(stakeIndex: number, onSubmitted?: TransactionSubmitted) {
+  const signer = await getSignerOnDeploymentChain();
+  await requireGasBalance(signer);
+  const { contract, position } = await getActivePosition(signer, stakeIndex, false);
+  if (!(await contract.paused())) throw new Error('Emergency withdrawal is available only while StakingPool is paused.');
+  if (position.amount === 0n) throw new Error('This staking position is unavailable.');
+  return confirm(await contract.emergencyWithdraw(stakeIndex), onSubmitted);
 }
 
 /** Legacy amount-based withdrawal is unsupported by StakingPool; use unstakeTokens(positionIndex). */
