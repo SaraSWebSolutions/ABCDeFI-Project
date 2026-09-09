@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const UserAccount = require('../modules/user/userAccount/userAccount.model');
 const { requireAdmin } = require('../middleware/authMiddleware');
@@ -42,4 +44,25 @@ test('backend application admin authorization denies a non-admin even if a walle
   } finally {
     UserAccount.findById = originalFindById;
   }
+});
+
+test('every active privileged HTTP route composes authentication before persisted-role authorization', () => {
+  const root = path.resolve(__dirname, '..');
+  const routeSources = [
+    'modules/user/userAccount/userAccount.routes.js',
+    'modules/admin/userManagement/userManagement.routes.js',
+    'modules/nft/nft.routes.js',
+    'modules/nftStorage/nftStorage.routes.js',
+    'modules/ico/ico.routes.js',
+  ].map((relativePath) => fs.readFileSync(path.join(root, relativePath), 'utf8'));
+
+  for (const source of routeSources) assert.match(source, /requireAdmin/);
+  assert.match(routeSources[0], /router\.get\("\/admin\/users", auth, requireAdmin/);
+  assert.match(routeSources[0], /router\.post\("\/admin\/users\/status", auth, requireAdmin/);
+  assert.match(routeSources[0], /router\.post\("\/admin\/users\/kyc", auth, requireAdmin/);
+  assert.match(routeSources[0], /router\.post\("\/admin\/users\/reset-password", auth, requireAdmin/);
+  assert.match(routeSources[2], /router\.post\('\/mint-franchise', auth, requireAdmin/);
+  assert.match(routeSources[2], /router\.post\('\/mint-legion', auth, requireAdmin/);
+  assert.match(routeSources[3], /router\.post\('\/metadata', auth, requireAdmin/);
+  assert.match(routeSources[4], /router\.post\("\/admin\/import", auth, requireAdmin/);
 });

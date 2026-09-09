@@ -74,4 +74,34 @@ describe("FranchiseNFT", function () {
     await expect(franchise.connect(minter).mintFranchise(holder.address, "x", "", "x", 5, 0, 1, 6, "ipfs://x", "x"))
       .to.be.revertedWith("Territory code required");
   });
+
+  it("rejects an out-of-range territory enum before minting a certificate", async function () {
+    await expect(
+      franchise.connect(minter).mintFranchise(
+        holder.address,
+        "Invalid Territory Licence",
+        "INVALID-LEVEL",
+        "Invalid Territory",
+        9,
+        0,
+        0,
+        0,
+        "ipfs://bafybeigdyrzt4examplemetadata/metadata.json",
+        "bafybeigdyrzt4examplemetadata",
+      )
+    ).to.revert(ethers);
+    await expect(franchise.ownerOf(1)).to.revert(ethers);
+  });
+
+  it("limits the pause control to the pauser role and blocks issuance while paused", async function () {
+    await expect(franchise.connect(holder).pause()).to.revert(ethers);
+    await franchise.connect(admin).pause();
+
+    await expect(mint()).to.revert(ethers);
+    await expect(franchise.ownerOf(1)).to.revert(ethers);
+
+    await franchise.connect(admin).unpause();
+    await expect(mint()).to.emit(franchise, "FranchiseNFTMinted");
+    expect(await franchise.ownerOf(1)).to.equal(holder.address);
+  });
 });

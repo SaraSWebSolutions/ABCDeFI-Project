@@ -13,7 +13,7 @@ export declare namespace FranchiseNFT {
     }
 
   export interface FranchiseNFTInterface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "LOCK_PERIOD" | "MINTER_ROLE" | "PAUSER_ROLE" | "UPDATER_ROLE" | "approve" | "balanceOf" | "getApproved" | "getFranchiseDetails" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "isTransferLocked" | "mintFranchise" | "name" | "owner" | "ownerOf" | "paused" | "renounceOwnership" | "renounceRole" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom" | "transferOwnership"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "LOCK_PERIOD" | "MINTER_ROLE" | "PAUSER_ROLE" | "UPDATER_ROLE" | "approve" | "balanceOf" | "getApproved" | "getFranchiseDetails" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "isTransferLocked" | "mintFranchise" | "name" | "owner" | "ownerOf" | "pause" | "paused" | "renounceOwnership" | "renounceRole" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom" | "transferOwnership" | "unpause"): FunctionFragment;
 
     getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "BatchMetadataUpdate" | "FranchiseNFTMinted" | "MetadataUpdate" | "OwnershipTransferred" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Transfer" | "Unpaused"): EventFragment;
 
@@ -35,6 +35,7 @@ encodeFunctionData(functionFragment: 'mintFranchise', values: [AddressLike, stri
 encodeFunctionData(functionFragment: 'name', values?: undefined): string;
 encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ownerOf', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
 encodeFunctionData(functionFragment: 'renounceOwnership', values?: undefined): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
@@ -47,6 +48,7 @@ encodeFunctionData(functionFragment: 'symbol', values?: undefined): string;
 encodeFunctionData(functionFragment: 'tokenURI', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'transferFrom', values: [AddressLike, AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
+encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LOCK_PERIOD', data: BytesLike): Result;
@@ -66,6 +68,7 @@ decodeFunctionResult(functionFragment: 'mintFranchise', data: BytesLike): Result
 decodeFunctionResult(functionFragment: 'name', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'ownerOf', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceOwnership', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
@@ -78,6 +81,7 @@ decodeFunctionResult(functionFragment: 'symbol', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'tokenURI', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   }
 
   
@@ -403,6 +407,14 @@ decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Re
     
 
     
+    pause: TypedContractMethod<
+      [],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     paused: TypedContractMethod<
       [],
       [boolean],
@@ -493,6 +505,14 @@ decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Re
     
     transferOwnership: TypedContractMethod<
       [newOwner: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    unpause: TypedContractMethod<
+      [],
       [void],
       'nonpayable'
     >
@@ -591,6 +611,11 @@ getFunction(nameOrSignature: 'ownerOf'): TypedContractMethod<
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'pause'): TypedContractMethod<
+      [],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'paused'): TypedContractMethod<
       [],
       [boolean],
@@ -648,6 +673,11 @@ getFunction(nameOrSignature: 'transferFrom'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'transferOwnership'): TypedContractMethod<
       [newOwner: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
+      [],
       [void],
       'nonpayable'
     >;

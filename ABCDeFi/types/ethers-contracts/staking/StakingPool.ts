@@ -6,21 +6,26 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 export declare namespace IStakingPool {
       
-    export type StakeInfoStruct = {amount: BigNumberish, startTime: BigNumberish, lockDuration: BigNumberish, rewardMultiplier: BigNumberish, unclaimedRewards: BigNumberish}
+    export type StakeInfoStruct = {amount: BigNumberish, startTime: BigNumberish, lockDuration: BigNumberish, rewardMultiplier: BigNumberish, lastClaimTime: BigNumberish}
 
-    export type StakeInfoStructOutput = [amount: bigint, startTime: bigint, lockDuration: bigint, rewardMultiplier: bigint, unclaimedRewards: bigint] & {amount: bigint, startTime: bigint, lockDuration: bigint, rewardMultiplier: bigint, unclaimedRewards: bigint }
+    export type StakeInfoStructOutput = [amount: bigint, startTime: bigint, lockDuration: bigint, rewardMultiplier: bigint, lastClaimTime: bigint] & {amount: bigint, startTime: bigint, lockDuration: bigint, rewardMultiplier: bigint, lastClaimTime: bigint }
   
     }
 
   export interface StakingPoolInterface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "calculateRewards" | "claimRewards" | "durationMultipliers" | "fundRewardPool" | "getRoleAdmin" | "getStakes" | "grantRole" | "hasRole" | "pause" | "paused" | "renounceRole" | "revokeRole" | "rewardPoolBalance" | "setLockTier" | "stake" | "stakingToken" | "supportsInterface" | "unpause" | "unstake"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "NINETY_DAY_APY_BPS" | "ONE_EIGHTY_DAY_APY_BPS" | "THIRTY_DAY_APY_BPS" | "THREE_SIXTY_FIVE_DAY_APY_BPS" | "calculateRewards" | "claimRewards" | "durationMultipliers" | "emergencyWithdraw" | "fundRewardPool" | "getRoleAdmin" | "getStakes" | "grantRole" | "hasRole" | "pause" | "paused" | "renounceRole" | "revokeRole" | "rewardPoolBalance" | "setLockTier" | "stake" | "stakingToken" | "supportsInterface" | "unpause" | "unstake"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "Paused" | "RewardPoolFunded" | "RewardsClaimed" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Staked" | "Unpaused" | "Unstaked"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "EmergencyWithdrawn" | "Paused" | "RewardPoolFunded" | "RewardsClaimed" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Staked" | "Unpaused" | "Unstaked"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'NINETY_DAY_APY_BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'ONE_EIGHTY_DAY_APY_BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'THIRTY_DAY_APY_BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'THREE_SIXTY_FIVE_DAY_APY_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'calculateRewards', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'claimRewards', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'durationMultipliers', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'emergencyWithdraw', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'fundRewardPool', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'getStakes', values: [AddressLike]): string;
@@ -39,9 +44,14 @@ encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'unstake', values: [BigNumberish]): string;
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'NINETY_DAY_APY_BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'ONE_EIGHTY_DAY_APY_BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'THIRTY_DAY_APY_BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'THREE_SIXTY_FIVE_DAY_APY_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'calculateRewards', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'claimRewards', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'durationMultipliers', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'emergencyWithdraw', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'fundRewardPool', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getStakes', data: BytesLike): Result;
@@ -61,6 +71,18 @@ decodeFunctionResult(functionFragment: 'unstake', data: BytesLike): Result;
   }
 
   
+    export namespace EmergencyWithdrawnEvent {
+      export type InputTuple = [user: AddressLike, stakeIndex: BigNumberish, principalAmount: BigNumberish];
+      export type OutputTuple = [user: string, stakeIndex: bigint, principalAmount: bigint];
+      export interface OutputObject {user: string, stakeIndex: bigint, principalAmount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace PausedEvent {
       export type InputTuple = [account: AddressLike];
       export type OutputTuple = [account: string];
@@ -211,6 +233,38 @@ decodeFunctionResult(functionFragment: 'unstake', data: BytesLike): Result;
     
 
     
+    NINETY_DAY_APY_BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
+    ONE_EIGHTY_DAY_APY_BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
+    THIRTY_DAY_APY_BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
+    THREE_SIXTY_FIVE_DAY_APY_BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     calculateRewards: TypedContractMethod<
       [user: AddressLike, stakeIndex: BigNumberish, ],
       [bigint],
@@ -231,6 +285,14 @@ decodeFunctionResult(functionFragment: 'unstake', data: BytesLike): Result;
       [arg0: BigNumberish, ],
       [bigint],
       'view'
+    >
+    
+
+    
+    emergencyWithdraw: TypedContractMethod<
+      [stakeIndex: BigNumberish, ],
+      [void],
+      'nonpayable'
     >
     
 
@@ -370,6 +432,26 @@ decodeFunctionResult(functionFragment: 'unstake', data: BytesLike): Result;
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'NINETY_DAY_APY_BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'ONE_EIGHTY_DAY_APY_BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'THIRTY_DAY_APY_BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'THREE_SIXTY_FIVE_DAY_APY_BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
 getFunction(nameOrSignature: 'calculateRewards'): TypedContractMethod<
       [user: AddressLike, stakeIndex: BigNumberish, ],
       [bigint],
@@ -384,6 +466,11 @@ getFunction(nameOrSignature: 'durationMultipliers'): TypedContractMethod<
       [arg0: BigNumberish, ],
       [bigint],
       'view'
+    >;
+getFunction(nameOrSignature: 'emergencyWithdraw'): TypedContractMethod<
+      [stakeIndex: BigNumberish, ],
+      [void],
+      'nonpayable'
     >;
 getFunction(nameOrSignature: 'fundRewardPool'): TypedContractMethod<
       [amount: BigNumberish, ],
@@ -466,7 +553,8 @@ getFunction(nameOrSignature: 'unstake'): TypedContractMethod<
       'nonpayable'
     >;
 
-    getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+    getEvent(key: 'EmergencyWithdrawn'): TypedContractEvent<EmergencyWithdrawnEvent.InputTuple, EmergencyWithdrawnEvent.OutputTuple, EmergencyWithdrawnEvent.OutputObject>;
+getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
 getEvent(key: 'RewardPoolFunded'): TypedContractEvent<RewardPoolFundedEvent.InputTuple, RewardPoolFundedEvent.OutputTuple, RewardPoolFundedEvent.OutputObject>;
 getEvent(key: 'RewardsClaimed'): TypedContractEvent<RewardsClaimedEvent.InputTuple, RewardsClaimedEvent.OutputTuple, RewardsClaimedEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
@@ -478,6 +566,10 @@ getEvent(key: 'Unstaked'): TypedContractEvent<UnstakedEvent.InputTuple, Unstaked
 
     filters: {
       
+      'EmergencyWithdrawn(address,uint256,uint256)': TypedContractEvent<EmergencyWithdrawnEvent.InputTuple, EmergencyWithdrawnEvent.OutputTuple, EmergencyWithdrawnEvent.OutputObject>;
+      EmergencyWithdrawn: TypedContractEvent<EmergencyWithdrawnEvent.InputTuple, EmergencyWithdrawnEvent.OutputTuple, EmergencyWithdrawnEvent.OutputObject>;
+    
+
       'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
       Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
     

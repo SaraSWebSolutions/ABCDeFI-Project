@@ -154,4 +154,66 @@ describe("LegionNFT Contract Suite", function () {
       )
     ).to.be.revertedWith("LegionNFT: Invalid hierarchy level progression");
   });
+
+  it("restricts issuance to MINTER_ROLE and preserves canonical ownership, supply, and metadata", async function () {
+    const metadataUri = "ipfs://bafybeigdyrzt4examplelegionmetadata/asia.json";
+
+    await expect(
+      legionNFT.connect(user1).mintContinent(
+        user1.address, "Asia", "Asian Continent", "Guardian", metadataUri, 1, 0
+      )
+    ).to.revert(ethers);
+
+    await expect(
+      legionNFT.connect(minter).mintContinent(
+        user1.address, "Asia", "Asian Continent", "Guardian", metadataUri, 1, 0
+      )
+    ).to.emit(legionNFT, "LegionNFTMinted");
+
+    expect(await legionNFT.totalLegions()).to.equal(1);
+    expect(await legionNFT.ownerOf(1)).to.equal(user1.address);
+    expect(await legionNFT.tokenURI(1)).to.equal(metadataUri);
+
+    const details = await legionNFT.getLegionDetails(1);
+    expect(details.nftId).to.equal(1);
+    expect(details.metadataURI).to.equal(metadataUri);
+    expect(details.parentId).to.equal(0);
+  });
+
+  it("rejects invalid recipients and hierarchy inputs without consuming supply", async function () {
+    await expect(
+      legionNFT.connect(minter).mintContinent(
+        ethers.ZeroAddress, "Asia", "Asian Continent", "Guardian", "ipfs://metadata/asia.json", 1, 0
+      )
+    ).to.be.revertedWith("LegionNFT: Invalid recipient");
+    await expect(
+      legionNFT.connect(minter).mintContinent(
+        user1.address, "", "Asian Continent", "Guardian", "ipfs://metadata/asia.json", 1, 0
+      )
+    ).to.be.revertedWith("LegionNFT: Name cannot be empty");
+    await expect(
+      legionNFT.connect(minter).mintCountry(
+        user1.address, "India", "India", 0, "Guardian", "ipfs://metadata/india.json", 1, 0
+      )
+    ).to.be.revertedWith("LegionNFT: Invalid parent token ID");
+    expect(await legionNFT.totalLegions()).to.equal(0);
+  });
+
+  it("enforces pause authority and prevents minting while paused", async function () {
+    await expect(legionNFT.connect(user1).pause()).to.revert(ethers);
+    await legionNFT.connect(owner).pause();
+    expect(await legionNFT.paused()).to.equal(true);
+    await expect(
+      legionNFT.connect(minter).mintContinent(
+        user1.address, "Asia", "Asian Continent", "Guardian", "ipfs://metadata/asia.json", 1, 0
+      )
+    ).to.revert(ethers);
+    expect(await legionNFT.totalLegions()).to.equal(0);
+
+    await legionNFT.connect(owner).unpause();
+    await legionNFT.connect(minter).mintContinent(
+      user1.address, "Asia", "Asian Continent", "Guardian", "ipfs://metadata/asia.json", 1, 0
+    );
+    expect(await legionNFT.totalLegions()).to.equal(1);
+  });
 });

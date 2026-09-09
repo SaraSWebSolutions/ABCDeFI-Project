@@ -21,7 +21,12 @@ contract StakingPool is AccessControl, ReentrancyGuard, Pausable, IStakingPool {
     IERC20 public immutable stakingToken;
     uint256 public rewardPoolBalance;
 
-    // Lock Duration -> APY Multiplier (BPS). e.g., 30 days -> 500 (5%), 90 days -> 1200 (12%), 180 days -> 2500 (25%)
+    // Whitepaper-defined lock duration -> fixed APY in basis points.
+    uint256 public constant THIRTY_DAY_APY_BPS = 500;
+    uint256 public constant NINETY_DAY_APY_BPS = 1200;
+    uint256 public constant ONE_EIGHTY_DAY_APY_BPS = 2500;
+    uint256 public constant THREE_SIXTY_FIVE_DAY_APY_BPS = 4000;
+
     mapping(uint256 => uint256) public durationMultipliers;
     mapping(address => StakeInfo[]) private _userStakes;
 
@@ -34,10 +39,10 @@ contract StakingPool is AccessControl, ReentrancyGuard, Pausable, IStakingPool {
         _grantRole(Constants.STAKING_ADMIN_ROLE, admin);
         _grantRole(Constants.PAUSER_ROLE, admin);
 
-        // Default Tiers: 30 days (5% APY), 90 days (12% APY), 180 days (25% APY)
-        durationMultipliers[30 days] = 500;
-        durationMultipliers[90 days] = 1200;
-        durationMultipliers[180 days] = 2500;
+        durationMultipliers[30 days] = THIRTY_DAY_APY_BPS;
+        durationMultipliers[90 days] = NINETY_DAY_APY_BPS;
+        durationMultipliers[180 days] = ONE_EIGHTY_DAY_APY_BPS;
+        durationMultipliers[365 days] = THREE_SIXTY_FIVE_DAY_APY_BPS;
     }
 
     /**
@@ -55,7 +60,7 @@ contract StakingPool is AccessControl, ReentrancyGuard, Pausable, IStakingPool {
             startTime: block.timestamp,
             lockDuration: lockDuration,
             rewardMultiplier: multiplier,
-            unclaimedRewards: 0
+            lastClaimTime: block.timestamp
         }));
 
         emit Staked(msg.sender, amount, lockDuration);
@@ -100,7 +105,9 @@ contract StakingPool is AccessControl, ReentrancyGuard, Pausable, IStakingPool {
         if (rewardPoolBalance < reward) revert Errors.RewardPoolDepleted();
 
         rewardPoolBalance -= reward;
-        userStake.startTime = block.timestamp; // Reset time clock after claim
+        userStake.lastClaimTime = block.timestamp > userStake.startTime + userStake.lockDuration
+            ? userStake.startTime + userStake.lockDuration
+            : block.timestamp;
 
         stakingToken.safeTransfer(msg.sender, reward);
         emit RewardsClaimed(msg.sender, reward);
@@ -116,7 +123,7 @@ contract StakingPool is AccessControl, ReentrancyGuard, Pausable, IStakingPool {
     }
 
     function setLockTier(uint256 lockDuration, uint256 multiplierBps) external onlyRole(Constants.STAKING_ADMIN_ROLE) {
-        if (lockDuration == 0) revert Errors.InvalidDuration();
+        if (multiplierBps != _whitepaperMultiplier(lockDuration)) revert Errors.InvalidDuration();
         durationMultipliers[lockDuration] = multiplierBps;
     }
 
@@ -128,14 +135,26 @@ contract StakingPool is AccessControl, ReentrancyGuard, Pausable, IStakingPool {
         _unpause();
     }
 
+    /// @notice Paused-only emergency exit that returns principal and forfeits unearned yield.
+    function emergencyWithdraw(uint256 stakeIndex) external override nonReentrant whenPaused {
+        if (stakeIndex >= _userStakes[msg.sender].length) revert Errors.InvalidDuration();
+        StakeInfo storage userStake = _userStakes[msg.sender][stakeIndex];
+        uint256 principal = userStake.amount;
+        if (principal == 0) revert Errors.ZeroAmount();
+
+        userStake.amount = 0;
+        stakingToken.safeTransfer(msg.sender, principal);
+        emit EmergencyWithdrawn(msg.sender, stakeIndex, principal);
+    }
+
     // --- View Functions ---
 
     function _calculateReward(StakeInfo memory userStake) internal view returns (uint256) {
         if (userStake.amount == 0) return 0;
-        uint256 elapsedTime = block.timestamp - userStake.startTime;
-        if (elapsedTime > userStake.lockDuration) {
-            elapsedTime = userStake.lockDuration;
-        }
+        uint256 endTime = userStake.startTime + userStake.lockDuration;
+        uint256 calculationTime = block.timestamp > endTime ? endTime : block.timestamp;
+        if (calculationTime <= userStake.lastClaimTime) return 0;
+        uint256 elapsedTime = calculationTime - userStake.lastClaimTime;
 
         uint256 annualReward = (userStake.amount * userStake.rewardMultiplier) / Constants.BPS_DENOMINATOR;
         return (annualReward * elapsedTime) / 365 days;
@@ -148,5 +167,13 @@ contract StakingPool is AccessControl, ReentrancyGuard, Pausable, IStakingPool {
 
     function getStakes(address user) external view override returns (StakeInfo[] memory) {
         return _userStakes[user];
+    }
+
+    function _whitepaperMultiplier(uint256 lockDuration) private pure returns (uint256) {
+        if (lockDuration == 30 days) return THIRTY_DAY_APY_BPS;
+        if (lockDuration == 90 days) return NINETY_DAY_APY_BPS;
+        if (lockDuration == 180 days) return ONE_EIGHTY_DAY_APY_BPS;
+        if (lockDuration == 365 days) return THREE_SIXTY_FIVE_DAY_APY_BPS;
+        revert Errors.InvalidDuration();
     }
 }

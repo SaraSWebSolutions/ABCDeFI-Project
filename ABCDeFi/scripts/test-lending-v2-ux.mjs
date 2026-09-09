@@ -33,7 +33,7 @@ const poolAddress = '0x3333333333333333333333333333333333333333';
 const vaultAddress = '0x4444444444444444444444444444444444444444';
 // Fixtures below are confined to tests; production never imports them.
 const deposit = { depositId: '27', collateralETH: '0.1', collateralUSD: '200', maxBorrowable: '100', borrower, active: true };
-const input = { deposit, depositId: '27', address: borrower, connected: true, correctNetwork: true, loading: false, error: null, principal: '100', term: '30', uri: 'ipfs://test-fixture-metadata', hash: ethers.id('fixture') };
+const input = { deposit, depositId: '27', address: borrower, connected: true, correctNetwork: true, loading: false, error: null, principal: '100', term: '30' };
 const baseLoan = { state: 0, borrower, outstanding: '100', collateralETH: '0.1', liquidatable: false };
 const stage = overrides => flow.directStage({ loan: null, deposit: null, capacityLoading: false, operation: null, depositConfirmed: false, ...overrides });
 const component = load('src/components/LendingV2.tsx', {
@@ -48,22 +48,22 @@ test('V2 borrow validation accepts only owned active current deposits and author
     { connected: false }, { correctNetwork: false }, { address: other }, { loading: true }, { error: 'RPC error' },
     { depositId: '28' }, { deposit: { ...deposit, active: false } }, { deposit: { ...deposit, maxBorrowable: '0' } },
     { principal: '0' }, { principal: '100.000000000000000001' }, { principal: '1.0000000000000000001' },
-    { term: '60' }, { uri: 'http://localhost/metadata' }, { hash: '0x' + '0'.repeat(64) },
+    { term: '60' },
   ]) assert.ok(flow.borrowBlocker({ ...input, ...change }), JSON.stringify(change));
   assert.equal(flow.borrowBlocker({ ...input, principal: '250', deposit: { ...deposit, maxBorrowable: '250' }, term: '90' }), null);
   assert.equal(flow.borrowBlocker({ ...input, term: '180' }), null);
 });
 
-test('terminal repayment uses the completion path even when equivalent decimal strings differ', () => {
+test('terminal repayment selects the completion path even when equivalent decimal strings differ', () => {
   assert.equal(flow.sameAmount('70', '70.0'), true);
   assert.equal(flow.sameAmount('70.000000000000000001', '70'), false);
   const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
   assert.match(source, /sameAmount\(repayment, loan!\.outstanding\)/);
-  assert.match(source, /sameAmount\(p2pPayment, p2pLoan\.outstanding\)/);
+  assert.match(source, /payV2OutstandingEmi\(p2pLoanId, p2pPayment, prepareCompletionMetadata, progress\)/);
 });
 
-test('V2 borrow controls stay rendered during loading, missing metadata and empty states', () => {
-  for (const blocker of [null, 'Reading capacity', 'Metadata missing', 'Connect wallet']) {
+test('V2 borrow controls stay rendered during loading and empty states', () => {
+  for (const blocker of [null, 'Reading capacity', 'Connect wallet']) {
     const html = renderToStaticMarkup(React.createElement(component.V2BorrowForm, { deposit, principal: '50', setPrincipal() {}, term: '90', setTerm() {}, blocker, busy: false, onBorrow() {}, apr: '1200', ltv: '5000' }));
     assert.match(html, /ABCD principal/); assert.match(html, /30 days/); assert.match(html, /90 days/); assert.match(html, /180 days/);
     assert.match(html, /Borrow 50 ABCD/); assert.match(html, /100 ABCD/);
@@ -210,7 +210,7 @@ test('fresh Loan #1 recovery uses canonical DirectLoanOpened evidence without wa
   const poolAbi = require(path.join(root, 'artifacts/contracts/lending/v2/LendingPoolV2.sol/LendingPoolV2.json')).abi;
   const iface = new ethers.Interface(poolAbi);
   const loanId = 1n;
-  const log = { address: poolAddress, ...iface.encodeEventLog(iface.getEvent('DirectLoanOpened'), [loanId, 1n, borrower, ethers.parseEther('100'), ethers.parseEther('0.1'), 30n * 86400n, 1_800_000_000n, ethers.id('metadata'), 'ipfs://bafkreidk7waqe73m4bdujx66tozlacpvyn6mfojuvqnoqm3wapjri2q3du']) };
+  const log = { address: poolAddress, ...iface.encodeEventLog(iface.getEvent('DirectLoanOpened'), [loanId, 1n, borrower, ethers.parseEther('100'), ethers.parseEther('0.1'), 30n * 86400n, 1_800_000_000n]) };
   const provider = { getNetwork: async () => ({ chainId: 31337n }), getCode: async () => '0x6000', getLogs: async filter => { assert.equal(filter.address, poolAddress); return [log]; } };
   const manager = { getLoan: async id => { assert.equal(String(id), '1'); return { borrower, lender: poolAddress }; } };
   const service = load('src/Services/lendingV2.ts', {
@@ -221,29 +221,32 @@ test('fresh Loan #1 recovery uses canonical DirectLoanOpened evidence without wa
   assert.equal(await service.getV2LatestDirectLoanForWallet(borrower), '1');
 });
 
-test('direct V2 loans publish signed IPFS metadata for the exact borrow intent instead of accepting a manual URI', () => {
+test('direct V2 borrowing has no pre-origination LoanNFT metadata requirement', () => {
   const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
-  const flowSource = fs.readFileSync(new URL('../src/Utils/lendingV2Flow.ts', import.meta.url), 'utf8');
-  const publisher = fs.readFileSync(new URL('../src/Services/lendingV2Metadata.ts', import.meta.url), 'utf8');
-  assert.match(source, /Create & publish signed LoanNFT metadata/);
-  assert.match(source, /publishDirectLoanMetadata\(\{ asset: metadataAsset, depositId, principal, termDays: Number\(term\), borrower: wallet \}\)/);
-  assert.match(source, /metadataMatchesLoanIntent\(publishedMetadata\?\.intent/);
-  assert.match(flowSource, /Publish signed LoanNFT metadata for this exact deposit, borrower, principal, and term/);
-  assert.match(publisher, /signer\.signMessage\(directLoanMetadataIntentMessage\(intent\)\)/);
-  assert.match(publisher, /metadataHash !== id\(stored\.metadataUri\)/);
-  assert.match(publisher, /\/api\/lending-v2\/metadata\/direct/);
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /Create & publish signed LoanNFT metadata/);
+  assert.doesNotMatch(source, /LoanNFT certificate artwork \(PNG\)/);
+  assert.match(source, /borrowV2\(depositId, principal, Number\(term\), progress\)/);
+  assert.match(service, /pool\.borrowABCD\.estimateGas\(depositId, amount, termDays \* 86400\)/);
 });
 
-test('P2P V2 requests publish signed public metadata for their exact borrower, principal, collateral, and term', () => {
+test('P2P V2 request creation has no pre-funding completion-certificate metadata requirement', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /Create & publish signed P2P LoanNFT metadata/);
+  assert.doesNotMatch(source, /P2P LoanNFT certificate artwork/);
+  assert.match(source, /createV2Request\(p2pPrincipal, p2pCollateral, Number\(p2pTerm\), progress\)/);
+  assert.match(service, /market\.createRequest\.estimateGas\(amount, termDays \* 86400, \{ value \}\)/);
+});
+
+test('full settlement prepares verified role-specific public-IPFS metadata without a borrower artwork picker', () => {
   const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
   const publisher = fs.readFileSync(new URL('../src/Services/lendingV2Metadata.ts', import.meta.url), 'utf8');
-  assert.match(source, /Create & publish signed P2P LoanNFT metadata/);
-  assert.match(source, /publishP2PRequestMetadata\(\{ asset: p2pMetadataAsset, principal: p2pPrincipal, collateral: p2pCollateral, termDays: Number\(p2pTerm\), borrower: wallet \}\)/);
-  assert.match(source, /p2pMetadataMatches/);
-  assert.doesNotMatch(source, /Hash entered URI/);
-  assert.match(publisher, /signer\.signMessage\(p2pRequestMetadataIntentMessage\(intent\)\)/);
-  assert.match(publisher, /\/api\/lending-v2\/metadata\/p2p/);
-  assert.match(publisher, /collateralWei: parseEther\(input\.collateral\)\.toString\(\)/);
+  assert.match(source, /prepareLoanCompletionMetadata\(\{ loanId: selectedLoanId, borrower: wallet \}\)/);
+  assert.match(source, /repayAllV2\(loanId, prepareCompletionMetadata, progress\)/);
+  assert.match(source, /payV2Emi\(p2pLoanId, prepareCompletionMetadata, progress\)/);
+  assert.match(publisher, /\/api\/lending-v2\/metadata\/completion/);
+  assert.doesNotMatch(publisher, /signMessage|FormData/);
 });
 
 test('P2P request capacity is read from LoanMarketplaceV2 and blocks an over-cap UI request', async () => {

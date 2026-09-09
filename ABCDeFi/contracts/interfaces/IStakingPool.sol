@@ -11,7 +11,7 @@ interface IStakingPool {
         uint256 startTime;
         uint256 lockDuration;
         uint256 rewardMultiplier; // Basis points (e.g. 1000 = 10% APY)
-        uint256 unclaimedRewards;
+        uint256 lastClaimTime;
     }
 
     // --- Events ---
@@ -19,11 +19,13 @@ interface IStakingPool {
     event Unstaked(address indexed user, uint256 amount, uint256 reward);
     event RewardsClaimed(address indexed user, uint256 amount);
     event RewardPoolFunded(uint256 amount);
+    event EmergencyWithdrawn(address indexed user, uint256 indexed stakeIndex, uint256 principalAmount);
 
     // --- Core Functions ---
     function stake(uint256 amount, uint256 lockDuration) external;
     function unstake(uint256 stakeIndex) external;
     function claimRewards(uint256 stakeIndex) external;
+    function emergencyWithdraw(uint256 stakeIndex) external;
 
     // --- Admin Operations ---
     function fundRewardPool(uint256 amount) external;

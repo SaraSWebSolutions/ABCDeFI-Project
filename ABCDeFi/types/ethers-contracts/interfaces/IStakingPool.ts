@@ -6,19 +6,20 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 export declare namespace IStakingPool {
       
-    export type StakeInfoStruct = {amount: BigNumberish, startTime: BigNumberish, lockDuration: BigNumberish, rewardMultiplier: BigNumberish, unclaimedRewards: BigNumberish}
+    export type StakeInfoStruct = {amount: BigNumberish, startTime: BigNumberish, lockDuration: BigNumberish, rewardMultiplier: BigNumberish, lastClaimTime: BigNumberish}
 
-    export type StakeInfoStructOutput = [amount: bigint, startTime: bigint, lockDuration: bigint, rewardMultiplier: bigint, unclaimedRewards: bigint] & {amount: bigint, startTime: bigint, lockDuration: bigint, rewardMultiplier: bigint, unclaimedRewards: bigint }
+    export type StakeInfoStructOutput = [amount: bigint, startTime: bigint, lockDuration: bigint, rewardMultiplier: bigint, lastClaimTime: bigint] & {amount: bigint, startTime: bigint, lockDuration: bigint, rewardMultiplier: bigint, lastClaimTime: bigint }
   
     }
 
   export interface IStakingPoolInterface extends Interface {
-    getFunction(nameOrSignature: "calculateRewards" | "claimRewards" | "fundRewardPool" | "getStakes" | "pause" | "stake" | "unpause" | "unstake"): FunctionFragment;
+    getFunction(nameOrSignature: "calculateRewards" | "claimRewards" | "emergencyWithdraw" | "fundRewardPool" | "getStakes" | "pause" | "stake" | "unpause" | "unstake"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "RewardPoolFunded" | "RewardsClaimed" | "Staked" | "Unstaked"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "EmergencyWithdrawn" | "RewardPoolFunded" | "RewardsClaimed" | "Staked" | "Unstaked"): EventFragment;
 
     encodeFunctionData(functionFragment: 'calculateRewards', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'claimRewards', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'emergencyWithdraw', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'fundRewardPool', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getStakes', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
@@ -28,6 +29,7 @@ encodeFunctionData(functionFragment: 'unstake', values: [BigNumberish]): string;
 
     decodeFunctionResult(functionFragment: 'calculateRewards', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'claimRewards', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'emergencyWithdraw', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'fundRewardPool', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getStakes', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
@@ -37,6 +39,18 @@ decodeFunctionResult(functionFragment: 'unstake', data: BytesLike): Result;
   }
 
   
+    export namespace EmergencyWithdrawnEvent {
+      export type InputTuple = [user: AddressLike, stakeIndex: BigNumberish, principalAmount: BigNumberish];
+      export type OutputTuple = [user: string, stakeIndex: bigint, principalAmount: bigint];
+      export interface OutputObject {user: string, stakeIndex: bigint, principalAmount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace RewardPoolFundedEvent {
       export type InputTuple = [amount: BigNumberish];
       export type OutputTuple = [amount: bigint];
@@ -135,6 +149,14 @@ decodeFunctionResult(functionFragment: 'unstake', data: BytesLike): Result;
     
 
     
+    emergencyWithdraw: TypedContractMethod<
+      [stakeIndex: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     fundRewardPool: TypedContractMethod<
       [amount: BigNumberish, ],
       [void],
@@ -195,6 +217,11 @@ getFunction(nameOrSignature: 'claimRewards'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'emergencyWithdraw'): TypedContractMethod<
+      [stakeIndex: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'fundRewardPool'): TypedContractMethod<
       [amount: BigNumberish, ],
       [void],
@@ -226,13 +253,18 @@ getFunction(nameOrSignature: 'unstake'): TypedContractMethod<
       'nonpayable'
     >;
 
-    getEvent(key: 'RewardPoolFunded'): TypedContractEvent<RewardPoolFundedEvent.InputTuple, RewardPoolFundedEvent.OutputTuple, RewardPoolFundedEvent.OutputObject>;
+    getEvent(key: 'EmergencyWithdrawn'): TypedContractEvent<EmergencyWithdrawnEvent.InputTuple, EmergencyWithdrawnEvent.OutputTuple, EmergencyWithdrawnEvent.OutputObject>;
+getEvent(key: 'RewardPoolFunded'): TypedContractEvent<RewardPoolFundedEvent.InputTuple, RewardPoolFundedEvent.OutputTuple, RewardPoolFundedEvent.OutputObject>;
 getEvent(key: 'RewardsClaimed'): TypedContractEvent<RewardsClaimedEvent.InputTuple, RewardsClaimedEvent.OutputTuple, RewardsClaimedEvent.OutputObject>;
 getEvent(key: 'Staked'): TypedContractEvent<StakedEvent.InputTuple, StakedEvent.OutputTuple, StakedEvent.OutputObject>;
 getEvent(key: 'Unstaked'): TypedContractEvent<UnstakedEvent.InputTuple, UnstakedEvent.OutputTuple, UnstakedEvent.OutputObject>;
 
     filters: {
       
+      'EmergencyWithdrawn(address,uint256,uint256)': TypedContractEvent<EmergencyWithdrawnEvent.InputTuple, EmergencyWithdrawnEvent.OutputTuple, EmergencyWithdrawnEvent.OutputObject>;
+      EmergencyWithdrawn: TypedContractEvent<EmergencyWithdrawnEvent.InputTuple, EmergencyWithdrawnEvent.OutputTuple, EmergencyWithdrawnEvent.OutputObject>;
+    
+
       'RewardPoolFunded(uint256)': TypedContractEvent<RewardPoolFundedEvent.InputTuple, RewardPoolFundedEvent.OutputTuple, RewardPoolFundedEvent.OutputObject>;
       RewardPoolFunded: TypedContractEvent<RewardPoolFundedEvent.InputTuple, RewardPoolFundedEvent.OutputTuple, RewardPoolFundedEvent.OutputObject>;
     

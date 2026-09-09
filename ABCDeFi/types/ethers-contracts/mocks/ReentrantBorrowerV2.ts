@@ -24,7 +24,7 @@ export declare namespace LoanNFTV2 {
 
     encodeFunctionData(functionFragment: 'attackEnabled', values?: undefined): string;
 encodeFunctionData(functionFragment: 'onERC721Received', values: [AddressLike, AddressLike, BigNumberish, BytesLike]): string;
-encodeFunctionData(functionFragment: 'open', values: [BigNumberish, BigNumberish, string, BytesLike]): string;
+encodeFunctionData(functionFragment: 'open', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'pool', values?: undefined): string;
 encodeFunctionData(functionFragment: 'reentryFailed', values?: undefined): string;
 encodeFunctionData(functionFragment: 'repay', values: [BigNumberish, BigNumberish]): string;
@@ -98,7 +98,7 @@ decodeFunctionResult(functionFragment: 'withdrawWithReentry', data: BytesLike): 
 
     
     open: TypedContractMethod<
-      [principal: BigNumberish, term: BigNumberish, uri: string, metadataHash: BytesLike, ],
+      [principal: BigNumberish, term: BigNumberish, ],
       [bigint],
       'payable'
     >
@@ -174,7 +174,7 @@ getFunction(nameOrSignature: 'onERC721Received'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'open'): TypedContractMethod<
-      [principal: BigNumberish, term: BigNumberish, uri: string, metadataHash: BytesLike, ],
+      [principal: BigNumberish, term: BigNumberish, ],
       [bigint],
       'payable'
     >;

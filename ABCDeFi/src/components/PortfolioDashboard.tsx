@@ -6,7 +6,7 @@ import { useWallet } from '../Context/WalletContext';
 import { getBalanceOf } from '../Services/token';
 import { getProvider } from '../Services/wallet';
 import { getStakingInfo } from '../Services/staking';
-import { getLendingPoolState } from '../Services/lending';
+import { getV2WalletSummary } from '../Services/lendingV2';
 import { getNftEcosystemSnapshot } from '../Services/nftEcosystem';
 import { getVestingSchedule } from '../Services/vesting';
 import { getReferralSnapshot } from '../Services/referral';
@@ -46,13 +46,13 @@ export const PortfolioDashboard: React.FC = () => {
     const results = await Promise.allSettled([
       getBalanceOf(address),
       getProvider().then((provider) => provider.getBalance(address).then((balance) => formatEther(balance))),
-      getStakingInfo(address), getLendingPoolState(address), getNftEcosystemSnapshot(address),
+      getStakingInfo(address), getV2WalletSummary(address), getNftEcosystemSnapshot(address),
       getVestingSchedule(address), getReferralSnapshot(address),
     ]);
     const value = <T,>(index: number): T | null => results[index].status === 'fulfilled'
       ? (results[index] as PromiseFulfilledResult<T>).value : null;
     const staking = value<Awaited<ReturnType<typeof getStakingInfo>>>(2);
-    const lending = value<Awaited<ReturnType<typeof getLendingPoolState>>>(3);
+    const lending = value<Awaited<ReturnType<typeof getV2WalletSummary>>>(3);
     const nfts = value<Awaited<ReturnType<typeof getNftEcosystemSnapshot>>>(4);
     const vesting = value<Awaited<ReturnType<typeof getVestingSchedule>>>(5);
     const referral = value<Awaited<ReturnType<typeof getReferralSnapshot>>>(6);
@@ -60,10 +60,10 @@ export const PortfolioDashboard: React.FC = () => {
     if (requestId !== requestIdRef.current) return;
     setMetrics({
       abcd: value<string>(0), eth: value<string>(1), staked: staking?.stakedAmount ?? null,
-      pendingStakingRewards: staking?.rewards ?? null, debt: lending?.borrowed ?? null,
-      collateral: lending?.collateral ?? null,
-      healthFactor: lending?.borrowed === '0.0' || lending?.borrowed === '0' ? 'No active debt' : lending?.healthFactor ?? null,
-      nftCount: nfts ? (BigInt(nfts.participantBalance) + BigInt(nfts.guruBalance) + BigInt(nfts.loanBalance) + (nfts.reputation ? 1n : 0n)).toString() : null,
+      pendingStakingRewards: staking?.rewards ?? null, debt: lending?.outstanding ?? null,
+      collateral: lending?.availableToBorrow ?? null,
+      healthFactor: lending?.outstanding === '0.0' || lending?.outstanding === '0' ? 'No active debt' : lending?.healthFactor ?? null,
+      nftCount: nfts && lending ? (BigInt(nfts.participantBalance) + BigInt(nfts.guruBalance) + BigInt(lending.completionCertificateCount) + (nfts.reputation ? 1n : 0n)).toString() : null,
       vested: vesting?.totalAmount ?? null, releasable: vesting?.releasable ?? null,
       referralRewards: referral?.pendingRewards ?? null, referralCount: referral?.history.length.toString() ?? null,
     });
@@ -99,9 +99,9 @@ export const PortfolioDashboard: React.FC = () => {
       <Metric title="ABCD Balance" value={display(metrics.abcd, ' ABCD')} detail="ABCDToken.balanceOf(current wallet)" icon={<Coins className="w-4 h-4 text-amber-400" />} />
       <Metric title="ETH Balance" value={display(metrics.eth, ' ETH')} detail="provider.getBalance(current wallet)" icon={<Wallet className="w-4 h-4 text-sky-400" />} />
       <Metric title="Staked ABCD" value={display(metrics.staked, ' ABCD')} detail={`Pending rewards: ${display(metrics.pendingStakingRewards, ' ABCD')}`} icon={<Layers className="w-4 h-4 text-emerald-400" />} />
-      <Metric title="Lending Position" value={display(metrics.debt, ' ABCD debt')} detail={`Collateral: ${display(metrics.collateral, ' ETH')}`} icon={<Landmark className="w-4 h-4 text-purple-400" />} />
-      <Metric title="Health Factor" value={metrics.healthFactor ?? 'Unavailable'} detail="Liquidation.checkLiquidationEligibility (when debt exists)" icon={<Landmark className="w-4 h-4 text-purple-400" />} />
-      <Metric title="NFTs Owned" value={display(metrics.nftCount, ' NFTs')} detail="Participant + Guru + Reputation + Loan" icon={<ImageIcon className="w-4 h-4 text-rose-400" />} />
+      <Metric title="Lending V2 Position" value={display(metrics.debt, ' ABCD debt')} detail={`Active deposit capacity: ${display(metrics.collateral, ' ABCD')}`} icon={<Landmark className="w-4 h-4 text-purple-400" />} />
+      <Metric title="Health Factor" value={metrics.healthFactor ?? 'Unavailable'} detail="Canonical Lending V2 read (when debt exists)" icon={<Landmark className="w-4 h-4 text-purple-400" />} />
+      <Metric title="NFTs Owned" value={display(metrics.nftCount, ' NFTs')} detail="Participant + Guru + Reputation + completion LoanNFTV2" icon={<ImageIcon className="w-4 h-4 text-rose-400" />} />
       <Metric title="Vested ABCD" value={display(metrics.vested, ' ABCD')} detail={`Claimable: ${display(metrics.releasable, ' ABCD')}`} icon={<Lock className="w-4 h-4 text-indigo-400" />} />
       <Metric title="Referral Rewards" value={display(metrics.referralRewards, ' ABCD')} detail={`Referral events: ${display(metrics.referralCount)}`} icon={<Gift className="w-4 h-4 text-cyan-400" />} />
     </div>

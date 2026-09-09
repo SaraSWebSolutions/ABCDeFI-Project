@@ -13,7 +13,7 @@ export interface MarketplaceListing { listingId: string; nftAddress: string; tok
 export interface ReputationSnapshot { tokenId: string; creditScore: string; totalLoansCount: string; totalDefaultsCount: string; metadataUri: string; }
 export interface ParticipantNftRecord { tokenId: string; owner: string; eventName: string; milestoneLevel: string; issueTime: string; metadataUri: string; }
 export interface GuruNftRecord { tokenId: string; owner: string; tier: string; specialty: string; issueTime: string; metadataUri: string; }
-export interface NftEcosystemSnapshot { participantBalance: string; participants: ParticipantNftRecord[]; participantIssuer: boolean; reputation: ReputationSnapshot | null; guruBalance: string; gurus: GuruNftRecord[]; guruIssuer: boolean; loanBalance: string; activeListings: MarketplaceListing[]; userListings: MarketplaceListing[]; marketplaceFeeBps: string; }
+export interface NftEcosystemSnapshot { participantBalance: string; participants: ParticipantNftRecord[]; participantIssuer: boolean; reputation: ReputationSnapshot | null; guruBalance: string; gurus: GuruNftRecord[]; guruIssuer: boolean; activeListings: MarketplaceListing[]; userListings: MarketplaceListing[]; marketplaceFeeBps: string; }
 export interface LoanNftCertificateEvent { name: string; transactionHash: string | null; blockNumber: string | null; logIndex: number | null; }
 export interface LoanNftCertificate {
   tokenId: string;
@@ -188,15 +188,14 @@ export async function getNftEcosystemSnapshot(walletAddress: string): Promise<Nf
   if (network.chainId !== DEPLOYMENT_CHAIN_ID) throw new Error(`Canonical NFT RPC is not Hardhat Local (chain ${DEPLOYMENT_CHAIN_ID}).`);
   await Promise.all([
     assertContractBytecode(participantAddress(), 'ParticipantNFT'), assertContractBytecode(reputationAddress(), 'ReputationNFT'),
-    assertContractBytecode(guruAddress(), 'GuruNFT'), assertLoanNftDeployment(), assertNftMarketplaceBytecode(),
+    assertContractBytecode(guruAddress(), 'GuruNFT'), assertNftMarketplaceBytecode(),
   ]);
   const participant = new Contract(participantAddress(), ParticipantArtifact.abi, canonicalProvider);
   const reputation = new Contract(reputationAddress(), ReputationArtifact.abi, canonicalProvider);
   const guru = new Contract(guruAddress(), GuruArtifact.abi, canonicalProvider);
-  const loan = new Contract(loanAddress(), LoanArtifact.abi, canonicalProvider);
   const marketplace = new Contract(marketplaceAddress(), MarketplaceArtifact.abi, canonicalProvider);
-  const [participantBalance, reputationTokenId, guruBalance, loanBalance, listings, marketplaceFeeBps, participantRole, guruRole] = await Promise.all([
-    participant.balanceOf(walletAddress), reputation.getUserTokenId(walletAddress), guru.balanceOf(walletAddress), loan.balanceOf(walletAddress), marketplace.getAllActiveListings(), marketplace.marketplaceFeeBps(),
+  const [participantBalance, reputationTokenId, guruBalance, listings, marketplaceFeeBps, participantRole, guruRole] = await Promise.all([
+    participant.balanceOf(walletAddress), reputation.getUserTokenId(walletAddress), guru.balanceOf(walletAddress), marketplace.getAllActiveListings(), marketplace.marketplaceFeeBps(),
     participant.MINTER_NFT_ROLE(), guru.MINTER_NFT_ROLE(),
   ]);
   const participantBlock = Number(deploymentManifest.contracts.ParticipantNFT.deploymentBlock);
@@ -220,7 +219,7 @@ export async function getNftEcosystemSnapshot(walletAddress: string): Promise<Nf
   }
   const activeListings = (listings as ListingResult[]).map(toListing);
   const userListings = activeListings.filter((listing) => listing.seller.toLowerCase() === walletAddress.toLowerCase());
-  return { participantBalance: participantBalance.toString(), participants, participantIssuer: Boolean(participantIssuer), reputation: reputationSnapshot, guruBalance: guruBalance.toString(), gurus, guruIssuer: Boolean(guruIssuer), loanBalance: loanBalance.toString(), activeListings, userListings, marketplaceFeeBps: marketplaceFeeBps.toString() };
+  return { participantBalance: participantBalance.toString(), participants, participantIssuer: Boolean(participantIssuer), reputation: reputationSnapshot, guruBalance: guruBalance.toString(), gurus, guruIssuer: Boolean(guruIssuer), activeListings, userListings, marketplaceFeeBps: marketplaceFeeBps.toString() };
 }
 
 interface IndexedEvidence { transactionHash?: string; blockNumber?: string; logIndex?: number; eventName?: string; }
