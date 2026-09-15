@@ -43,7 +43,9 @@ The canonical current Marketplace direction is an owner-approved fixed-price sal
 
 Current Phase 10A scope is deliberately limited. It does not imply commercial sale support for Legion or Franchise. Legion's Registry-controlled transfer flow must remain intact. Franchise's Phase 9 registry foundation must remain intact unless a separate commercial amendment is approved.
 
-The marketplace must not invent fees, royalties, commissions, spreads, expiry rules, or other economics. Any such economics require explicit approval and supporting specification.
+The current Phase 10A marketplace economics are fixed by the owner decision register: ABCD payment, seller-selected nonzero fixed price, 0% marketplace fee, 0% royalty, 0% commission, no spread, no Treasury deduction, no expiry, no partial fill, and no post-listing price mutation.
+
+These are marketplace implementation decisions, not claims that the whitepaper itself specifies commercial marketplace economics.
 
 ## Barter Boundary
 
