@@ -7,12 +7,6 @@ const PRESALE_ABI = [
   'event PresaleFinalized(uint256 totalEthRaised, uint256 totalTokensSold)',
 ];
 
-const STAKING_ABI = [
-  'event Staked(address indexed user, uint256 amount, uint256 lockDuration)',
-  'event Unstaked(address indexed user, uint256 amount, uint256 reward)',
-  'event RewardsClaimed(address indexed user, uint256 amount)',
-];
-
 const VESTING_ABI = [
   'event TokensReleased(bytes32 indexed scheduleId, address indexed beneficiary, uint256 amount)',
 ];
@@ -20,7 +14,7 @@ const VESTING_ABI = [
 /**
  * Initializes blockchain event listener service to log on-chain activity.
  * @param {string} rpcUrl Provider RPC endpoint
- * @param {Object} addresses Object containing Presale, StakingPool, and TokenVesting addresses
+ * @param {Object} addresses Object containing Presale and TokenVesting addresses
  */
 export function startEventListener(rpcUrl, addresses) {
   console.log('--------------------------------------------------');
@@ -47,20 +41,7 @@ export function startEventListener(rpcUrl, addresses) {
     });
   }
 
-  // 2. Staking Event Listener
-  if (addresses.StakingPool && addresses.StakingPool !== ethers.ZeroAddress) {
-    const stakingContract = new ethers.Contract(addresses.StakingPool, STAKING_ABI, provider);
-
-    stakingContract.on('Staked', (user, amount, lockDuration, event) => {
-      console.log(`[EVENT] Token Staked: User=${user} Amount=${ethers.formatUnits(amount, 18)} Duration=${lockDuration}s (Block ${event.log.blockNumber})`);
-    });
-
-    stakingContract.on('Unstaked', (user, amount, reward, event) => {
-      console.log(`[EVENT] Token Unstaked: User=${user} Principal=${ethers.formatUnits(amount, 18)} Reward=${ethers.formatUnits(reward, 18)}`);
-    });
-  }
-
-  // 3. Token Vesting Event Listener
+  // 2. Token Vesting Event Listener
   if (addresses.TokenVesting && addresses.TokenVesting !== ethers.ZeroAddress) {
     const vestingContract = new ethers.Contract(addresses.TokenVesting, VESTING_ABI, provider);
 

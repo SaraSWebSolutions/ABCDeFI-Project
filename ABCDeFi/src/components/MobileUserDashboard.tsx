@@ -37,12 +37,9 @@ import { ReferralSystem } from './ReferralSystem';
 import { AIFinancialAssistant } from './AIFinancialAssistant';
 import { FinancialEducation } from './FinancialEducation';
 import { ReputationSystem } from './ReputationSystem';
-import { ProtocolDashboard } from './ProtocolDashboard';
-import { ContractInteractDashboard } from './ContractInteractDashboard';
 import { MasterProtocolManager } from './MasterProtocolManager';
 import { NFTSubModuleManager } from './NFTSubModuleManager';
 import { FranchiseSubModuleManager } from './FranchiseSubModuleManager';
-import P2PLendingDashboard from './P2PLendingDashboard';
 import { LendingV2 } from './LendingV2';
 import LoanManagementPortal from './LoanManagementPortal';
 import NextGenProtocolDashboard from './NextGenProtocolDashboard';
@@ -69,39 +66,12 @@ export const MobileUserDashboard: React.FC<MobileUserDashboardProps> = (props) =
   const [activeTab, setActiveTab] = useState('home');
   const [activeSubTab, setActiveSubTab] = useState('overview');
   const [kycStatus, setKycStatus] = useState<string>('pending');
-  const [claimableYield, setClaimableYield] = useState<number>(1450.25);
-  const [cooldownSeconds, setCooldownSeconds] = useState<number>(0);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const addToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
-
-  const handleClaimRewardsSubmit = () => {
-    triggerUserAction(
-      'Claim All Rewards',
-      'StakingPoolV2',
-      'claimAllRewards',
-      `${claimableYield.toLocaleString()} ABCD`,
-      '🎁',
-      () => {
-        setClaimableYield(0);
-        setCooldownSeconds(20);
-      }
-    );
-  };
-
-  React.useEffect(() => {
-    if (cooldownSeconds > 0) {
-      const timer = setTimeout(() => {
-        setCooldownSeconds((prev) => prev - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (cooldownSeconds === 0 && claimableYield === 0) {
-      setClaimableYield(1450.25);
-    }
-  }, [cooldownSeconds, claimableYield]);
 
   // Web3 Action Modal State
   const [web3ModalState, setWeb3ModalState] = useState<{
@@ -424,10 +394,6 @@ export const MobileUserDashboard: React.FC<MobileUserDashboardProps> = (props) =
         switch (activeSubTab) {
           case 'my-portfolio':
             return <div className="pb-20"><PortfolioDashboard {...props} /></div>;
-          // case 'staking':
-          //   return <div className="pb-20"><ProtocolDashboard {...props} /></div>;
-          // case 'rewards':
-          //   return <div className="pb-20"><ClaimPortal {...props} /></div>;
           default:
             return <div className="p-4 pb-20 text-slate-400">Coming soon...</div>;
         }

@@ -26,19 +26,21 @@ export declare namespace LoanNFTV2 {
     }
 
   export interface EMIManagerV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "P2P_OPERATOR_ROLE" | "abcd" | "collateralVault" | "createSchedule" | "getRoleAdmin" | "getSchedule" | "grantRole" | "hasRole" | "lendingReferralManager" | "loanManager" | "loanNFT" | "marketplace" | "nextInstallment" | "pause" | "paused" | "payInstallment" | "payInstallmentWithCompletionMetadata" | "payOutstanding" | "payOutstandingWithCompletionMetadata" | "renounceRole" | "revokeRole" | "setMarketplace" | "supportsInterface" | "syncLoan" | "totalScheduled" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "P2P_OPERATOR_ROLE" | "abcd" | "collateralVault" | "createDirectSchedule" | "createSchedule" | "getRoleAdmin" | "getSchedule" | "grantRole" | "hasRole" | "lendingPool" | "lendingReferralManager" | "loanManager" | "loanNFT" | "marketplace" | "nextInstallment" | "pause" | "paused" | "payInstallment" | "payInstallmentWithCompletionMetadata" | "payOutstanding" | "payOutstandingWithCompletionMetadata" | "previewDirectInstallment" | "previewOverdueInstallment" | "recordDirectInstallment" | "renounceRole" | "revokeRole" | "setLendingPool" | "setMarketplace" | "supportsInterface" | "syncLoan" | "totalScheduled" | "unpause"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "InstallmentPaid" | "MarketplaceConfigured" | "P2PCollateralReleased" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "ScheduleCreated" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "DirectInstallmentRecorded" | "DirectScheduleCreated" | "InstallmentPaid" | "LendingPoolConfigured" | "MarketplaceConfigured" | "P2PCollateralReleased" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "ScheduleCreated" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'P2P_OPERATOR_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'collateralVault', values?: undefined): string;
+encodeFunctionData(functionFragment: 'createDirectSchedule', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'createSchedule', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'getSchedule', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'lendingPool', values?: undefined): string;
 encodeFunctionData(functionFragment: 'lendingReferralManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanNFT', values?: undefined): string;
@@ -50,8 +52,12 @@ encodeFunctionData(functionFragment: 'payInstallment', values: [BigNumberish]): 
 encodeFunctionData(functionFragment: 'payInstallmentWithCompletionMetadata', values: [BigNumberish, LoanNFTV2.CompletionMetadataStruct]): string;
 encodeFunctionData(functionFragment: 'payOutstanding', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'payOutstandingWithCompletionMetadata', values: [BigNumberish, BigNumberish, LoanNFTV2.CompletionMetadataStruct]): string;
+encodeFunctionData(functionFragment: 'previewDirectInstallment', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'previewOverdueInstallment', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'recordDirectInstallment', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'setLendingPool', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setMarketplace', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'syncLoan', values: [BigNumberish]): string;
@@ -62,11 +68,13 @@ encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 decodeFunctionResult(functionFragment: 'P2P_OPERATOR_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'abcd', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'collateralVault', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'createDirectSchedule', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'createSchedule', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getSchedule', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'lendingPool', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'lendingReferralManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanNFT', data: BytesLike): Result;
@@ -78,8 +86,12 @@ decodeFunctionResult(functionFragment: 'payInstallment', data: BytesLike): Resul
 decodeFunctionResult(functionFragment: 'payInstallmentWithCompletionMetadata', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'payOutstanding', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'payOutstandingWithCompletionMetadata', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'previewDirectInstallment', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'previewOverdueInstallment', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'recordDirectInstallment', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setLendingPool', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setMarketplace', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'syncLoan', data: BytesLike): Result;
@@ -88,10 +100,46 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   }
 
   
+    export namespace DirectInstallmentRecordedEvent {
+      export type InputTuple = [loanId: BigNumberish, installment: BigNumberish, amount: BigNumberish];
+      export type OutputTuple = [loanId: bigint, installment: bigint, amount: bigint];
+      export interface OutputObject {loanId: bigint, installment: bigint, amount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace DirectScheduleCreatedEvent {
+      export type InputTuple = [loanId: BigNumberish, installments: BigNumberish, total: BigNumberish];
+      export type OutputTuple = [loanId: bigint, installments: bigint, total: bigint];
+      export interface OutputObject {loanId: bigint, installments: bigint, total: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace InstallmentPaidEvent {
       export type InputTuple = [loanId: BigNumberish, installment: BigNumberish, borrower: AddressLike, amount: BigNumberish];
       export type OutputTuple = [loanId: bigint, installment: bigint, borrower: string, amount: bigint];
       export interface OutputObject {loanId: bigint, installment: bigint, borrower: string, amount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace LendingPoolConfiguredEvent {
+      export type InputTuple = [lendingPool: AddressLike];
+      export type OutputTuple = [lendingPool: string];
+      export interface OutputObject {lendingPool: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -262,6 +310,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    createDirectSchedule: TypedContractMethod<
+      [loanId: BigNumberish, term: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     createSchedule: TypedContractMethod<
       [loanId: BigNumberish, term: BigNumberish, ],
       [void],
@@ -297,6 +353,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     hasRole: TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [boolean],
+      'view'
+    >
+    
+
+    
+    lendingPool: TypedContractMethod<
+      [],
+      [string],
       'view'
     >
     
@@ -390,6 +454,30 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    previewDirectInstallment: TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [[bigint, bigint, bigint, boolean] & {installmentIndex: bigint, amount: bigint, dueAt: bigint, completionRequired: boolean }],
+      'view'
+    >
+    
+
+    
+    previewOverdueInstallment: TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [[bigint, bigint, bigint, boolean] & {installmentIndex: bigint, amount: bigint, dueAt: bigint, completionRequired: boolean }],
+      'view'
+    >
+    
+
+    
+    recordDirectInstallment: TypedContractMethod<
+      [loanId: BigNumberish, amount: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     renounceRole: TypedContractMethod<
       [role: BytesLike, callerConfirmation: AddressLike, ],
       [void],
@@ -400,6 +488,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
     revokeRole: TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    setLendingPool: TypedContractMethod<
+      [lendingPool_: AddressLike, ],
       [void],
       'nonpayable'
     >
@@ -468,6 +564,11 @@ getFunction(nameOrSignature: 'collateralVault'): TypedContractMethod<
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'createDirectSchedule'): TypedContractMethod<
+      [loanId: BigNumberish, term: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'createSchedule'): TypedContractMethod<
       [loanId: BigNumberish, term: BigNumberish, ],
       [void],
@@ -491,6 +592,11 @@ getFunction(nameOrSignature: 'grantRole'): TypedContractMethod<
 getFunction(nameOrSignature: 'hasRole'): TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [boolean],
+      'view'
+    >;
+getFunction(nameOrSignature: 'lendingPool'): TypedContractMethod<
+      [],
+      [string],
       'view'
     >;
 getFunction(nameOrSignature: 'lendingReferralManager'): TypedContractMethod<
@@ -548,6 +654,21 @@ getFunction(nameOrSignature: 'payOutstandingWithCompletionMetadata'): TypedContr
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'previewDirectInstallment'): TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [[bigint, bigint, bigint, boolean] & {installmentIndex: bigint, amount: bigint, dueAt: bigint, completionRequired: boolean }],
+      'view'
+    >;
+getFunction(nameOrSignature: 'previewOverdueInstallment'): TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [[bigint, bigint, bigint, boolean] & {installmentIndex: bigint, amount: bigint, dueAt: bigint, completionRequired: boolean }],
+      'view'
+    >;
+getFunction(nameOrSignature: 'recordDirectInstallment'): TypedContractMethod<
+      [loanId: BigNumberish, amount: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
       [role: BytesLike, callerConfirmation: AddressLike, ],
       [void],
@@ -555,6 +676,11 @@ getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'setLendingPool'): TypedContractMethod<
+      [lendingPool_: AddressLike, ],
       [void],
       'nonpayable'
     >;
@@ -584,7 +710,10 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
       'nonpayable'
     >;
 
-    getEvent(key: 'InstallmentPaid'): TypedContractEvent<InstallmentPaidEvent.InputTuple, InstallmentPaidEvent.OutputTuple, InstallmentPaidEvent.OutputObject>;
+    getEvent(key: 'DirectInstallmentRecorded'): TypedContractEvent<DirectInstallmentRecordedEvent.InputTuple, DirectInstallmentRecordedEvent.OutputTuple, DirectInstallmentRecordedEvent.OutputObject>;
+getEvent(key: 'DirectScheduleCreated'): TypedContractEvent<DirectScheduleCreatedEvent.InputTuple, DirectScheduleCreatedEvent.OutputTuple, DirectScheduleCreatedEvent.OutputObject>;
+getEvent(key: 'InstallmentPaid'): TypedContractEvent<InstallmentPaidEvent.InputTuple, InstallmentPaidEvent.OutputTuple, InstallmentPaidEvent.OutputObject>;
+getEvent(key: 'LendingPoolConfigured'): TypedContractEvent<LendingPoolConfiguredEvent.InputTuple, LendingPoolConfiguredEvent.OutputTuple, LendingPoolConfiguredEvent.OutputObject>;
 getEvent(key: 'MarketplaceConfigured'): TypedContractEvent<MarketplaceConfiguredEvent.InputTuple, MarketplaceConfiguredEvent.OutputTuple, MarketplaceConfiguredEvent.OutputObject>;
 getEvent(key: 'P2PCollateralReleased'): TypedContractEvent<P2PCollateralReleasedEvent.InputTuple, P2PCollateralReleasedEvent.OutputTuple, P2PCollateralReleasedEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
@@ -596,8 +725,20 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
     filters: {
       
+      'DirectInstallmentRecorded(uint256,uint256,uint256)': TypedContractEvent<DirectInstallmentRecordedEvent.InputTuple, DirectInstallmentRecordedEvent.OutputTuple, DirectInstallmentRecordedEvent.OutputObject>;
+      DirectInstallmentRecorded: TypedContractEvent<DirectInstallmentRecordedEvent.InputTuple, DirectInstallmentRecordedEvent.OutputTuple, DirectInstallmentRecordedEvent.OutputObject>;
+    
+
+      'DirectScheduleCreated(uint256,uint256,uint256)': TypedContractEvent<DirectScheduleCreatedEvent.InputTuple, DirectScheduleCreatedEvent.OutputTuple, DirectScheduleCreatedEvent.OutputObject>;
+      DirectScheduleCreated: TypedContractEvent<DirectScheduleCreatedEvent.InputTuple, DirectScheduleCreatedEvent.OutputTuple, DirectScheduleCreatedEvent.OutputObject>;
+    
+
       'InstallmentPaid(uint256,uint256,address,uint256)': TypedContractEvent<InstallmentPaidEvent.InputTuple, InstallmentPaidEvent.OutputTuple, InstallmentPaidEvent.OutputObject>;
       InstallmentPaid: TypedContractEvent<InstallmentPaidEvent.InputTuple, InstallmentPaidEvent.OutputTuple, InstallmentPaidEvent.OutputObject>;
+    
+
+      'LendingPoolConfigured(address)': TypedContractEvent<LendingPoolConfiguredEvent.InputTuple, LendingPoolConfiguredEvent.OutputTuple, LendingPoolConfiguredEvent.OutputObject>;
+      LendingPoolConfigured: TypedContractEvent<LendingPoolConfiguredEvent.InputTuple, LendingPoolConfiguredEvent.OutputTuple, LendingPoolConfiguredEvent.OutputObject>;
     
 
       'MarketplaceConfigured(address)': TypedContractEvent<MarketplaceConfiguredEvent.InputTuple, MarketplaceConfiguredEvent.OutputTuple, MarketplaceConfiguredEvent.OutputObject>;

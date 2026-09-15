@@ -1,8 +1,6 @@
 export type TransactionType =
   | 'Token Transfer'
   | 'Buy Token'
-  | 'Stake'
-  | 'Unstake'
   | 'Claim Reward'
   | 'Borrow'
   | 'Repay'

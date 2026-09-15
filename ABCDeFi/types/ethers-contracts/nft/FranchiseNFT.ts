@@ -4,84 +4,59 @@
 import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, EventFragment, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers"
 import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../common.js"
   
-export declare namespace FranchiseNFT {
-      
-    export type FranchiseMetadataStruct = {franchiseId: BigNumberish, franchiseName: string, territoryCode: string, territoryName: string, level: BigNumberish, legionNFTId: BigNumberish, franchiseeWallet: AddressLike, priceUSD: BigNumberish, commissionBps: BigNumberish, purchaseTimestamp: BigNumberish, lockExpiryTimestamp: BigNumberish, status: BigNumberish, ipfsCID: string}
-
-    export type FranchiseMetadataStructOutput = [franchiseId: bigint, franchiseName: string, territoryCode: string, territoryName: string, level: bigint, legionNFTId: bigint, franchiseeWallet: string, priceUSD: bigint, commissionBps: bigint, purchaseTimestamp: bigint, lockExpiryTimestamp: bigint, status: bigint, ipfsCID: string] & {franchiseId: bigint, franchiseName: string, territoryCode: string, territoryName: string, level: bigint, legionNFTId: bigint, franchiseeWallet: string, priceUSD: bigint, commissionBps: bigint, purchaseTimestamp: bigint, lockExpiryTimestamp: bigint, status: bigint, ipfsCID: string }
-  
-    }
 
   export interface FranchiseNFTInterface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "LOCK_PERIOD" | "MINTER_ROLE" | "PAUSER_ROLE" | "UPDATER_ROLE" | "approve" | "balanceOf" | "getApproved" | "getFranchiseDetails" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "isTransferLocked" | "mintFranchise" | "name" | "owner" | "ownerOf" | "pause" | "paused" | "renounceOwnership" | "renounceRole" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom" | "transferOwnership" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "approve" | "balanceOf" | "getApproved" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "mintFromRegistry" | "name" | "ownerOf" | "registry" | "renounceRole" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "setRegistry" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom" | "transferFromRegistry"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "BatchMetadataUpdate" | "FranchiseNFTMinted" | "MetadataUpdate" | "OwnershipTransferred" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Transfer" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "BatchMetadataUpdate" | "FranchiseMintedFromRegistry" | "FranchiseRegistrySet" | "FranchiseTransferredByRegistry" | "MetadataUpdate" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Transfer"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
-encodeFunctionData(functionFragment: 'LOCK_PERIOD', values?: undefined): string;
-encodeFunctionData(functionFragment: 'MINTER_ROLE', values?: undefined): string;
-encodeFunctionData(functionFragment: 'PAUSER_ROLE', values?: undefined): string;
-encodeFunctionData(functionFragment: 'UPDATER_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'approve', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'balanceOf', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'getApproved', values: [BigNumberish]): string;
-encodeFunctionData(functionFragment: 'getFranchiseDetails', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'isApprovedForAll', values: [AddressLike, AddressLike]): string;
-encodeFunctionData(functionFragment: 'isTransferLocked', values: [BigNumberish]): string;
-encodeFunctionData(functionFragment: 'mintFranchise', values: [AddressLike, string, string, string, BigNumberish, BigNumberish, BigNumberish, BigNumberish, string, string]): string;
+encodeFunctionData(functionFragment: 'mintFromRegistry', values: [AddressLike, BigNumberish, string]): string;
 encodeFunctionData(functionFragment: 'name', values?: undefined): string;
-encodeFunctionData(functionFragment: 'owner', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ownerOf', values: [BigNumberish]): string;
-encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
-encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
-encodeFunctionData(functionFragment: 'renounceOwnership', values?: undefined): string;
+encodeFunctionData(functionFragment: 'registry', values?: undefined): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'safeTransferFrom(address,address,uint256)', values: [AddressLike, AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'safeTransferFrom(address,address,uint256,bytes)', values: [AddressLike, AddressLike, BigNumberish, BytesLike]): string;
 encodeFunctionData(functionFragment: 'setApprovalForAll', values: [AddressLike, boolean]): string;
+encodeFunctionData(functionFragment: 'setRegistry', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'symbol', values?: undefined): string;
 encodeFunctionData(functionFragment: 'tokenURI', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'transferFrom', values: [AddressLike, AddressLike, BigNumberish]): string;
-encodeFunctionData(functionFragment: 'transferOwnership', values: [AddressLike]): string;
-encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
+encodeFunctionData(functionFragment: 'transferFromRegistry', values: [AddressLike, AddressLike, BigNumberish]): string;
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'LOCK_PERIOD', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'MINTER_ROLE', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'PAUSER_ROLE', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'UPDATER_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'approve', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'balanceOf', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getApproved', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'getFranchiseDetails', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'isApprovedForAll', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'isTransferLocked', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'mintFranchise', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'mintFromRegistry', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'name', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'owner', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'ownerOf', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'renounceOwnership', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'registry', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'safeTransferFrom(address,address,uint256)', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'safeTransferFrom(address,address,uint256,bytes)', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setApprovalForAll', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setRegistry', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'symbol', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'tokenURI', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'transferOwnership', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'transferFromRegistry', data: BytesLike): Result;
   }
 
   
@@ -121,10 +96,34 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
   
 
-    export namespace FranchiseNFTMintedEvent {
-      export type InputTuple = [franchiseId: BigNumberish, franchisee: AddressLike, territoryCode: string, level: BigNumberish, priceUSD: BigNumberish, lockExpiryTimestamp: BigNumberish];
-      export type OutputTuple = [franchiseId: bigint, franchisee: string, territoryCode: string, level: bigint, priceUSD: bigint, lockExpiryTimestamp: bigint];
-      export interface OutputObject {franchiseId: bigint, franchisee: string, territoryCode: string, level: bigint, priceUSD: bigint, lockExpiryTimestamp: bigint };
+    export namespace FranchiseMintedFromRegistryEvent {
+      export type InputTuple = [tokenId: BigNumberish, operator: AddressLike, metadataURI: string];
+      export type OutputTuple = [tokenId: bigint, operator: string, metadataURI: string];
+      export interface OutputObject {tokenId: bigint, operator: string, metadataURI: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace FranchiseRegistrySetEvent {
+      export type InputTuple = [registry: AddressLike];
+      export type OutputTuple = [registry: string];
+      export interface OutputObject {registry: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace FranchiseTransferredByRegistryEvent {
+      export type InputTuple = [tokenId: BigNumberish, from: AddressLike, to: AddressLike];
+      export type OutputTuple = [tokenId: bigint, from: string, to: string];
+      export interface OutputObject {tokenId: bigint, from: string, to: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -137,30 +136,6 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       export type InputTuple = [_tokenId: BigNumberish];
       export type OutputTuple = [_tokenId: bigint];
       export interface OutputObject {_tokenId: bigint };
-      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
-      export type Filter = TypedDeferredTopicFilter<Event>
-      export type Log = TypedEventLog<Event>
-      export type LogDescription = TypedLogDescription<Event>
-    }
-
-  
-
-    export namespace OwnershipTransferredEvent {
-      export type InputTuple = [previousOwner: AddressLike, newOwner: AddressLike];
-      export type OutputTuple = [previousOwner: string, newOwner: string];
-      export interface OutputObject {previousOwner: string, newOwner: string };
-      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
-      export type Filter = TypedDeferredTopicFilter<Event>
-      export type Log = TypedEventLog<Event>
-      export type LogDescription = TypedLogDescription<Event>
-    }
-
-  
-
-    export namespace PausedEvent {
-      export type InputTuple = [account: AddressLike];
-      export type OutputTuple = [account: string];
-      export interface OutputObject {account: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -217,18 +192,6 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
   
 
-    export namespace UnpausedEvent {
-      export type InputTuple = [account: AddressLike];
-      export type OutputTuple = [account: string];
-      export interface OutputObject {account: string };
-      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
-      export type Filter = TypedDeferredTopicFilter<Event>
-      export type Log = TypedEventLog<Event>
-      export type LogDescription = TypedLogDescription<Event>
-    }
-
-  
-
   export interface FranchiseNFT extends BaseContract {
     
     connect(runner?: ContractRunner | null): FranchiseNFT;
@@ -271,42 +234,10 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
-    LOCK_PERIOD: TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >
-    
-
-    
-    MINTER_ROLE: TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >
-    
-
-    
-    PAUSER_ROLE: TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >
-    
-
-    
-    UPDATER_ROLE: TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >
-    
-
-    
     approve: TypedContractMethod<
-      [to: AddressLike, tokenId: BigNumberish, ],
+      [arg0: AddressLike, arg1: BigNumberish, ],
       [void],
-      'nonpayable'
+      'view'
     >
     
 
@@ -322,14 +253,6 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     getApproved: TypedContractMethod<
       [tokenId: BigNumberish, ],
       [string],
-      'view'
-    >
-    
-
-    
-    getFranchiseDetails: TypedContractMethod<
-      [tokenId: BigNumberish, ],
-      [FranchiseNFT.FranchiseMetadataStructOutput],
       'view'
     >
     
@@ -367,31 +290,15 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
-    isTransferLocked: TypedContractMethod<
-      [tokenId: BigNumberish, ],
-      [boolean],
-      'view'
-    >
-    
-
-    
-    mintFranchise: TypedContractMethod<
-      [franchisee: AddressLike, franchiseName: string, territoryCode: string, territoryName: string, level: BigNumberish, legionNFTId: BigNumberish, priceUSD: BigNumberish, commissionBps: BigNumberish, tokenURI: string, ipfsCID: string, ],
-      [bigint],
+    mintFromRegistry: TypedContractMethod<
+      [recipient: AddressLike, tokenId: BigNumberish, metadataURI: string, ],
+      [void],
       'nonpayable'
     >
     
 
     
     name: TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >
-    
-
-    
-    owner: TypedContractMethod<
       [],
       [string],
       'view'
@@ -407,26 +314,10 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
-    pause: TypedContractMethod<
+    registry: TypedContractMethod<
       [],
-      [void],
-      'nonpayable'
-    >
-    
-
-    
-    paused: TypedContractMethod<
-      [],
-      [boolean],
+      [string],
       'view'
-    >
-    
-
-    
-    renounceOwnership: TypedContractMethod<
-      [],
-      [void],
-      'nonpayable'
     >
     
 
@@ -464,7 +355,15 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
     
     setApprovalForAll: TypedContractMethod<
-      [operator: AddressLike, approved: boolean, ],
+      [arg0: AddressLike, arg1: boolean, ],
+      [void],
+      'view'
+    >
+    
+
+    
+    setRegistry: TypedContractMethod<
+      [registry_: AddressLike, ],
       [void],
       'nonpayable'
     >
@@ -503,16 +402,8 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
-    transferOwnership: TypedContractMethod<
-      [newOwner: AddressLike, ],
-      [void],
-      'nonpayable'
-    >
-    
-
-    
-    unpause: TypedContractMethod<
-      [],
+    transferFromRegistry: TypedContractMethod<
+      [from: AddressLike, to: AddressLike, tokenId: BigNumberish, ],
       [void],
       'nonpayable'
     >
@@ -526,30 +417,10 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       [string],
       'view'
     >;
-getFunction(nameOrSignature: 'LOCK_PERIOD'): TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >;
-getFunction(nameOrSignature: 'MINTER_ROLE'): TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >;
-getFunction(nameOrSignature: 'PAUSER_ROLE'): TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >;
-getFunction(nameOrSignature: 'UPDATER_ROLE'): TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >;
 getFunction(nameOrSignature: 'approve'): TypedContractMethod<
-      [to: AddressLike, tokenId: BigNumberish, ],
+      [arg0: AddressLike, arg1: BigNumberish, ],
       [void],
-      'nonpayable'
+      'view'
     >;
 getFunction(nameOrSignature: 'balanceOf'): TypedContractMethod<
       [owner: AddressLike, ],
@@ -559,11 +430,6 @@ getFunction(nameOrSignature: 'balanceOf'): TypedContractMethod<
 getFunction(nameOrSignature: 'getApproved'): TypedContractMethod<
       [tokenId: BigNumberish, ],
       [string],
-      'view'
-    >;
-getFunction(nameOrSignature: 'getFranchiseDetails'): TypedContractMethod<
-      [tokenId: BigNumberish, ],
-      [FranchiseNFT.FranchiseMetadataStructOutput],
       'view'
     >;
 getFunction(nameOrSignature: 'getRoleAdmin'): TypedContractMethod<
@@ -586,22 +452,12 @@ getFunction(nameOrSignature: 'isApprovedForAll'): TypedContractMethod<
       [boolean],
       'view'
     >;
-getFunction(nameOrSignature: 'isTransferLocked'): TypedContractMethod<
-      [tokenId: BigNumberish, ],
-      [boolean],
-      'view'
-    >;
-getFunction(nameOrSignature: 'mintFranchise'): TypedContractMethod<
-      [franchisee: AddressLike, franchiseName: string, territoryCode: string, territoryName: string, level: BigNumberish, legionNFTId: BigNumberish, priceUSD: BigNumberish, commissionBps: BigNumberish, tokenURI: string, ipfsCID: string, ],
-      [bigint],
+getFunction(nameOrSignature: 'mintFromRegistry'): TypedContractMethod<
+      [recipient: AddressLike, tokenId: BigNumberish, metadataURI: string, ],
+      [void],
       'nonpayable'
     >;
 getFunction(nameOrSignature: 'name'): TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >;
-getFunction(nameOrSignature: 'owner'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -611,20 +467,10 @@ getFunction(nameOrSignature: 'ownerOf'): TypedContractMethod<
       [string],
       'view'
     >;
-getFunction(nameOrSignature: 'pause'): TypedContractMethod<
+getFunction(nameOrSignature: 'registry'): TypedContractMethod<
       [],
-      [void],
-      'nonpayable'
-    >;
-getFunction(nameOrSignature: 'paused'): TypedContractMethod<
-      [],
-      [boolean],
+      [string],
       'view'
-    >;
-getFunction(nameOrSignature: 'renounceOwnership'): TypedContractMethod<
-      [],
-      [void],
-      'nonpayable'
     >;
 getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
       [role: BytesLike, callerConfirmation: AddressLike, ],
@@ -647,7 +493,12 @@ getFunction(nameOrSignature: 'safeTransferFrom(address,address,uint256,bytes)'):
       'nonpayable'
     >;
 getFunction(nameOrSignature: 'setApprovalForAll'): TypedContractMethod<
-      [operator: AddressLike, approved: boolean, ],
+      [arg0: AddressLike, arg1: boolean, ],
+      [void],
+      'view'
+    >;
+getFunction(nameOrSignature: 'setRegistry'): TypedContractMethod<
+      [registry_: AddressLike, ],
       [void],
       'nonpayable'
     >;
@@ -671,13 +522,8 @@ getFunction(nameOrSignature: 'transferFrom'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
-getFunction(nameOrSignature: 'transferOwnership'): TypedContractMethod<
-      [newOwner: AddressLike, ],
-      [void],
-      'nonpayable'
-    >;
-getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
-      [],
+getFunction(nameOrSignature: 'transferFromRegistry'): TypedContractMethod<
+      [from: AddressLike, to: AddressLike, tokenId: BigNumberish, ],
       [void],
       'nonpayable'
     >;
@@ -685,15 +531,14 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
     getEvent(key: 'Approval'): TypedContractEvent<ApprovalEvent.InputTuple, ApprovalEvent.OutputTuple, ApprovalEvent.OutputObject>;
 getEvent(key: 'ApprovalForAll'): TypedContractEvent<ApprovalForAllEvent.InputTuple, ApprovalForAllEvent.OutputTuple, ApprovalForAllEvent.OutputObject>;
 getEvent(key: 'BatchMetadataUpdate'): TypedContractEvent<BatchMetadataUpdateEvent.InputTuple, BatchMetadataUpdateEvent.OutputTuple, BatchMetadataUpdateEvent.OutputObject>;
-getEvent(key: 'FranchiseNFTMinted'): TypedContractEvent<FranchiseNFTMintedEvent.InputTuple, FranchiseNFTMintedEvent.OutputTuple, FranchiseNFTMintedEvent.OutputObject>;
+getEvent(key: 'FranchiseMintedFromRegistry'): TypedContractEvent<FranchiseMintedFromRegistryEvent.InputTuple, FranchiseMintedFromRegistryEvent.OutputTuple, FranchiseMintedFromRegistryEvent.OutputObject>;
+getEvent(key: 'FranchiseRegistrySet'): TypedContractEvent<FranchiseRegistrySetEvent.InputTuple, FranchiseRegistrySetEvent.OutputTuple, FranchiseRegistrySetEvent.OutputObject>;
+getEvent(key: 'FranchiseTransferredByRegistry'): TypedContractEvent<FranchiseTransferredByRegistryEvent.InputTuple, FranchiseTransferredByRegistryEvent.OutputTuple, FranchiseTransferredByRegistryEvent.OutputObject>;
 getEvent(key: 'MetadataUpdate'): TypedContractEvent<MetadataUpdateEvent.InputTuple, MetadataUpdateEvent.OutputTuple, MetadataUpdateEvent.OutputObject>;
-getEvent(key: 'OwnershipTransferred'): TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
-getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
 getEvent(key: 'RoleGranted'): TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
 getEvent(key: 'RoleRevoked'): TypedContractEvent<RoleRevokedEvent.InputTuple, RoleRevokedEvent.OutputTuple, RoleRevokedEvent.OutputObject>;
 getEvent(key: 'Transfer'): TypedContractEvent<TransferEvent.InputTuple, TransferEvent.OutputTuple, TransferEvent.OutputObject>;
-getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
 
     filters: {
       
@@ -709,20 +554,20 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       BatchMetadataUpdate: TypedContractEvent<BatchMetadataUpdateEvent.InputTuple, BatchMetadataUpdateEvent.OutputTuple, BatchMetadataUpdateEvent.OutputObject>;
     
 
-      'FranchiseNFTMinted(uint256,address,string,uint8,uint256,uint256)': TypedContractEvent<FranchiseNFTMintedEvent.InputTuple, FranchiseNFTMintedEvent.OutputTuple, FranchiseNFTMintedEvent.OutputObject>;
-      FranchiseNFTMinted: TypedContractEvent<FranchiseNFTMintedEvent.InputTuple, FranchiseNFTMintedEvent.OutputTuple, FranchiseNFTMintedEvent.OutputObject>;
+      'FranchiseMintedFromRegistry(uint256,address,string)': TypedContractEvent<FranchiseMintedFromRegistryEvent.InputTuple, FranchiseMintedFromRegistryEvent.OutputTuple, FranchiseMintedFromRegistryEvent.OutputObject>;
+      FranchiseMintedFromRegistry: TypedContractEvent<FranchiseMintedFromRegistryEvent.InputTuple, FranchiseMintedFromRegistryEvent.OutputTuple, FranchiseMintedFromRegistryEvent.OutputObject>;
+    
+
+      'FranchiseRegistrySet(address)': TypedContractEvent<FranchiseRegistrySetEvent.InputTuple, FranchiseRegistrySetEvent.OutputTuple, FranchiseRegistrySetEvent.OutputObject>;
+      FranchiseRegistrySet: TypedContractEvent<FranchiseRegistrySetEvent.InputTuple, FranchiseRegistrySetEvent.OutputTuple, FranchiseRegistrySetEvent.OutputObject>;
+    
+
+      'FranchiseTransferredByRegistry(uint256,address,address)': TypedContractEvent<FranchiseTransferredByRegistryEvent.InputTuple, FranchiseTransferredByRegistryEvent.OutputTuple, FranchiseTransferredByRegistryEvent.OutputObject>;
+      FranchiseTransferredByRegistry: TypedContractEvent<FranchiseTransferredByRegistryEvent.InputTuple, FranchiseTransferredByRegistryEvent.OutputTuple, FranchiseTransferredByRegistryEvent.OutputObject>;
     
 
       'MetadataUpdate(uint256)': TypedContractEvent<MetadataUpdateEvent.InputTuple, MetadataUpdateEvent.OutputTuple, MetadataUpdateEvent.OutputObject>;
       MetadataUpdate: TypedContractEvent<MetadataUpdateEvent.InputTuple, MetadataUpdateEvent.OutputTuple, MetadataUpdateEvent.OutputObject>;
-    
-
-      'OwnershipTransferred(address,address)': TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
-      OwnershipTransferred: TypedContractEvent<OwnershipTransferredEvent.InputTuple, OwnershipTransferredEvent.OutputTuple, OwnershipTransferredEvent.OutputObject>;
-    
-
-      'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
-      Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
     
 
       'RoleAdminChanged(bytes32,bytes32,bytes32)': TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
@@ -739,10 +584,6 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
       'Transfer(address,address,uint256)': TypedContractEvent<TransferEvent.InputTuple, TransferEvent.OutputTuple, TransferEvent.OutputObject>;
       Transfer: TypedContractEvent<TransferEvent.InputTuple, TransferEvent.OutputTuple, TransferEvent.OutputObject>;
-    
-
-      'Unpaused(address)': TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
-      Unpaused: TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
     
     };
   }

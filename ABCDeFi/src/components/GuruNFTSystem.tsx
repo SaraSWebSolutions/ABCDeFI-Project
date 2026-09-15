@@ -300,10 +300,6 @@ export const GuruNFTSystem: React.FC = () => {
                       <span className="text-slate-400">Max LTV:</span>
                       <span className="font-bold text-emerald-400">{rank.ltv}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Staking:</span>
-                      <span className="font-bold text-indigo-400">{rank.stakingBonus}</span>
-                    </div>
                     <div className="flex justify-between border-t border-slate-800/60 pt-1">
                       <span className="text-slate-400">Fees:</span>
                       <span className="font-bold text-amber-400">{rank.feeDiscount} off</span>
@@ -348,7 +344,7 @@ export const GuruNFTSystem: React.FC = () => {
             <div className="text-slate-300 font-bold">How to earn Guru XP:</div>
             {[
               '📚 Create a course lesson (+50 XP)',
-              '👤 Mentor a new user to first stake (+25 XP)',
+              '👤 Mentor a new user through a lending workflow (+25 XP)',
               '✅ Help resolve a support query (+10 XP)',
               '🏆 Complete financial education quiz (+30 XP)',
               '💰 Refer users who borrow ABCD (+20 XP)',

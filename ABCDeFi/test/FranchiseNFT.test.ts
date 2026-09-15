@@ -2,106 +2,258 @@ import { expect } from "chai";
 import { network } from "hardhat";
 import { ethers } from "ethers";
 
-describe("FranchiseNFT", function () {
+describe("Phase 9 Franchise foundation", function () {
   let hh: any;
-  let franchise: any;
-  let admin: any;
-  let minter: any;
+  let nft: any;
+  let registry: any;
+  let defaultAdmin: any;
+  let registryAdmin: any;
+  let issuer: any;
+  let lifecycleAdmin: any;
+  let pauser: any;
+  let unpauser: any;
   let holder: any;
-  let recipient: any;
+  let proposed: any;
+  let outsider: any;
 
-  const mint = async (target = holder.address, territoryCode = "IN-TG-HYD") => franchise.connect(minter).mintFranchise(
-    target,
-    "Hyderabad District Licence",
-    territoryCode,
-    "Hyderabad, Telangana, India",
-    5,
-    0,
-    10_000,
-    6,
-    "ipfs://bafy-franchise-hyderabad/metadata.json",
-    "bafy-franchise-hyderabad",
-  );
+  const territoryKey = (value = "continental:in") => ethers.keccak256(ethers.toUtf8Bytes(value));
+  const metadataURI = "ipfs://bafybeigdyrzt4examplefranchisemetadata/metadata.json";
 
   beforeEach(async function () {
     hh = (await network.connect()).ethers;
-    [admin, minter, holder, recipient] = await hh.getSigners();
-    const factory = await hh.getContractFactory("FranchiseNFT");
-    franchise = await factory.deploy(admin.address, minter.address);
-    await franchise.waitForDeployment();
+    [defaultAdmin, registryAdmin, issuer, lifecycleAdmin, pauser, unpauser, holder, proposed, outsider] = await hh.getSigners();
+
+    const NFT = await hh.getContractFactory("FranchiseNFT");
+    nft = await NFT.deploy(defaultAdmin.address);
+    await nft.waitForDeployment();
+
+    const Registry = await hh.getContractFactory("FranchiseRegistry");
+    registry = await Registry.deploy(
+      await nft.getAddress(),
+      defaultAdmin.address,
+      registryAdmin.address,
+      issuer.address,
+      lifecycleAdmin.address,
+      pauser.address,
+      unpauser.address,
+    );
+    await registry.waitForDeployment();
+    await nft.connect(defaultAdmin).setRegistry(await registry.getAddress());
+
+    await registry.connect(registryAdmin).setOperatorEligibility(holder.address, true);
+    await registry.connect(registryAdmin).setOperatorEligibility(proposed.address, true);
   });
 
-  it("assigns canonical administration and minting roles", async function () {
-    expect(await franchise.hasRole(await franchise.DEFAULT_ADMIN_ROLE(), admin.address)).to.equal(true);
-    expect(await franchise.hasRole(await franchise.MINTER_ROLE(), minter.address)).to.equal(true);
-    expect(await franchise.hasRole(await franchise.PAUSER_ROLE(), admin.address)).to.equal(true);
-    expect(await franchise.hasRole(await franchise.UPDATER_ROLE(), admin.address)).to.equal(true);
+  async function register(key = territoryKey()) {
+    return registry.connect(issuer).registerFranchise(key, 3, holder.address, metadataURI);
+  }
+
+  async function registered() {
+    await register();
+    return 1n;
+  }
+
+  async function approvedRequest() {
+    const tokenId = await registered();
+    await registry.connect(holder).requestTransfer(tokenId, proposed.address);
+    await registry.connect(registryAdmin).approveTransfer(1);
+    return { tokenId, requestId: 1n };
+  }
+
+  it("restricts deterministic territory registration and atomically establishes owner/operator equality", async function () {
+    await expect(register()).to.emit(registry, "FranchiseRegistered");
+    const franchise = await registry.getFranchise(1);
+    expect(franchise.territoryKey).to.equal(territoryKey());
+    expect(franchise.level).to.equal(3n);
+    expect(franchise.operator).to.equal(holder.address);
+    expect(franchise.status).to.equal(0n);
+    expect(franchise.operatorVersion).to.equal(1n);
+    expect(await nft.ownerOf(1)).to.equal(holder.address);
+    expect(await nft.tokenURI(1)).to.equal(metadataURI);
+    expect(await registry.tokenIdForTerritory(territoryKey())).to.equal(1n);
+
+    await expect(register()).to.be.revertedWithCustomError(registry, "TerritoryAlreadyRegistered");
+    await expect(registry.connect(outsider).registerFranchise(territoryKey("other"), 0, holder.address, metadataURI))
+      .to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
+    await expect(registry.connect(issuer).registerFranchise(territoryKey("unapproved"), 0, outsider.address, metadataURI))
+      .to.be.revertedWithCustomError(registry, "OperatorNotEligible");
   });
 
-  it("mints a unique territory certificate and persists its real details", async function () {
-    await expect(mint()).to.emit(franchise, "FranchiseNFTMinted");
-    expect(await franchise.ownerOf(1)).to.equal(holder.address);
-    expect(await franchise.tokenURI(1)).to.equal("ipfs://bafy-franchise-hyderabad/metadata.json");
-    const details = await franchise.getFranchiseDetails(1);
-    expect(details.franchiseId).to.equal(1);
-    expect(details.territoryCode).to.equal("IN-TG-HYD");
-    expect(details.franchiseeWallet).to.equal(holder.address);
-    expect(details.status).to.equal(0);
-    expect(await franchise.isTransferLocked(1)).to.equal(true);
+  it("allows only the bound Registry to mint and rejects malformed metadata", async function () {
+    await expect(nft.connect(outsider).mintFromRegistry(holder.address, 1, metadataURI))
+      .to.be.revertedWithCustomError(nft, "OnlyRegistry");
+    await expect(registry.connect(issuer).registerFranchise(territoryKey(), 0, holder.address, "https://example.invalid/metadata.json"))
+      .to.be.revertedWithCustomError(nft, "InvalidMetadataURI");
+    await expect(nft.connect(outsider).setRegistry(outsider.address))
+      .to.be.revertedWithCustomError(nft, "AccessControlUnauthorizedAccount");
+
+    const NFT = await hh.getContractFactory("FranchiseNFT");
+    const unboundNFT = await NFT.deploy(defaultAdmin.address);
+    await unboundNFT.waitForDeployment();
+    await expect(unboundNFT.connect(defaultAdmin).setRegistry(outsider.address))
+      .to.be.revertedWithCustomError(unboundNFT, "InvalidAddress");
   });
 
-  it("rejects unauthorized minting and duplicate territory codes", async function () {
-    await expect(franchise.connect(holder).mintFranchise(holder.address, "x", "IN-TG-HYD", "x", 5, 0, 1, 6, "ipfs://x", "x"))
-      .to.be.revertedWithCustomError(franchise, "AccessControlUnauthorizedAccount");
-    await mint();
-    await expect(mint(recipient.address)).to.be.revertedWith("Territory already minted");
+  it("rejects every direct ERC-721 transfer and approval path", async function () {
+    const tokenId = await registered();
+    await expect(nft.connect(holder).transferFrom(holder.address, proposed.address, tokenId))
+      .to.be.revertedWithCustomError(nft, "DirectTransferForbidden");
+    await expect(nft.connect(holder)["safeTransferFrom(address,address,uint256)"](holder.address, proposed.address, tokenId))
+      .to.be.revertedWithCustomError(nft, "DirectTransferForbidden");
+    await expect(nft.connect(holder).approve(outsider.address, tokenId))
+      .to.be.revertedWithCustomError(nft, "DirectApprovalForbidden");
+    await expect(nft.connect(holder).setApprovalForAll(outsider.address, true))
+      .to.be.revertedWithCustomError(nft, "DirectApprovalForbidden");
   });
 
-  it("enforces the three-year transfer lock and updates the recorded owner after expiry", async function () {
-    await mint();
-    await expect(franchise.connect(holder).transferFrom(holder.address, recipient.address, 1)).to.be.revertedWith("Franchise NFT locked for 3 years from purchase");
-    await hh.provider.send("evm_increaseTime", [1095 * 24 * 60 * 60 + 1]);
-    await hh.provider.send("evm_mine", []);
-    await franchise.connect(holder).transferFrom(holder.address, recipient.address, 1);
-    expect(await franchise.ownerOf(1)).to.equal(recipient.address);
-    expect((await franchise.getFranchiseDetails(1)).franchiseeWallet).to.equal(recipient.address);
-    expect(await franchise.isTransferLocked(1)).to.equal(false);
+  it("executes an approved Registry transfer atomically and consumes its request", async function () {
+    const { tokenId, requestId } = await approvedRequest();
+    await expect(registry.connect(outsider).executeTransfer(requestId))
+      .to.be.revertedWithCustomError(registry, "NotCurrentOperator");
+    await expect(registry.connect(holder).executeTransfer(requestId))
+      .to.emit(registry, "FranchiseTransferred");
+
+    const franchise = await registry.getFranchise(tokenId);
+    const request = await registry.getTransferRequest(requestId);
+    expect(await nft.ownerOf(tokenId)).to.equal(proposed.address);
+    expect(franchise.operator).to.equal(proposed.address);
+    expect(franchise.operatorVersion).to.equal(2n);
+    expect(request.active).to.equal(false);
+    expect(await registry.activeTransferRequestForToken(tokenId)).to.equal(0n);
+    await expect(registry.connect(holder).executeTransfer(requestId))
+      .to.be.revertedWithCustomError(registry, "TransferRequestNotFound");
   });
 
-  it("rejects malformed mint inputs enforced by the deployed contract", async function () {
-    await expect(franchise.connect(minter).mintFranchise(ethers.ZeroAddress, "x", "IN-TG-HYD", "x", 5, 0, 1, 6, "ipfs://x", "x"))
-      .to.be.revertedWith("Invalid franchisee address");
-    await expect(franchise.connect(minter).mintFranchise(holder.address, "x", "", "x", 5, 0, 1, 6, "ipfs://x", "x"))
-      .to.be.revertedWith("Territory code required");
+  it("requires administrative eligibility approval and supports authorized request cancellation/invalidation", async function () {
+    const tokenId = await registered();
+    await registry.connect(holder).requestTransfer(tokenId, proposed.address);
+    await expect(registry.connect(outsider).approveTransfer(1)).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
+    await registry.connect(holder).cancelTransferRequest(1);
+    await expect(registry.connect(registryAdmin).approveTransfer(1))
+      .to.be.revertedWithCustomError(registry, "TransferRequestNotFound");
+
+    await registry.connect(holder).requestTransfer(tokenId, proposed.address);
+    await registry.connect(registryAdmin).invalidateTransferRequest(2);
+    await expect(registry.connect(holder).executeTransfer(2))
+      .to.be.revertedWithCustomError(registry, "TransferRequestNotFound");
+
+    await registry.connect(holder).requestTransfer(tokenId, proposed.address);
+    await registry.connect(registryAdmin).setOperatorEligibility(proposed.address, false);
+    await expect(registry.connect(registryAdmin).approveTransfer(3))
+      .to.be.revertedWithCustomError(registry, "OperatorNotEligible");
   });
 
-  it("rejects an out-of-range territory enum before minting a certificate", async function () {
-    await expect(
-      franchise.connect(minter).mintFranchise(
-        holder.address,
-        "Invalid Territory Licence",
-        "INVALID-LEVEL",
-        "Invalid Territory",
-        9,
-        0,
-        0,
-        0,
-        "ipfs://bafybeigdyrzt4examplemetadata/metadata.json",
-        "bafybeigdyrzt4examplemetadata",
-      )
-    ).to.revert(ethers);
-    await expect(franchise.ownerOf(1)).to.revert(ethers);
+  it("emits complete Registry provenance for eligibility, transfer request/approval/cancellation, and pause", async function () {
+    const tokenId = await registered();
+    await expect(registry.connect(registryAdmin).setOperatorEligibility(outsider.address, true))
+      .to.emit(registry, "OperatorEligibilitySet").withArgs(outsider.address, true, registryAdmin.address);
+    await expect(registry.connect(holder).requestTransfer(tokenId, proposed.address))
+      .to.emit(registry, "TransferRequested");
+    await expect(registry.connect(registryAdmin).approveTransfer(1))
+      .to.emit(registry, "TransferApproved");
+    await expect(registry.connect(holder).cancelTransferRequest(1))
+      .to.emit(registry, "TransferCancelled");
+    await expect(registry.connect(pauser).pause()).to.emit(registry, "Paused").withArgs(pauser.address);
+    await expect(registry.connect(unpauser).unpause()).to.emit(registry, "Unpaused").withArgs(unpauser.address);
   });
 
-  it("limits the pause control to the pauser role and blocks issuance while paused", async function () {
-    await expect(franchise.connect(holder).pause()).to.revert(ethers);
-    await franchise.connect(admin).pause();
+  it("fails closed when a test-only NFT fixture exposes an owner/operator mismatch or stale request", async function () {
+    const MockNFT = await hh.getContractFactory("MockFranchiseNFTForRegistry");
+    const mockNFT = await MockNFT.deploy();
+    await mockNFT.waitForDeployment();
+    const Registry = await hh.getContractFactory("FranchiseRegistry");
+    const isolatedRegistry = await Registry.deploy(
+      await mockNFT.getAddress(),
+      defaultAdmin.address,
+      registryAdmin.address,
+      issuer.address,
+      lifecycleAdmin.address,
+      pauser.address,
+      unpauser.address,
+    );
+    await isolatedRegistry.waitForDeployment();
+    await isolatedRegistry.connect(registryAdmin).setOperatorEligibility(holder.address, true);
+    await isolatedRegistry.connect(registryAdmin).setOperatorEligibility(proposed.address, true);
+    await isolatedRegistry.connect(issuer).registerFranchise(territoryKey("mock:state"), 2, holder.address, metadataURI);
+    await isolatedRegistry.connect(holder).requestTransfer(1, proposed.address);
+    await isolatedRegistry.connect(registryAdmin).approveTransfer(1);
 
-    await expect(mint()).to.revert(ethers);
-    await expect(franchise.ownerOf(1)).to.revert(ethers);
+    await mockNFT.forceOwnerForTest(1, outsider.address);
+    await expect(isolatedRegistry.connect(holder).executeTransfer(1))
+      .to.be.revertedWithCustomError(isolatedRegistry, "TransferRequestStale");
+    await expect(isolatedRegistry.connect(holder).cancelTransferRequest(1))
+      .to.be.revertedWithCustomError(isolatedRegistry, "OperatorOwnerMismatch");
+    await expect(isolatedRegistry.connect(lifecycleAdmin).suspend(1))
+      .to.be.revertedWithCustomError(isolatedRegistry, "OperatorOwnerMismatch");
+  });
 
-    await franchise.connect(admin).unpause();
-    await expect(mint()).to.emit(franchise, "FranchiseNFTMinted");
-    expect(await franchise.ownerOf(1)).to.equal(holder.address);
+  it("consumes state before a malicious ERC-721 receiver callback and blocks nested requests", async function () {
+    const tokenId = await registered();
+    const Receiver = await hh.getContractFactory("ReentrantFranchiseReceiver");
+    const receiver = await Receiver.deploy(await registry.getAddress());
+    await receiver.waitForDeployment();
+    await registry.connect(registryAdmin).setOperatorEligibility(await receiver.getAddress(), true);
+    await receiver.arm(tokenId, outsider.address);
+    await registry.connect(holder).requestTransfer(tokenId, await receiver.getAddress());
+    await registry.connect(registryAdmin).approveTransfer(1);
+    await registry.connect(holder).executeTransfer(1);
+
+    expect(await receiver.attempted()).to.equal(true);
+    expect(await receiver.succeeded()).to.equal(false);
+    expect(await registry.activeTransferRequestForToken(tokenId)).to.equal(0n);
+    expect((await registry.getFranchise(tokenId)).operator).to.equal(await receiver.getAddress());
+    expect(await nft.ownerOf(tokenId)).to.equal(await receiver.getAddress());
+  });
+
+  it("enforces exactly the approved lifecycle transitions and preserves NFT ownership", async function () {
+    const tokenId = await registered();
+    await expect(registry.connect(lifecycleAdmin).suspend(tokenId)).to.emit(registry, "FranchiseStatusChanged");
+    expect((await registry.getFranchise(tokenId)).status).to.equal(1n);
+    await expect(registry.connect(holder).requestTransfer(tokenId, proposed.address))
+      .to.be.revertedWithCustomError(registry, "InvalidLifecycleTransition");
+    await registry.connect(lifecycleAdmin).reactivate(tokenId);
+    expect((await registry.getFranchise(tokenId)).status).to.equal(0n);
+    await registry.connect(lifecycleAdmin).revoke(tokenId);
+    expect((await registry.getFranchise(tokenId)).status).to.equal(2n);
+    expect(await nft.ownerOf(tokenId)).to.equal(holder.address);
+    await expect(registry.connect(lifecycleAdmin).reactivate(tokenId))
+      .to.be.revertedWithCustomError(registry, "InvalidLifecycleTransition");
+
+    const second = await register(territoryKey("state:in-tg"));
+    await registry.connect(lifecycleAdmin).suspend(2);
+    await registry.connect(lifecycleAdmin).revoke(2);
+    expect((await registry.getFranchise(2)).status).to.equal(2n);
+    expect(second).to.not.equal(undefined);
+  });
+
+  it("applies the narrow B-04 pause to every required write while retaining reads and cancellation", async function () {
+    const { tokenId, requestId } = await approvedRequest();
+    await registry.connect(pauser).pause();
+
+    await expect(registry.connect(issuer).registerFranchise(territoryKey("district:in-tg-hyd"), 3, holder.address, metadataURI))
+      .to.be.revertedWithCustomError(registry, "EnforcedPause");
+    await expect(registry.connect(holder).requestTransfer(tokenId, outsider.address))
+      .to.be.revertedWithCustomError(registry, "EnforcedPause");
+    await expect(registry.connect(registryAdmin).approveTransfer(requestId))
+      .to.be.revertedWithCustomError(registry, "EnforcedPause");
+    await expect(registry.connect(holder).executeTransfer(requestId))
+      .to.be.revertedWithCustomError(registry, "EnforcedPause");
+    await expect(registry.connect(lifecycleAdmin).suspend(tokenId)).to.be.revertedWithCustomError(registry, "EnforcedPause");
+    await expect(registry.connect(lifecycleAdmin).reactivate(tokenId)).to.be.revertedWithCustomError(registry, "EnforcedPause");
+    await expect(registry.connect(lifecycleAdmin).revoke(tokenId)).to.be.revertedWithCustomError(registry, "EnforcedPause");
+    expect((await registry.getFranchise(tokenId)).operator).to.equal(holder.address);
+    await registry.connect(holder).cancelTransferRequest(requestId);
+
+    await expect(registry.connect(outsider).unpause()).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
+    await registry.connect(unpauser).unpause();
+    await expect(registry.connect(issuer).registerFranchise(territoryKey("district:in-tg-hyd"), 3, holder.address, metadataURI))
+      .to.emit(registry, "FranchiseRegistered");
+  });
+
+  it("has no payable financial surface and rejects arbitrary lifecycle administration", async function () {
+    const tokenId = await registered();
+    await expect(registry.connect(outsider).suspend(tokenId)).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
+    await expect(registry.connect(outsider).pause()).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
+    await expect(registry.connect(issuer).registerFranchise(territoryKey("value"), 0, holder.address, metadataURI, { value: 1n })).to.revert(ethers);
   });
 });

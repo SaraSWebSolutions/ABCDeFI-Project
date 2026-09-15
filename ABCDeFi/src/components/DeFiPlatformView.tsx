@@ -138,7 +138,7 @@ export const DeFiPlatformView: React.FC<DeFiPlatformViewProps> = ({
             </div>
 
             <h3 className="text-base font-bold text-slate-100 mb-1">$ABC Token Presale ICO</h3>
-            <p className="text-xs text-slate-400 mb-4">Initial Coin Offering for ABCDeFi governance and yield staking token.</p>
+            <p className="text-xs text-slate-400 mb-4">Initial Coin Offering for the canonical ABCD token.</p>
 
             <div className="space-y-2 text-xs font-mono bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4">
               <div className="flex justify-between">

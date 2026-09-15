@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 import {
   assertLoanNftDeployment,
@@ -68,4 +70,10 @@ test('uses the current wallet address on account switch and on refresh', async (
   await readIndexedLoanNftHistory(second, fetchFor);
   await readIndexedLoanNftHistory(second, fetchFor);
   assert.deepEqual(calls, [loanNftWalletHistoryEndpoint(first), loanNftWalletHistoryEndpoint(second), loanNftWalletHistoryEndpoint(second)]);
+});
+
+test('does not falsely describe transferable V2 completion certificates as marketplace-unlistable', () => {
+  const view = fs.readFileSync(path.resolve(process.cwd(), 'src', 'components', 'NFTEcosystem.tsx'), 'utf8');
+  assert.match(view, /standard transferable ERC-721 certificates/);
+  assert.doesNotMatch(view, /none are marketplace-listable/);
 });

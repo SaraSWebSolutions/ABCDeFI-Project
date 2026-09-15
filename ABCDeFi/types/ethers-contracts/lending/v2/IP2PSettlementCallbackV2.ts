@@ -6,7 +6,7 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface IP2PSettlementCallbackV2Interface extends Interface {
-    getFunction(nameOrSignature: "isP2PLoan" | "markLoanRepaid" | "requestByLoanId" | "settleLiquidation"): FunctionFragment;
+    getFunction(nameOrSignature: "isP2PLoan" | "markLoanRepaid" | "requestByLoanId" | "settleLiquidation" | "settlePartialLiquidation"): FunctionFragment;
 
     
 
@@ -14,11 +14,13 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
 encodeFunctionData(functionFragment: 'markLoanRepaid', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'requestByLoanId', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'settleLiquidation', values: [BigNumberish, AddressLike, BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'settlePartialLiquidation', values: [BigNumberish, AddressLike, BigNumberish, BigNumberish]): string;
 
     decodeFunctionResult(functionFragment: 'isP2PLoan', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'markLoanRepaid', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'requestByLoanId', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'settleLiquidation', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'settlePartialLiquidation', data: BytesLike): Result;
   }
 
   
@@ -88,6 +90,14 @@ decodeFunctionResult(functionFragment: 'settleLiquidation', data: BytesLike): Re
     >
     
 
+    
+    settlePartialLiquidation: TypedContractMethod<
+      [loanId: BigNumberish, liquidator: AddressLike, debtReduction: BigNumberish, collateralToLiquidator: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
@@ -108,6 +118,11 @@ getFunction(nameOrSignature: 'requestByLoanId'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'settleLiquidation'): TypedContractMethod<
       [loanId: BigNumberish, liquidator: AddressLike, debtCovered: BigNumberish, collateralToLiquidator: BigNumberish, reserveContribution: BigNumberish, badDebt: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'settlePartialLiquidation'): TypedContractMethod<
+      [loanId: BigNumberish, liquidator: AddressLike, debtReduction: BigNumberish, collateralToLiquidator: BigNumberish, ],
       [void],
       'nonpayable'
     >;

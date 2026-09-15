@@ -388,7 +388,7 @@ export const MasterProtocolManager: React.FC<MasterProtocolManagerProps> = ({
               <Coins className="w-6 h-6 text-amber-400" />
               <div>
                 <h3 className="text-base font-bold text-white uppercase tracking-wider">ABCD Token Supply & Deflationary Burn Control</h3>
-                <p className="text-xs text-slate-400">Manage ABCD ERC-20 token supply, burn pool execution, and staking vault parameters.</p>
+                <p className="text-xs text-slate-400">Manage ABCD ERC-20 token supply and burn pool execution.</p>
               </div>
             </div>
           </div>
@@ -403,18 +403,6 @@ export const MasterProtocolManager: React.FC<MasterProtocolManagerProps> = ({
                 className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold rounded-xl transition cursor-pointer"
               >
                 Execute On-Chain Burn 🔥
-              </button>
-            </div>
-
-            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-              <div className="font-bold text-indigo-300">Staking Vault APY Pool</div>
-              <div className="text-2xl font-black text-emerald-400">14.2% APY</div>
-              <p className="text-[10px] text-slate-400">Lock ABCD tokens to earn high-yield protocol revenue share.</p>
-              <button
-                onClick={() => triggerAction('Deposit Staking Vault', 'StakingPool', 'stakeABCD', '1,000 ABCD', '🥩')}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition cursor-pointer"
-              >
-                Deposit to Staking Vault 🥩
               </button>
             </div>
           </div>
@@ -518,7 +506,7 @@ export const MasterProtocolManager: React.FC<MasterProtocolManagerProps> = ({
           <div className="bg-slate-950 p-4 rounded-2xl border border-pink-500/30 flex items-center justify-between text-xs">
             <div className="space-y-1">
               <div className="font-bold text-pink-300">AI Recommendation #102: Portfolio Rebalance</div>
-              <div className="text-[11px] text-slate-400">Rebalance 15% ABCD to Staking Pool for +2.4% net APY increase.</div>
+              <div className="text-[11px] text-slate-400">No automated portfolio recommendation is configured.</div>
             </div>
             <button
               onClick={() => triggerAction('Apply AI Portfolio Recommendation', 'AIOptimizer', 'rebalance', '0.00 ETH', '🤖')}

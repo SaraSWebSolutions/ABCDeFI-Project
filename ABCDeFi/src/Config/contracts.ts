@@ -18,7 +18,7 @@ function address(name: DeploymentContractName): string {
 export const CONTRACTS = Object.freeze({
   token: address('ABCDToken'),
   presale: address('Presale'), treasury: address('Treasury'),
-  staking: address('StakingPool'), lending: address('LendingPool'),
+  lending: address('LendingPool'),
   vesting: address('TokenVesting'), referral: address('ReferralManager'),
   bonusEngine: address('BonusEngine'), marketplace: address('NFTMarketplace'),
   collateralVault: address('CollateralVault'), participantNFT: address('ParticipantNFT'),
@@ -46,7 +46,6 @@ type LendingV2Manifest = {
     marginCallThresholdBps?: number;
     marginCallCureSeconds?: number;
     aprBps?: number;
-    lateFeeBps?: number;
     liquidationThresholdBps?: number;
     liquidationBonusBps?: number;
     closeFactorBps?: number;
@@ -85,6 +84,21 @@ export function getLendingV2Contracts(): LendingV2Contracts | null {
 
 /** Isolated V2 namespace. Null means this canonical deployment is V1-only. */
 export const LENDING_V2_CONTRACTS = getLendingV2Contracts();
+
+/**
+ * Phase 6 has its own optional, canonical namespace. A legacy Presale entry
+ * is never a fallback: until a manifest records ICOManagerV2, the product is
+ * unavailable rather than displaying seeded or historical sale data.
+ */
+export function getIcoV2Contract(): string | null {
+  const root = deploymentManifest as typeof deploymentManifest & {
+    icoV2?: { contract?: { address?: string }; deploymentBlock?: number; deploymentVersion?: string };
+  };
+  const address = root.icoV2?.contract?.address;
+  return typeof address === 'string' && /^0x[a-fA-F0-9]{40}$/.test(address) ? address : null;
+}
+
+export const ICO_V2_CONTRACT = getIcoV2Contract();
 
 /** Deployment-time V2 facts that are not exposed as Solidity public getters. */
 export function getLendingV2Configuration() {

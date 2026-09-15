@@ -18,7 +18,6 @@ export interface NetworkConfig {
     Treasury: string;
     TokenVesting: string;
     Presale: string;
-    StakingPool: string;
   };
 }
 
@@ -38,7 +37,6 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       Treasury: CONTRACTS.treasury,
       TokenVesting: CONTRACTS.vesting,
       Presale: CONTRACTS.presale,
-      StakingPool: CONTRACTS.staking,
     },
   },
   sepolia: {
@@ -58,7 +56,6 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       Treasury: getEnv("VITE_SEPOLIA_TREASURY"),
       TokenVesting: getEnv("VITE_SEPOLIA_TOKEN_VESTING"),
       Presale: getEnv("VITE_SEPOLIA_PRESALE"),
-      StakingPool: getEnv("VITE_SEPOLIA_STAKING"),
     },
   },
   bscTestnet: {
@@ -76,7 +73,6 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       Treasury: getEnv("VITE_BSC_TESTNET_TREASURY", "0x0000000000000000000000000000000000000000"),
       TokenVesting: getEnv("VITE_BSC_TESTNET_TOKEN_VESTING", "0x0000000000000000000000000000000000000000"),
       Presale: getEnv("VITE_BSC_TESTNET_PRESALE", "0x0000000000000000000000000000000000000000"),
-      StakingPool: getEnv("VITE_BSC_TESTNET_STAKING", "0x0000000000000000000000000000000000000000"),
     },
   },
   mainnet: {
@@ -94,7 +90,6 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       Treasury: getEnv("VITE_MAINNET_TREASURY", "0x0000000000000000000000000000000000000000"),
       TokenVesting: getEnv("VITE_MAINNET_TOKEN_VESTING", "0x0000000000000000000000000000000000000000"),
       Presale: getEnv("VITE_MAINNET_PRESALE", "0x0000000000000000000000000000000000000000"),
-      StakingPool: getEnv("VITE_MAINNET_STAKING", "0x0000000000000000000000000000000000000000"),
     },
   },
 };

@@ -5,9 +5,9 @@ const lower = (value) => value.toLowerCase();
 const normalizeWallet = (value) => typeof value === 'string' && isAddress(value) ? getAddress(value).toLowerCase() : null;
 const toJson = (value) => typeof value === 'bigint' ? value.toString() : Array.isArray(value) ? value.map(toJson) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toJson(item)])) : value;
 const boundedLimit = (value, fallback = 50) => Math.min(100, Math.max(1, Number.isInteger(Number(value)) ? Number(value) : fallback));
-const loanJson = (loan) => toJson({ borrower: loan.borrower, lender: loan.lender, collateralETH: loan.collateralETH, principal: loan.principal, principalOutstanding: loan.principalOutstanding, accruedInterest: loan.accruedInterest, fees: loan.fees, aprBps: loan.aprBps, start: loan.start, lastAccrual: loan.lastAccrual, maturity: loan.maturity, graceEnd: loan.graceEnd, marginCallAt: loan.marginCallAt, marginCallCureEnd: loan.marginCallCureEnd, state: loan.state, lateFeeAssessed: loan.lateFeeAssessed, reserveContribution: loan.reserveContribution, badDebt: loan.badDebt, totalRepaid: loan.totalRepaid });
+const loanJson = (loan) => toJson({ borrower: loan.borrower, lender: loan.lender, collateralETH: loan.collateralETH, principal: loan.principal, principalOutstanding: loan.principalOutstanding, accruedInterest: loan.accruedInterest, aprBps: loan.aprBps, start: loan.start, lastAccrual: loan.lastAccrual, maturity: loan.maturity, graceEnd: loan.graceEnd, marginCallAt: loan.marginCallAt, marginCallCureEnd: loan.marginCallCureEnd, state: loan.state, reserveContribution: loan.reserveContribution, badDebt: loan.badDebt, totalRepaid: loan.totalRepaid });
 const requestJson = (request) => toJson({ borrower: request.borrower, principal: request.principal, collateral: request.collateral, term: request.term, state: request.state, lender: request.lender, loanId: request.loanId, initialLtvBps: request.initialLtvBps });
-const certificateJson = (certificate) => toJson({ loanId: certificate.loanId, requestId: certificate.requestId, borrower: certificate.borrower, lender: certificate.lender, platform: certificate.platform, principal: certificate.principal, collateral: certificate.collateral, agreedInterest: certificate.agreedInterest, totalScheduledRepayment: certificate.totalScheduledRepayment, actualRepayment: certificate.actualRepayment, certificateValue: certificate.certificateValue, aprBps: certificate.aprBps, start: certificate.start, maturity: certificate.maturity, completedAt: certificate.completedAt, status: certificate.status, role: certificate.role, isP2P: certificate.isP2P, metadataHash: certificate.metadataHash });
+const certificateJson = (certificate) => toJson({ loanId: certificate.loanId, requestId: certificate.requestId, borrower: certificate.borrower, lender: certificate.lender, platform: certificate.platform, principal: certificate.principal, collateral: certificate.collateral, agreedInterest: certificate.agreedInterest, totalScheduledRepayment: certificate.totalScheduledRepayment, actualRepayment: certificate.actualRepayment, certificateValue: certificate.certificateValue, aprBps: certificate.aprBps, start: certificate.start, maturity: certificate.maturity, completedAt: certificate.completedAt, completionBlock: certificate.completionBlock, status: certificate.status, role: certificate.role, isP2P: certificate.isP2P, metadataHash: certificate.metadataHash });
 const scheduleJson = (schedule) => schedule.map((item) => toJson({ dueAt: item.dueAt, amount: item.amount, paid: item.paid }));
 
 function createLendingV2ReadController({ manifest, artifacts, models, provider = new JsonRpcProvider(manifest.rpcUrl) }) {
@@ -19,6 +19,11 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
   const reserve = new Contract(manifest.contracts.InsuranceReserveV2.address, artifacts.InsuranceReserveV2.abi, provider);
   const emi = new Contract(manifest.contracts.EMIManagerV2.address, artifacts.EMIManagerV2.abi, provider);
   const nft = new Contract(manifest.contracts.LoanNFTV2.address, artifacts.LoanNFTV2.abi, provider);
+  // Lending referrals are an isolated V2 surface.  They are never inferred
+  // from the legacy ICO ReferralManager or from off-chain user records.
+  const referral = manifest.contracts.LendingReferralManagerV2
+    ? new Contract(manifest.contracts.LendingReferralManagerV2.address, artifacts.LendingReferralManagerV2.abi, provider)
+    : null;
   const source = () => ({ kind: 'canonical-v2-indexed-on-chain', chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, contracts: Object.fromEntries(Object.entries(manifest.contracts).map(([name, record]) => [name, record.address])) });
   const availability = async () => {
     const network = await provider.getNetwork();
@@ -33,10 +38,40 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
   const readLoan = async (loanId) => {
     const record = await manager.getLoan(loanId);
     if (lower(record.borrower) === '0x0000000000000000000000000000000000000000') return null;
-    const [accruedInterest, outstanding, lateFee, totalRepayment, state, currentLtvBps, healthFactor, liquidatable, quote, schedule] = await Promise.all([
-      manager.previewAccruedInterest(loanId), manager.previewOutstanding(loanId), manager.previewLateFee(loanId), manager.previewTotalRepayment(loanId), manager.previewLoanStatus(loanId),
-      liquidation.currentLtvBps(loanId), liquidation.healthFactor(loanId), liquidation.isLiquidatable(loanId), liquidation.previewLiquidation(loanId), emi.getSchedule(loanId),
+    const requestId = await marketplace.requestByLoanId(loanId);
+    // Debt, state, and schedule remain authoritative even when a production
+    // oracle correctly rejects a stale price. Do not let an unavailable risk
+    // quote hide a real loan or block repayment/read reconciliation.
+    const [accruedInterest, outstanding, totalRepayment, state, schedule] = await Promise.all([
+      manager.previewAccruedInterest(loanId), manager.previewOutstanding(loanId), manager.previewTotalRepayment(loanId), manager.previewLoanStatus(loanId), emi.getSchedule(loanId),
     ]);
+    let currentLtvBps = null; let healthFactor = null; let liquidatable = null; let riskError = null;
+    // Terminal zero-debt loans have no risk position. Avoid exposing the
+    // contract's divide-by-zero sentinel as a meaningful LTV to the dashboard.
+    if (outstanding !== 0n) {
+      try {
+        [currentLtvBps, healthFactor, liquidatable] = await Promise.all([
+          liquidation.currentLtvBps(loanId), liquidation.healthFactor(loanId), liquidation.isLiquidatable(loanId),
+        ]);
+      } catch (error) {
+        riskError = error?.shortMessage || error?.reason || error?.message || 'Canonical risk/oracle read is unavailable.';
+      }
+    }
+    // Execution is enabled only when the deployed LiquidationV2 has a bound
+    // adapter whose own immutable/configured route validates as live. This is
+    // a read of canonical contracts, never a frontend quote or inference.
+    let partialLiquidationExecution = 'NOT_CONFIGURED';
+    if (!Boolean(record.isP2P)) {
+      try {
+        const saleAdapter = await liquidation.saleAdapter();
+        if (lower(saleAdapter) !== '0x0000000000000000000000000000000000000000') {
+          const adapter = new Contract(saleAdapter, ['function configured() view returns (bool)'], provider);
+          if (await adapter.configured()) partialLiquidationExecution = 'CONFIGURED';
+        }
+      } catch (error) {
+        riskError = riskError || error?.shortMessage || error?.reason || error?.message || 'Canonical liquidation-adapter read is unavailable.';
+      }
+    }
     const roleNames = ['LENDER', 'BORROWER', 'PLATFORM'];
     const certificateIds = await Promise.all([0, 1, 2].map((role) => nft.loanCertificates(loanId, role)));
     const certificates = (await Promise.all(certificateIds.map(async (certificateTokenId, role) => {
@@ -45,7 +80,7 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
       return { role: roleNames[role], tokenId: certificateTokenId, owner, tokenURI, certificate: certificateJson(certificate) };
     }))).filter(Boolean);
     const borrowerCertificate = certificates.find((certificate) => certificate.role === 'BORROWER') || null;
-    return toJson({ loan: loanJson(record), previews: { accruedInterest, outstanding, lateFee, totalRepayment, state, currentLtvBps, healthFactor, liquidatable, liquidation: quote }, schedule: scheduleJson(schedule), certificate: borrowerCertificate, certificates });
+    return toJson({ loan: loanJson(record), previews: { accruedInterest, outstanding, totalRepayment, state, currentLtvBps, healthFactor, liquidatable, riskError, partialLiquidationExecution }, schedule: scheduleJson(schedule), certificate: borrowerCertificate, certificates });
   };
   const includesWallet = (value, wallet) => typeof value === 'string'
     ? value.toLowerCase() === wallet
@@ -56,6 +91,58 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
     const request = await marketplace.requests(requestId);
     if (lower(request.borrower) === '0x0000000000000000000000000000000000000000') return null;
     return requestJson(request);
+  };
+  const referralStatus = (state, claimable) => {
+    if (state === 3 || state === 4) return 'STOPPED';
+    return claimable ? 'CLAIMABLE' : 'ACCRUING_OR_AWAITING_PAYOUT';
+  };
+  const readReferral = async (wallet) => {
+    if (!referral) throw new Error('Canonical LendingReferralManagerV2 is not configured for this deployment.');
+    const [code, referrer, rewardVault, monthlyRewardBps, maxRewardPeriods, rewardPeriod] = await Promise.all([
+      referral.userReferralCode(wallet), referral.referrerOf(wallet), referral.rewardVault(), referral.MONTHLY_REWARD_BPS(), referral.MAX_REWARD_PERIODS(), referral.REWARD_PERIOD(),
+    ]);
+    const now = BigInt((await provider.getBlock('latest')).timestamp);
+    const referralEvents = await eventList({ contractName: 'LendingReferralManagerV2' }, 1_000);
+    const related = referralEvents.filter((event) => lower(event.args.referrer || '') === wallet || lower(event.args.referred || '') === wallet);
+    const registrations = related.filter((event) => event.eventName === 'LendingReferralRegistered');
+    const rows = await Promise.all(registrations.map(async (event) => {
+      const loanId = String(event.args.loanId);
+      const referred = lower(event.args.referred);
+      const [record, loan, effectiveState] = await Promise.all([
+        referral.getLoanReferral(loanId, referred), manager.getLoan(loanId), manager.previewLoanStatus(loanId),
+      ]);
+      const termPeriods = (() => {
+        const periods = (BigInt(loan.maturity) - BigInt(loan.start)) / BigInt(rewardPeriod);
+        return periods > BigInt(maxRewardPeriods) ? BigInt(maxRewardPeriods) : periods;
+      })();
+      const endAt = BigInt(record.completedAt) === 0n ? now : BigInt(record.completedAt);
+      const elapsedPeriods = endAt > BigInt(loan.start) ? (endAt - BigInt(loan.start)) / BigInt(rewardPeriod) : 0n;
+      const availablePeriods = elapsedPeriods < termPeriods ? elapsedPeriods : termPeriods;
+      const stopped = Number(effectiveState) === 3 || Number(effectiveState) === 4;
+      const completionPayout = Number(loan.state) === 5 && BigInt(record.completedAt) !== 0n;
+      const oneYearPayout = now >= BigInt(record.startedAt) + 365n * 24n * 60n * 60n;
+      const unpaidPeriods = availablePeriods > BigInt(record.paidPeriods) ? availablePeriods - BigInt(record.paidPeriods) : 0n;
+      const claimable = !stopped && (completionPayout || oneYearPayout) && unpaidPeriods !== 0n;
+      const certificateEvent = related.find((candidate) => candidate.eventName === 'LendingReferralCertificateMinted'
+        && String(candidate.args.loanId) === loanId && lower(candidate.args.referred || '') === referred && lower(candidate.args.referrer || '') === lower(record.referrer));
+      let certificate = null;
+      if (certificateEvent) {
+        const tokenId = certificateEvent.args.tokenId;
+        const [stored, owner, uri] = await Promise.all([referral.getReferralCertificate(tokenId), referral.ownerOf(tokenId), referral.tokenURI(tokenId)]);
+        certificate = toJson({ tokenId, owner, uri, loanId: stored.loanId, requestId: stored.requestId, referrer: stored.referrer, referred: stored.referred, value: stored.value, isLenderReferral: stored.isLenderReferral, metadataHash: stored.metadataHash, transferability: 'NON_TRANSFERABLE_BY_CURRENT_CONTRACT__WHITEPAPER_UNSPECIFIED' });
+      }
+      return toJson({
+        loanId, requestId: record.requestId, referrer: record.referrer, referred: record.referred, isLenderReferral: record.isLenderReferral,
+        registered: record.registered, startedAt: record.startedAt, completedAt: record.completedAt, monthlyReward: record.monthlyReward,
+        paidPeriods: record.paidPeriods, totalRewards: record.totalRewards, availablePeriods, accruedAmount: BigInt(record.monthlyReward) * availablePeriods,
+        claimableAmount: claimable ? BigInt(record.monthlyReward) * unpaidPeriods : 0n, claimable, status: referralStatus(Number(effectiveState), claimable), certificate,
+      });
+    }));
+    return toJson({
+      contract: await referral.getAddress(), code, referrer: lower(referrer) === '0x0000000000000000000000000000000000000000' ? null : referrer,
+      rewardVault, monthlyRewardBps, maxRewardPeriods, rewardPeriodSeconds: rewardPeriod, records: rows,
+      events: related,
+    });
   };
   const walletState = async (wallet, limit) => {
     const events = (await eventList({}, 1_000)).filter((event) => includesWallet(event.args, wallet));
@@ -110,6 +197,7 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
     history: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res, []); if (state) { const all = await eventList({}, 500); res.json({ source: source(), ...state, data: all.filter((event) => String(event.args.loanId || '') === id).slice(-100) }); } } catch (error) { next(error); } },
     preview: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readLoan(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); res.json({ source: source(), ...state, data: data.previews }); } } catch (error) { next(error); } },
     request: async (req, res, next) => { try { const id = req.params.requestId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Request ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readRequest(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); const history = (await eventList({}, 1_000)).filter((event) => String(event.args.requestId || '') === id); res.json({ source: source(), ...state, data: { requestId: id, request: data, history } }); } } catch (error) { next(error); } },
+    referral: async (req, res, next) => { try { const wallet = normalizeWallet(req.params.address); if (!wallet) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Wallet address must be a valid Ethereum address.' }); const state = await requireAvailable(res); if (state) res.json({ source: source(), ...state, data: await readReferral(wallet) }); } catch (error) { next(error); } },
   };
 }
 module.exports = { createLendingV2ReadController, normalizeWallet };

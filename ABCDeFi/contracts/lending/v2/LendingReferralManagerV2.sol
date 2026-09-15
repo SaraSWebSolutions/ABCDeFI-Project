@@ -151,22 +151,29 @@ contract LendingReferralManagerV2 is ERC721URIStorage, AccessControl, Pausable, 
         return true;
     }
 
-    /// @notice Pays exactly one completed monthly period and cannot pay beyond
-    /// the loan term or twelve periods. Defaulted/liquidated loans are blocked.
-    function claimMonthlyReward(uint256 loanId, address referred) external nonReentrant whenNotPaused returns (uint256 amount) {
+    /// @notice Pays all accrued completed monthly periods in one transfer, only
+    /// when the loan closes successfully or one year has elapsed. This preserves
+    /// the whitepaper's monthly 0.05% accrual basis without creating monthly
+    /// wallet payouts. Defaulted/liquidated loans remain ineligible.
+    function claimAccruedReward(uint256 loanId, address referred) external nonReentrant whenNotPaused returns (uint256 amount) {
         LoanReferral storage record = _loanReferrals[loanId][referred];
         require(record.registered && record.referrer == msg.sender, "not referral owner");
         LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
-        require(loan.state != LoanManagerV2.State.DEFAULTED && loan.state != LoanManagerV2.State.LIQUIDATED, "rewards stopped");
-        require(loan.state == LoanManagerV2.State.ACTIVE || loan.state == LoanManagerV2.State.GRACE_PERIOD || loan.state == LoanManagerV2.State.MARGIN_CALL || loan.state == LoanManagerV2.State.CLOSED, "reward unavailable");
+        LoanManagerV2.State effectiveState = loanManager.previewLoanStatus(loanId);
+        require(effectiveState != LoanManagerV2.State.DEFAULTED && effectiveState != LoanManagerV2.State.LIQUIDATED, "rewards stopped");
+        require(effectiveState == LoanManagerV2.State.ACTIVE || effectiveState == LoanManagerV2.State.GRACE_PERIOD || effectiveState == LoanManagerV2.State.MARGIN_CALL || effectiveState == LoanManagerV2.State.CLOSED, "reward unavailable");
         uint256 availablePeriods = _availablePeriods(loan, record);
         require(record.paidPeriods < availablePeriods, "no reward due");
-        amount = record.monthlyReward;
+        bool completed = loan.state == LoanManagerV2.State.CLOSED && record.completedAt != 0;
+        bool oneYearElapsed = block.timestamp >= uint256(record.startedAt) + YEAR;
+        require(completed || oneYearElapsed, "payout not due");
+        uint256 accruedPeriods = availablePeriods - record.paidPeriods;
+        amount = uint256(record.monthlyReward) * accruedPeriods;
         require(amount != 0, "zero reward");
-        record.paidPeriods += 1;
+        record.paidPeriods = uint8(availablePeriods);
         record.totalRewards += uint128(amount);
         abcd.safeTransferFrom(rewardVault, msg.sender, amount);
-        emit LendingReferralRewardPaid(loanId, msg.sender, referred, record.paidPeriods, amount, record.totalRewards);
+        emit LendingReferralRewardPaid(loanId, msg.sender, referred, availablePeriods, amount, record.totalRewards);
     }
 
     function _availablePeriods(LoanManagerV2.Loan memory loan, LoanReferral memory record) private view returns (uint256) {
@@ -188,8 +195,10 @@ contract LendingReferralManagerV2 is ERC721URIStorage, AccessControl, Pausable, 
         require(bytes(metadataURI).length != 0 && metadataHash == keccak256(bytes(metadataURI)), "invalid provenance");
         LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
         require(loan.state == LoanManagerV2.State.CLOSED && record.completedAt != 0, "loan not completed");
-        uint256 agreedInterest = uint256(loan.principal) * loan.aprBps * (uint256(loan.maturity) - uint256(loan.start)) / (BPS * YEAR);
-        uint256 value = (uint256(loan.principal) + agreedInterest) * REFERRAL_NFT_VALUE_BPS / BPS;
+        // Whitepaper page 27 defines this certificate as 0.5% of the amount
+        // lent or borrowed.  That amount is the originated principal, not
+        // principal plus the borrower's interest obligation.
+        uint256 value = uint256(loan.principal) * REFERRAL_NFT_VALUE_BPS / BPS;
         tokenId = nextCertificateId++;
         record.referralNftMinted = true;
         _certificates[tokenId] = ReferralCertificate(loanId, record.requestId, msg.sender, referred, value, record.isLenderReferral, metadataHash);

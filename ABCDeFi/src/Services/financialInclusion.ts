@@ -27,7 +27,6 @@ export const CURRENT_USER_INCLUSION_PROFILE: FinancialInclusionProfile = {
   unlockedPrivileges: [
     '0% Interest Protocol Loans',
     'VIP Zero Origination Fee',
-    'Priority Staking Pool Allocation',
     'University Certificate NFT Minting',
     'Governance Proposal Voting Rights',
   ],
@@ -47,7 +46,6 @@ export function calculateInclusionTier(totalScore: number): {
       privileges: [
         '0% Interest Protocol Loans',
         'VIP Zero Origination Fee',
-        'Priority Staking Pool Allocation',
         'University Certificate NFT Minting',
         'Governance Proposal Voting Rights',
       ],
@@ -57,7 +55,6 @@ export function calculateInclusionTier(totalScore: number): {
       tier: 'Gold Ambassador',
       privileges: [
         '50% Discounted Protocol Fees',
-        'Priority Staking Pool Allocation',
         'University Certificate NFT Minting',
       ],
     };

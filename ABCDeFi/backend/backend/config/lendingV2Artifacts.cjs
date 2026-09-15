@@ -12,6 +12,7 @@ const PATHS = Object.freeze({
   LoanNFTV2: 'artifacts/contracts/nft/LoanNFTV2.sol/LoanNFTV2.json',
   InsuranceReserveV2: 'artifacts/contracts/lending/v2/InsuranceReserveV2.sol/InsuranceReserveV2.json',
   LendingReferralManagerV2: 'artifacts/contracts/lending/v2/LendingReferralManagerV2.sol/LendingReferralManagerV2.json',
+  LiquidationSaleAdapterV2: 'artifacts/contracts/lending/v2/LiquidationSaleAdapterV2.sol/LiquidationSaleAdapterV2.json',
 });
 
 function loadLendingV2Artifacts() {

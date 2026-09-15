@@ -134,21 +134,8 @@ const KYC_DB: Map<string, KYCRecord> = new Map();
 const NOTIFICATIONS_DB: any[] = [
   { id: 'notif-1', title: 'KYC Status Update', message: 'Identity verification submitted to Sumsub AI.', type: 'info', read: false, date: '10 mins ago' },
   { id: 'notif-2', title: 'EMI Payment Reminder', message: 'Upcoming EMI payment of $410.20 due in 3 days.', type: 'warning', read: false, date: '1 hour ago' },
-  { id: 'notif-3', title: 'Staking Yield Distributed', message: 'Received 1,450.25 ABCD staking rewards.', type: 'success', read: false, date: '3 hours ago' },
 ];
 const TRANSACTIONS_DB: any[] = [
-  {
-    id: 'tx-1001',
-    txHash: '0x3a4b9c1f8e7d6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b',
-    userAddress: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-    type: 'Stake',
-    amount: '10,000 ABCD',
-    token: 'ABCD',
-    status: 'Completed',
-    blockNumber: 8546210,
-    timestamp: '2026-07-31 10:14:02',
-    network: 'Sepolia',
-  },
   {
     id: 'tx-1002',
     txHash: '0x5c6d1e3f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3',
@@ -470,7 +457,6 @@ app.get('/api/credit/score/:address', (req: Request, res: Response) => {
       { name: 'On-Time Repayments', points: '+240 pts' },
       { name: 'Sumsub KYC Verified', points: '+150 pts' },
       { name: 'Wallet Age (2+ Years)', points: '+120 pts' },
-      { name: 'Staking & Yield Participation', points: '+150 pts' },
       { name: 'Legion NFT Ownership', points: '+152 pts' },
     ],
   });

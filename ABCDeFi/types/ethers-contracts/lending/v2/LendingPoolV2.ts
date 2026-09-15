@@ -18,12 +18,13 @@ export declare namespace LoanNFTV2 {
     }
 
   export interface LendingPoolV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "LIQUIDITY_MANAGER_ROLE" | "MAX_INITIAL_LTV_BPS" | "abcd" | "addCollateralToLoan" | "borrowABCD" | "collateralValueUSD" | "collateralVault" | "currentNewLoanAprBps" | "debtValueUSD" | "depositCollateral" | "fundLiquidity" | "getRoleAdmin" | "grantRole" | "hasRole" | "lendingReferralManager" | "liquidity" | "loanManager" | "loanNFT" | "maxBorrowable" | "nextCollateralDepositId" | "openLoan" | "oracle" | "outstanding" | "pause" | "paused" | "pendingCollateral" | "renounceRole" | "repay" | "repayAll" | "repayAllWithCompletionMetadata" | "repayWithCompletionMetadata" | "revokeRole" | "supportsInterface" | "syncLoan" | "unpause" | "withdrawPendingCollateral" | "withdrawSettledCollateral"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "LIQUIDATION_RECOVERY_ROLE" | "LIQUIDITY_MANAGER_ROLE" | "MAX_INITIAL_LTV_BPS" | "abcd" | "addCollateralToLoan" | "borrowABCD" | "collateralValueUSD" | "collateralVault" | "currentNewLoanAprBps" | "debtValueUSD" | "depositCollateral" | "emiManager" | "fundLiquidity" | "getRoleAdmin" | "grantRole" | "hasRole" | "lendingReferralManager" | "liquidity" | "loanManager" | "loanNFT" | "maxBorrowable" | "nextCollateralDepositId" | "openLoan" | "oracle" | "outstanding" | "pause" | "paused" | "payDirectInstallment" | "payDirectInstallmentWithCompletionMetadata" | "pendingCollateral" | "recordLiquidationRecovery" | "renounceRole" | "repay" | "repayAll" | "repayAllWithCompletionMetadata" | "repayWithCompletionMetadata" | "revokeRole" | "setEMIManager" | "supportsInterface" | "syncLoan" | "unpause" | "withdrawPendingCollateral" | "withdrawResidualLiquidationCollateral" | "withdrawSettledCollateral"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "CollateralDepositCreated" | "DirectLoanCollateralToppedUp" | "DirectLoanOpened" | "DirectLoanRepaid" | "LiquidityFunded" | "Paused" | "PendingCollateralWithdrawn" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "SettledCollateralWithdrawn" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "CollateralDepositCreated" | "DirectInstallmentPaid" | "DirectLoanCollateralToppedUp" | "DirectLoanOpened" | "DirectLoanRepaid" | "EMIManagerConfigured" | "LiquidationRecoveryReceived" | "LiquidityFunded" | "Paused" | "PendingCollateralWithdrawn" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "SettledCollateralWithdrawn" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ETH_ASSET', values?: undefined): string;
+encodeFunctionData(functionFragment: 'LIQUIDATION_RECOVERY_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LIQUIDITY_MANAGER_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MAX_INITIAL_LTV_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
@@ -34,6 +35,7 @@ encodeFunctionData(functionFragment: 'collateralVault', values?: undefined): str
 encodeFunctionData(functionFragment: 'currentNewLoanAprBps', values?: undefined): string;
 encodeFunctionData(functionFragment: 'debtValueUSD', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'depositCollateral', values?: undefined): string;
+encodeFunctionData(functionFragment: 'emiManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'fundLiquidity', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
@@ -49,21 +51,27 @@ encodeFunctionData(functionFragment: 'oracle', values?: undefined): string;
 encodeFunctionData(functionFragment: 'outstanding', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
+encodeFunctionData(functionFragment: 'payDirectInstallment', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'payDirectInstallmentWithCompletionMetadata', values: [BigNumberish, LoanNFTV2.CompletionMetadataStruct]): string;
 encodeFunctionData(functionFragment: 'pendingCollateral', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'recordLiquidationRecovery', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'repay', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'repayAll', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'repayAllWithCompletionMetadata', values: [BigNumberish, LoanNFTV2.CompletionMetadataStruct]): string;
 encodeFunctionData(functionFragment: 'repayWithCompletionMetadata', values: [BigNumberish, BigNumberish, LoanNFTV2.CompletionMetadataStruct]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'setEMIManager', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'syncLoan', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'withdrawPendingCollateral', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'withdrawResidualLiquidationCollateral', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'withdrawSettledCollateral', values: [BigNumberish]): string;
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'ETH_ASSET', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'LIQUIDATION_RECOVERY_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LIQUIDITY_MANAGER_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MAX_INITIAL_LTV_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'abcd', data: BytesLike): Result;
@@ -74,6 +82,7 @@ decodeFunctionResult(functionFragment: 'collateralVault', data: BytesLike): Resu
 decodeFunctionResult(functionFragment: 'currentNewLoanAprBps', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'debtValueUSD', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'depositCollateral', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'emiManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'fundLiquidity', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
@@ -89,17 +98,22 @@ decodeFunctionResult(functionFragment: 'oracle', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'outstanding', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'payDirectInstallment', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'payDirectInstallmentWithCompletionMetadata', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pendingCollateral', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'recordLiquidationRecovery', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'repay', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'repayAll', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'repayAllWithCompletionMetadata', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'repayWithCompletionMetadata', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setEMIManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'syncLoan', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'withdrawPendingCollateral', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'withdrawResidualLiquidationCollateral', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesLike): Result;
   }
 
@@ -108,6 +122,18 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
       export type InputTuple = [depositId: BigNumberish, borrower: AddressLike, collateralETH: BigNumberish];
       export type OutputTuple = [depositId: bigint, borrower: string, collateralETH: bigint];
       export interface OutputObject {depositId: bigint, borrower: string, collateralETH: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace DirectInstallmentPaidEvent {
+      export type InputTuple = [loanId: BigNumberish, installment: BigNumberish, borrower: AddressLike, amount: BigNumberish];
+      export type OutputTuple = [loanId: bigint, installment: bigint, borrower: string, amount: bigint];
+      export interface OutputObject {loanId: bigint, installment: bigint, borrower: string, amount: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -144,6 +170,30 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
       export type InputTuple = [loanId: BigNumberish, borrower: AddressLike, amount: BigNumberish, fee: BigNumberish, interest: BigNumberish, principal: BigNumberish];
       export type OutputTuple = [loanId: bigint, borrower: string, amount: bigint, fee: bigint, interest: bigint, principal: bigint];
       export interface OutputObject {loanId: bigint, borrower: string, amount: bigint, fee: bigint, interest: bigint, principal: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace EMIManagerConfiguredEvent {
+      export type InputTuple = [emiManager: AddressLike];
+      export type OutputTuple = [emiManager: string];
+      export interface OutputObject {emiManager: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace LiquidationRecoveryReceivedEvent {
+      export type InputTuple = [loanId: BigNumberish, amount: BigNumberish];
+      export type OutputTuple = [loanId: bigint, amount: bigint];
+      export interface OutputObject {loanId: bigint, amount: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -298,6 +348,14 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
     
 
     
+    LIQUIDATION_RECOVERY_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     LIQUIDITY_MANAGER_ROLE: TypedContractMethod<
       [],
       [string],
@@ -374,6 +432,14 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
       [],
       [bigint],
       'payable'
+    >
+    
+
+    
+    emiManager: TypedContractMethod<
+      [],
+      [string],
+      'view'
     >
     
 
@@ -498,10 +564,34 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
     
 
     
+    payDirectInstallment: TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [[bigint, bigint, bigint] & {fee: bigint, interest: bigint, principal: bigint }],
+      'nonpayable'
+    >
+    
+
+    
+    payDirectInstallmentWithCompletionMetadata: TypedContractMethod<
+      [loanId: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
+      [[bigint, bigint, bigint] & {fee: bigint, interest: bigint, principal: bigint }],
+      'nonpayable'
+    >
+    
+
+    
     pendingCollateral: TypedContractMethod<
       [arg0: BigNumberish, ],
       [[string, bigint, boolean] & {borrower: string, amount: bigint, active: boolean }],
       'view'
+    >
+    
+
+    
+    recordLiquidationRecovery: TypedContractMethod<
+      [loanId: BigNumberish, amount: BigNumberish, ],
+      [void],
+      'nonpayable'
     >
     
 
@@ -554,6 +644,14 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
     
 
     
+    setEMIManager: TypedContractMethod<
+      [emiManager_: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     supportsInterface: TypedContractMethod<
       [interfaceId: BytesLike, ],
       [boolean],
@@ -586,6 +684,14 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
     
 
     
+    withdrawResidualLiquidationCollateral: TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     withdrawSettledCollateral: TypedContractMethod<
       [loanId: BigNumberish, ],
       [void],
@@ -602,6 +708,11 @@ decodeFunctionResult(functionFragment: 'withdrawSettledCollateral', data: BytesL
       'view'
     >;
 getFunction(nameOrSignature: 'ETH_ASSET'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'LIQUIDATION_RECOVERY_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -655,6 +766,11 @@ getFunction(nameOrSignature: 'depositCollateral'): TypedContractMethod<
       [],
       [bigint],
       'payable'
+    >;
+getFunction(nameOrSignature: 'emiManager'): TypedContractMethod<
+      [],
+      [string],
+      'view'
     >;
 getFunction(nameOrSignature: 'fundLiquidity'): TypedContractMethod<
       [amount: BigNumberish, ],
@@ -731,10 +847,25 @@ getFunction(nameOrSignature: 'paused'): TypedContractMethod<
       [boolean],
       'view'
     >;
+getFunction(nameOrSignature: 'payDirectInstallment'): TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [[bigint, bigint, bigint] & {fee: bigint, interest: bigint, principal: bigint }],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'payDirectInstallmentWithCompletionMetadata'): TypedContractMethod<
+      [loanId: BigNumberish, metadata: LoanNFTV2.CompletionMetadataStruct, ],
+      [[bigint, bigint, bigint] & {fee: bigint, interest: bigint, principal: bigint }],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'pendingCollateral'): TypedContractMethod<
       [arg0: BigNumberish, ],
       [[string, bigint, boolean] & {borrower: string, amount: bigint, active: boolean }],
       'view'
+    >;
+getFunction(nameOrSignature: 'recordLiquidationRecovery'): TypedContractMethod<
+      [loanId: BigNumberish, amount: BigNumberish, ],
+      [void],
+      'nonpayable'
     >;
 getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
       [role: BytesLike, callerConfirmation: AddressLike, ],
@@ -766,6 +897,11 @@ getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'setEMIManager'): TypedContractMethod<
+      [emiManager_: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod<
       [interfaceId: BytesLike, ],
       [boolean],
@@ -786,6 +922,11 @@ getFunction(nameOrSignature: 'withdrawPendingCollateral'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'withdrawResidualLiquidationCollateral'): TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'withdrawSettledCollateral'): TypedContractMethod<
       [loanId: BigNumberish, ],
       [void],
@@ -793,9 +934,12 @@ getFunction(nameOrSignature: 'withdrawSettledCollateral'): TypedContractMethod<
     >;
 
     getEvent(key: 'CollateralDepositCreated'): TypedContractEvent<CollateralDepositCreatedEvent.InputTuple, CollateralDepositCreatedEvent.OutputTuple, CollateralDepositCreatedEvent.OutputObject>;
+getEvent(key: 'DirectInstallmentPaid'): TypedContractEvent<DirectInstallmentPaidEvent.InputTuple, DirectInstallmentPaidEvent.OutputTuple, DirectInstallmentPaidEvent.OutputObject>;
 getEvent(key: 'DirectLoanCollateralToppedUp'): TypedContractEvent<DirectLoanCollateralToppedUpEvent.InputTuple, DirectLoanCollateralToppedUpEvent.OutputTuple, DirectLoanCollateralToppedUpEvent.OutputObject>;
 getEvent(key: 'DirectLoanOpened'): TypedContractEvent<DirectLoanOpenedEvent.InputTuple, DirectLoanOpenedEvent.OutputTuple, DirectLoanOpenedEvent.OutputObject>;
 getEvent(key: 'DirectLoanRepaid'): TypedContractEvent<DirectLoanRepaidEvent.InputTuple, DirectLoanRepaidEvent.OutputTuple, DirectLoanRepaidEvent.OutputObject>;
+getEvent(key: 'EMIManagerConfigured'): TypedContractEvent<EMIManagerConfiguredEvent.InputTuple, EMIManagerConfiguredEvent.OutputTuple, EMIManagerConfiguredEvent.OutputObject>;
+getEvent(key: 'LiquidationRecoveryReceived'): TypedContractEvent<LiquidationRecoveryReceivedEvent.InputTuple, LiquidationRecoveryReceivedEvent.OutputTuple, LiquidationRecoveryReceivedEvent.OutputObject>;
 getEvent(key: 'LiquidityFunded'): TypedContractEvent<LiquidityFundedEvent.InputTuple, LiquidityFundedEvent.OutputTuple, LiquidityFundedEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
 getEvent(key: 'PendingCollateralWithdrawn'): TypedContractEvent<PendingCollateralWithdrawnEvent.InputTuple, PendingCollateralWithdrawnEvent.OutputTuple, PendingCollateralWithdrawnEvent.OutputObject>;
@@ -811,6 +955,10 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       CollateralDepositCreated: TypedContractEvent<CollateralDepositCreatedEvent.InputTuple, CollateralDepositCreatedEvent.OutputTuple, CollateralDepositCreatedEvent.OutputObject>;
     
 
+      'DirectInstallmentPaid(uint256,uint256,address,uint256)': TypedContractEvent<DirectInstallmentPaidEvent.InputTuple, DirectInstallmentPaidEvent.OutputTuple, DirectInstallmentPaidEvent.OutputObject>;
+      DirectInstallmentPaid: TypedContractEvent<DirectInstallmentPaidEvent.InputTuple, DirectInstallmentPaidEvent.OutputTuple, DirectInstallmentPaidEvent.OutputObject>;
+    
+
       'DirectLoanCollateralToppedUp(uint256,address,uint256,uint256)': TypedContractEvent<DirectLoanCollateralToppedUpEvent.InputTuple, DirectLoanCollateralToppedUpEvent.OutputTuple, DirectLoanCollateralToppedUpEvent.OutputObject>;
       DirectLoanCollateralToppedUp: TypedContractEvent<DirectLoanCollateralToppedUpEvent.InputTuple, DirectLoanCollateralToppedUpEvent.OutputTuple, DirectLoanCollateralToppedUpEvent.OutputObject>;
     
@@ -821,6 +969,14 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
       'DirectLoanRepaid(uint256,address,uint256,uint256,uint256,uint256)': TypedContractEvent<DirectLoanRepaidEvent.InputTuple, DirectLoanRepaidEvent.OutputTuple, DirectLoanRepaidEvent.OutputObject>;
       DirectLoanRepaid: TypedContractEvent<DirectLoanRepaidEvent.InputTuple, DirectLoanRepaidEvent.OutputTuple, DirectLoanRepaidEvent.OutputObject>;
+    
+
+      'EMIManagerConfigured(address)': TypedContractEvent<EMIManagerConfiguredEvent.InputTuple, EMIManagerConfiguredEvent.OutputTuple, EMIManagerConfiguredEvent.OutputObject>;
+      EMIManagerConfigured: TypedContractEvent<EMIManagerConfiguredEvent.InputTuple, EMIManagerConfiguredEvent.OutputTuple, EMIManagerConfiguredEvent.OutputObject>;
+    
+
+      'LiquidationRecoveryReceived(uint256,uint256)': TypedContractEvent<LiquidationRecoveryReceivedEvent.InputTuple, LiquidationRecoveryReceivedEvent.OutputTuple, LiquidationRecoveryReceivedEvent.OutputObject>;
+      LiquidationRecoveryReceived: TypedContractEvent<LiquidationRecoveryReceivedEvent.InputTuple, LiquidationRecoveryReceivedEvent.OutputTuple, LiquidationRecoveryReceivedEvent.OutputObject>;
     
 
       'LiquidityFunded(address,uint256)': TypedContractEvent<LiquidityFundedEvent.InputTuple, LiquidityFundedEvent.OutputTuple, LiquidityFundedEvent.OutputObject>;

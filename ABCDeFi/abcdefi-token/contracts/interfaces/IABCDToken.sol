@@ -5,8 +5,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @title IABCDToken
 /// @notice External interface for the ABCD ecosystem token.
-/// @dev Other ecosystem contracts (ICO, VestingVault, Referral, LendingPool,
-///      Staking) should depend on this interface rather than the concrete
+/// @dev Other ecosystem contracts (ICO, VestingVault, Referral, LendingPool)
+///      should depend on this interface rather than the concrete
 ///      ABCDToken implementation, so the token can be upgraded/replaced
 ///      without breaking integrations.
 interface IABCDToken is IERC20 {

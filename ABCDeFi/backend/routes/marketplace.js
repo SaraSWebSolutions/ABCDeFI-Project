@@ -87,9 +87,9 @@ router.get('/listings', async (req, res) => {
           status: 'active',
           nftDetails: {
             name: 'Legion Alpha Governance Commander',
-            description: 'Top tier governance NFT with 3x DAO voting power and 1.5x staking boost.',
+            description: 'Top tier governance NFT with 3x DAO voting power.',
             image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=600&auto=format&fit=crop',
-            attributes: { tier: 'Commander', rank: 5, perks: '3x Voting, 1.5x Staking Multiplier' },
+            attributes: { tier: 'Commander', rank: 5, perks: '3x Voting' },
             level: 5,
           },
           createdAt: new Date(),

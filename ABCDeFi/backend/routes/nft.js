@@ -165,11 +165,11 @@ router.get('/legion-hierarchy', (req, res) => {
     success: true,
     data: {
       ranks: [
-        { rank: 5, title: 'Legate Apex', votingPower: '5x', minStaking: '100,000 ABCD' },
-        { rank: 4, title: 'Commander', votingPower: '3x', minStaking: '50,000 ABCD' },
-        { rank: 3, title: 'Captain', votingPower: '2x', minStaking: '25,000 ABCD' },
-        { rank: 2, title: 'Veteran', votingPower: '1.5x', minStaking: '10,000 ABCD' },
-        { rank: 1, title: 'Soldier', votingPower: '1x', minStaking: '2,500 ABCD' },
+        { rank: 5, title: 'Legate Apex', votingPower: '5x' },
+        { rank: 4, title: 'Commander', votingPower: '3x' },
+        { rank: 3, title: 'Captain', votingPower: '2x' },
+        { rank: 2, title: 'Veteran', votingPower: '1.5x' },
+        { rank: 1, title: 'Soldier', votingPower: '1x' },
       ],
       territories: ['North America', 'Europe', 'Asia Pacific', 'Latin America', 'Global'],
     },

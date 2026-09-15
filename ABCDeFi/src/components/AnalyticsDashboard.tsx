@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import {
   TVL_DATA, TREASURY_DATA, LENDING_DATA, BORROWING_DATA,
-  STAKING_DATA, REVENUE_DATA, USER_GROWTH_DATA,
+  REVENUE_DATA, USER_GROWTH_DATA,
   TOKEN_DISTRIBUTION, METRIC_CARDS, DataPoint,
 } from '../Services/analytics';
 
@@ -295,7 +295,7 @@ export const AnalyticsDashboard: React.FC = () => {
             ABCDeFi Protocol Analytics
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Real-time charts for TVL, Treasury, Lending, Borrowing, Token Distribution, Staking Growth, Revenue, and User Growth.
+            Charts for TVL, Treasury, Lending, Borrowing, Token Distribution, Revenue, and User Growth.
           </p>
         </div>
 
@@ -350,12 +350,7 @@ export const AnalyticsDashboard: React.FC = () => {
 
       {/* CHARTS GRID — Row 3 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Chart 5: Staking Growth */}
-        <ChartCard title="Staking Growth" subtitle="ABCD Tokens Staked • Millions" value="241M ABCD" change="+32%" positive color="text-cyan-400" icon={<Coins className="w-3.5 h-3.5 text-cyan-400" />}>
-          <LineChart data={STAKING_DATA} color="#06b6d4" gradientId="stake-grad" unit="M" />
-        </ChartCard>
-
-        {/* Chart 6: Revenue */}
+        {/* Revenue */}
         <ChartCard title="Protocol Revenue" subtitle="Monthly Fees Collected • $K USD" value="$392K" change="+41%" positive color="text-teal-400" icon={<DollarSign className="w-3.5 h-3.5 text-teal-400" />}>
           <BarChart data={REVENUE_DATA} color="#14b8a6" prefix="$" unit="K" />
         </ChartCard>

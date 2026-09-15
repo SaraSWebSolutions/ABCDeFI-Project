@@ -109,35 +109,7 @@ sequenceDiagram
 
 ---
 
-## 4. Staking & Emergency Withdraw Sequence
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Staker
-    participant Pool as 🥩 StakingPool.sol
-    participant Token as 🪙 ABCDToken.sol
-
-    Staker->>Token: approve(StakingPool, 1,000 ABCD)
-    Staker->>Pool: stake(1,000 ABCD, 30 days)
-    Pool->>Token: safeTransferFrom(Staker, StakingPool, 1,000 ABCD)
-
-    alt Standard Lock Period Completed
-        Note over Staker, Pool: 30 Days Expire
-        Staker->>Pool: unstake(stakeIndex)
-        Pool->>Token: safeTransfer(Staker, 1,000 ABCD Principal + APY Yield)
-        Token-->>Staker: Receive Principal + Yield Rewards
-    else Emergency Protocol Pause (whenPaused)
-        Note over Pool: Admin Triggers Emergency Pause
-        Staker->>Pool: emergencyWithdraw(stakeIndex)
-        Pool->>Token: safeTransfer(Staker, 1,000 ABCD Principal)
-        Token-->>Staker: Instant 100% Principal Recovery (Yield Forfeited)
-    end
-```
-
----
-
-## 5. Token Vesting Claim Sequence
+## 4. Token Vesting Claim Sequence
 
 ```mermaid
 sequenceDiagram

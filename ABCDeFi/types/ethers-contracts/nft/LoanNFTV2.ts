@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 export declare namespace LoanNFTV2 {
       
-    export type CertificateStruct = {loanId: BigNumberish, requestId: BigNumberish, borrower: AddressLike, lender: AddressLike, platform: AddressLike, principal: BigNumberish, collateral: BigNumberish, agreedInterest: BigNumberish, totalScheduledRepayment: BigNumberish, actualRepayment: BigNumberish, certificateValue: BigNumberish, aprBps: BigNumberish, start: BigNumberish, maturity: BigNumberish, completedAt: BigNumberish, status: BigNumberish, role: BigNumberish, isP2P: boolean, metadataHash: BytesLike}
+    export type CertificateStruct = {loanId: BigNumberish, requestId: BigNumberish, borrower: AddressLike, lender: AddressLike, platform: AddressLike, principal: BigNumberish, collateral: BigNumberish, agreedInterest: BigNumberish, totalScheduledRepayment: BigNumberish, actualRepayment: BigNumberish, certificateValue: BigNumberish, aprBps: BigNumberish, start: BigNumberish, maturity: BigNumberish, completedAt: BigNumberish, completionBlock: BigNumberish, status: BigNumberish, role: BigNumberish, isP2P: boolean, metadataHash: BytesLike}
 
-    export type CertificateStructOutput = [loanId: bigint, requestId: bigint, borrower: string, lender: string, platform: string, principal: bigint, collateral: bigint, agreedInterest: bigint, totalScheduledRepayment: bigint, actualRepayment: bigint, certificateValue: bigint, aprBps: bigint, start: bigint, maturity: bigint, completedAt: bigint, status: bigint, role: bigint, isP2P: boolean, metadataHash: string] & {loanId: bigint, requestId: bigint, borrower: string, lender: string, platform: string, principal: bigint, collateral: bigint, agreedInterest: bigint, totalScheduledRepayment: bigint, actualRepayment: bigint, certificateValue: bigint, aprBps: bigint, start: bigint, maturity: bigint, completedAt: bigint, status: bigint, role: bigint, isP2P: boolean, metadataHash: string }
+    export type CertificateStructOutput = [loanId: bigint, requestId: bigint, borrower: string, lender: string, platform: string, principal: bigint, collateral: bigint, agreedInterest: bigint, totalScheduledRepayment: bigint, actualRepayment: bigint, certificateValue: bigint, aprBps: bigint, start: bigint, maturity: bigint, completedAt: bigint, completionBlock: bigint, status: bigint, role: bigint, isP2P: boolean, metadataHash: string] & {loanId: bigint, requestId: bigint, borrower: string, lender: string, platform: string, principal: bigint, collateral: bigint, agreedInterest: bigint, totalScheduledRepayment: bigint, actualRepayment: bigint, certificateValue: bigint, aprBps: bigint, start: bigint, maturity: bigint, completedAt: bigint, completionBlock: bigint, status: bigint, role: bigint, isP2P: boolean, metadataHash: string }
   
 
     export type MetadataStruct = {uri: string, hash: BytesLike}
@@ -23,12 +23,11 @@ export declare namespace LoanNFTV2 {
     }
 
   export interface LoanNFTV2Interface extends Interface {
-    getFunction(nameOrSignature: "CERTIFICATE_VALUATION_BPS" | "DEFAULT_ADMIN_ROLE" | "DIRECT_COMPLETION_OPERATOR_ROLE" | "MINTER_ROLE" | "P2P_COMPLETION_OPERATOR_ROLE" | "approve" | "balanceOf" | "completionCreated" | "getApproved" | "getCertificate" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "loanCertificate" | "loanCertificates" | "loanManager" | "mintCompletionCertificates" | "name" | "ownerOf" | "platformRecipient" | "renounceRole" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "setStatus" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "DIRECT_COMPLETION_OPERATOR_ROLE" | "MINTER_ROLE" | "P2P_COMPLETION_OPERATOR_ROLE" | "approve" | "balanceOf" | "completionCreated" | "getApproved" | "getCertificate" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "loanCertificate" | "loanCertificates" | "loanManager" | "mintCompletionCertificates" | "name" | "ownerOf" | "platformRecipient" | "renounceRole" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "setStatus" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom"): FunctionFragment;
 
     getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "BatchMetadataUpdate" | "CertificateStatusUpdated" | "LoanCertificateCreated" | "MetadataUpdate" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Transfer"): EventFragment;
 
-    encodeFunctionData(functionFragment: 'CERTIFICATE_VALUATION_BPS', values?: undefined): string;
-encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'DIRECT_COMPLETION_OPERATOR_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MINTER_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'P2P_COMPLETION_OPERATOR_ROLE', values?: undefined): string;
@@ -59,8 +58,7 @@ encodeFunctionData(functionFragment: 'symbol', values?: undefined): string;
 encodeFunctionData(functionFragment: 'tokenURI', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'transferFrom', values: [AddressLike, AddressLike, BigNumberish]): string;
 
-    decodeFunctionResult(functionFragment: 'CERTIFICATE_VALUATION_BPS', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'DIRECT_COMPLETION_OPERATOR_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MINTER_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'P2P_COMPLETION_OPERATOR_ROLE', data: BytesLike): Result;
@@ -246,14 +244,6 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
 
 
     
-    
-    CERTIFICATE_VALUATION_BPS: TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >
-    
-
     
     DEFAULT_ADMIN_ROLE: TypedContractMethod<
       [],
@@ -497,12 +487,7 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
-    getFunction(nameOrSignature: 'CERTIFICATE_VALUATION_BPS'): TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >;
-getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
+    getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'

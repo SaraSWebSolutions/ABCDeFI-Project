@@ -22,7 +22,6 @@ export interface FinancialWellnessOverview {
   savingsUSD: number;
   investmentsUSD: number;
   loansUSD: number;
-  stakingABCD: number;
   healthFactor: number;
   learningProgressPct: number;
   creditHoursEarned: number;
@@ -38,7 +37,6 @@ export const USER_WELLNESS_DATA: FinancialWellnessOverview = {
   savingsUSD: 14500,
   investmentsUSD: 28500,
   loansUSD: 3000,
-  stakingABCD: 12500,
   healthFactor: 2.45,
   learningProgressPct: 85,
   creditHoursEarned: 36,

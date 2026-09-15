@@ -59,17 +59,6 @@ export const BORROWING_DATA: DataPoint[] = [
   { label: 'Jul', value: 6.1 },
 ];
 
-// ── Staking Growth (Staked ABCD M) ──────────────────────────
-export const STAKING_DATA: DataPoint[] = [
-  { label: 'Jan', value: 12 },
-  { label: 'Feb', value: 28 },
-  { label: 'Mar', value: 55 },
-  { label: 'Apr', value: 89 },
-  { label: 'May', value: 134 },
-  { label: 'Jun', value: 182 },
-  { label: 'Jul', value: 241 },
-];
-
 // ── Revenue (Monthly $K) ─────────────────────────────────────
 export const REVENUE_DATA: DataPoint[] = [
   { label: 'Jan', value: 18 },
@@ -95,7 +84,6 @@ export const USER_GROWTH_DATA: DataPoint[] = [
 // ── Token Distribution (%) ───────────────────────────────────
 export const TOKEN_DISTRIBUTION: { label: string; pct: number; color: string }[] = [
   { label: 'Circulating Supply',  pct: 22.5, color: '#10b981' },
-  { label: 'Staked (Locked)',     pct: 24.1, color: '#6366f1' },
   { label: 'Ecosystem & Rewards', pct: 25.0, color: '#0891b2' },
   { label: 'Treasury',            pct: 20.0, color: '#7c3aed' },
   { label: 'Team & Advisors',     pct: 8.4,  color: '#2563eb' },
@@ -107,7 +95,6 @@ export const METRIC_CARDS: MetricCard[] = [
   { title: 'Treasury Balance',       value: '$2.8M',    change: '+21%',   positive: true,  color: 'text-indigo-400'  },
   { title: 'Total Lending Volume',   value: '$7.4M',    change: '+25%',   positive: true,  color: 'text-amber-400'   },
   { title: 'Total Borrowing Volume', value: '$6.1M',    change: '+32%',   positive: true,  color: 'text-purple-400'  },
-  { title: 'ABCD Staked',            value: '241M',     change: '+32%',   positive: true,  color: 'text-cyan-400'    },
   { title: 'Monthly Revenue',        value: '$392K',    change: '+41%',   positive: true,  color: 'text-teal-400'    },
   { title: 'Active Users',           value: '14,800',   change: '+32%',   positive: true,  color: 'text-rose-400'    },
   { title: 'Protocol Revenue YTD',   value: '$1.09M',   change: '+118%',  positive: true,  color: 'text-blue-400'    },

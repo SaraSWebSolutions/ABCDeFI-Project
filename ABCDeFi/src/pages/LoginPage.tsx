@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../Context/AuthContext';
 import { DEVELOPMENT_AUTH_ENABLED } from '../Config/auth';
+import { getLocalDevelopmentLoginOtp } from '../Services/developmentAuthDiagnostics';
 import { Lock, Mail, User, Globe, ArrowRight, ShieldCheck, KeyRound, AlertCircle, CheckCircle2, Phone, Tag, RefreshCw, Eye, EyeOff } from 'lucide-react';
 
 export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 'user' }) => {
@@ -38,6 +39,7 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
 
   // OTP State
   const [otpCode, setOtpCode] = useState('');
+  const [otpChallengeRevision, setOtpChallengeRevision] = useState(0);
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
@@ -49,6 +51,22 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
   // User and administrator password login share the same OTP form. The
   // verification handler selects the canonical endpoint from pendingAuth.
   const isLoginOtpStep = pendingAuth?.step === 'LOGIN_2FA' || pendingAuth?.step === 'ADMIN_LOGIN_2FA';
+
+  // Production builds never execute this request. Its backend counterpart is
+  // independently limited to explicit local development and loopback access.
+  useEffect(() => {
+    if (!DEVELOPMENT_AUTH_ENABLED || !isLoginOtpStep || !pendingAuth?.userId || otpCode.length === 6) return;
+    let cancelled = false;
+    void getLocalDevelopmentLoginOtp(pendingAuth.userId)
+      .then(({ otp }) => {
+        if (!cancelled && /^\d{6}$/.test(otp)) setOtpCode(otp);
+      })
+      .catch(() => {
+        // Preserve the normal terminal-guided flow if this fresh challenge
+        // expired before the local browser requested it.
+      });
+    return () => { cancelled = true; };
+  }, [isLoginOtpStep, otpChallengeRevision, otpCode.length, pendingAuth?.userId]);
 
   const resetFormAlerts = () => {
     setError(null);
@@ -85,6 +103,7 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
       if (!result.success) {
         setError(result.message || 'Login failed. Please check your credentials.');
       } else if (result.require2FA) {
+        setOtpChallengeRevision((revision) => revision + 1);
         setSuccessMessage(result.message || 'Verification OTP sent to your email.');
       } else {
         navigateAfterSuccessfulLogin();
@@ -309,6 +328,10 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
         res = await resendRegisterOtp(pendingAuth.userId);
       }
       if (res?.success) {
+        if (pendingAuth.step === 'LOGIN_2FA' || pendingAuth.step === 'ADMIN_LOGIN_2FA') {
+          setOtpCode('');
+          setOtpChallengeRevision((revision) => revision + 1);
+        }
         setSuccessMessage(res.message || 'A new verification OTP has been sent.');
       } else {
         setError(res?.message || 'Failed to resend OTP.');
@@ -368,7 +391,7 @@ export const LoginPage: React.FC<{ variant?: 'user' | 'admin' }> = ({ variant = 
               {pendingAuth?.step === 'FORGOT_OTP' && `Check your inbox (${pendingAuth.email}) for the verification code`}
               {pendingAuth?.step === 'RESET_PASSWORD' && 'Enter your strong new password below'}
               {!pendingAuth && mode === 'login' && (isAdministratorLogin ? 'Enter administrator credentials to access the protected admin dashboard.' : 'Enter your credentials to access your dashboard')}
-              {!pendingAuth && mode === 'register' && 'Fill in your details to start borrowing, lending and staking'}
+              {!pendingAuth && mode === 'register' && 'Fill in your details to start borrowing and lending'}
               {!pendingAuth && mode === 'forgot' && 'Enter your registered email to receive password reset OTP'}
             </p>
           </div>

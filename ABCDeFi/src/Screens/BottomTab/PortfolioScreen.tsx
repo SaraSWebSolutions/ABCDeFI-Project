@@ -40,7 +40,6 @@ const PORTFOLIO_DATA = {
   activeLoan: null, // Default loan hidden
   transactions: [
     { id: 'TXN-001', type: 'EMI Payment', amount: -87.5, currency: 'ABCD', date: '31 Jul 2026', status: 'Confirmed', icon: 'cash-outline' },
-    { id: 'TXN-002', type: 'Staking Reward', amount: +87.5, currency: 'ABCD', date: '15 Jul 2026', status: 'Confirmed', icon: 'trending-up-outline' },
     { id: 'TXN-003', type: 'ICO Purchase', amount: -0.32, currency: 'ETH', date: '01 Jul 2026', status: 'Confirmed', icon: 'layers-outline' },
     { id: 'TXN-004', type: 'KYC Bonus', amount: +50, currency: 'ABCD', date: '02 Jul 2026', status: 'Claimed', icon: 'gift-outline' },
     { id: 'TXN-005', type: 'Referral Bonus', amount: +120, currency: 'ABCD', date: '20 Jul 2026', status: 'Pending', icon: 'people-outline' },

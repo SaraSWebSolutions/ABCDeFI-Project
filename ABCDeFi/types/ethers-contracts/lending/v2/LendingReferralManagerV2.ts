@@ -18,7 +18,7 @@ export declare namespace LendingReferralManagerV2 {
     }
 
   export interface LendingReferralManagerV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "LENDING_REFERRAL_OPERATOR_ROLE" | "MAX_REWARD_PERIODS" | "MONTHLY_REWARD_BPS" | "REFERRAL_NFT_VALUE_BPS" | "REWARD_PERIOD" | "abcd" | "approve" | "balanceOf" | "bindReferrer" | "claimMonthlyReward" | "codeToUser" | "createReferralCode" | "getApproved" | "getLoanReferral" | "getReferralCertificate" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "loanManager" | "mintReferralCertificate" | "name" | "nextCertificateId" | "ownerOf" | "pause" | "paused" | "recordLoanCompletion" | "referrerOf" | "registerLoan" | "renounceRole" | "revokeRole" | "rewardVault" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "setRewardVault" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom" | "unpause" | "userReferralCode"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "LENDING_REFERRAL_OPERATOR_ROLE" | "MAX_REWARD_PERIODS" | "MONTHLY_REWARD_BPS" | "REFERRAL_NFT_VALUE_BPS" | "REWARD_PERIOD" | "abcd" | "approve" | "balanceOf" | "bindReferrer" | "claimAccruedReward" | "codeToUser" | "createReferralCode" | "getApproved" | "getLoanReferral" | "getReferralCertificate" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "loanManager" | "mintReferralCertificate" | "name" | "nextCertificateId" | "ownerOf" | "pause" | "paused" | "recordLoanCompletion" | "referrerOf" | "registerLoan" | "renounceRole" | "revokeRole" | "rewardVault" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "setRewardVault" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom" | "unpause" | "userReferralCode"): FunctionFragment;
 
     getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "BatchMetadataUpdate" | "LendingReferralCertificateMinted" | "LendingReferralCompleted" | "LendingReferralRegistered" | "LendingReferralRewardPaid" | "LendingReferrerBound" | "MetadataUpdate" | "Paused" | "ReferralCodeCreated" | "RewardVaultUpdated" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Transfer" | "Unpaused"): EventFragment;
 
@@ -32,7 +32,7 @@ encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'approve', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'balanceOf', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'bindReferrer', values: [string]): string;
-encodeFunctionData(functionFragment: 'claimMonthlyReward', values: [BigNumberish, AddressLike]): string;
+encodeFunctionData(functionFragment: 'claimAccruedReward', values: [BigNumberish, AddressLike]): string;
 encodeFunctionData(functionFragment: 'codeToUser', values: [string]): string;
 encodeFunctionData(functionFragment: 'createReferralCode', values: [string]): string;
 encodeFunctionData(functionFragment: 'getApproved', values: [BigNumberish]): string;
@@ -76,7 +76,7 @@ decodeFunctionResult(functionFragment: 'abcd', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'approve', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'balanceOf', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'bindReferrer', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'claimMonthlyReward', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'claimAccruedReward', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'codeToUser', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'createReferralCode', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getApproved', data: BytesLike): Result;
@@ -430,7 +430,7 @@ decodeFunctionResult(functionFragment: 'userReferralCode', data: BytesLike): Res
     
 
     
-    claimMonthlyReward: TypedContractMethod<
+    claimAccruedReward: TypedContractMethod<
       [loanId: BigNumberish, referred: AddressLike, ],
       [bigint],
       'nonpayable'
@@ -746,7 +746,7 @@ getFunction(nameOrSignature: 'bindReferrer'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
-getFunction(nameOrSignature: 'claimMonthlyReward'): TypedContractMethod<
+getFunction(nameOrSignature: 'claimAccruedReward'): TypedContractMethod<
       [loanId: BigNumberish, referred: AddressLike, ],
       [bigint],
       'nonpayable'

@@ -126,3 +126,27 @@ test('the explicitly local runner requests zero confirmations without changing t
   assert.match(runner, /confirmations:\s*0/);
   assert.equal(subject(new FixtureProvider(), new FixtureModels()).confirmations, 2);
 });
+
+test('the canonical V2 indexer persists LendingReferralManagerV2 registration and payout events when its manifest address is present', async () => {
+  const activeManifest = manifest();
+  activeManifest.contracts.LendingReferralManagerV2 = { address: ADDRESS(99) };
+  const referral = new Interface(artifacts.LendingReferralManagerV2.abi);
+  const registration = referral.encodeEventLog(referral.getEvent('LendingReferralRegistered'), [
+    1n, 0n, ADDRESS(901), BORROWER, false, 50000000000000000n,
+  ]);
+  const payout = referral.encodeEventLog(referral.getEvent('LendingReferralRewardPaid'), [
+    1n, ADDRESS(901), BORROWER, 1n, 50000000000000000n, 50000000000000000n,
+  ]);
+  const logs = [
+    { address: activeManifest.contracts.LendingReferralManagerV2.address, ...registration, blockNumber: 129, transactionIndex: 0, index: 0, transactionHash: HASH(201), blockHash: HASH(10_129) },
+    { address: activeManifest.contracts.LendingReferralManagerV2.address, ...payout, blockNumber: 130, transactionIndex: 0, index: 0, transactionHash: HASH(202), blockHash: HASH(10_130) },
+  ];
+  const provider = new FixtureProvider({ logs });
+  const models = new FixtureModels({ lastProcessedBlock: '128', lastProcessedBlockHash: HASH(10_128) });
+  await subject(provider, models, { manifest: activeManifest, confirmations: 0 }).syncOnce();
+  assert.deepEqual(models.events.map((event) => [event.contractName, event.eventName, event.args.loanId]), [
+    ['LendingReferralManagerV2', 'LendingReferralRegistered', '1'],
+    ['LendingReferralManagerV2', 'LendingReferralRewardPaid', '1'],
+  ]);
+  assert.equal(models.checkpoint.lastProcessedBlock, '130');
+});

@@ -45,16 +45,30 @@ async function main() {
   const pool = await hh.getContractAt("LendingPoolV2", address("LendingPoolV2"));
   const manager = await hh.getContractAt("LoanManagerV2", address("LoanManagerV2"));
   const vault = await hh.getContractAt("CollateralVaultV2", address("CollateralVaultV2"));
+  const oracle = await hh.getContractAt("OracleAdapterV2", address("OracleAdapterV2"));
   const liquidation = await hh.getContractAt("LiquidationV2", address("LiquidationV2"));
   const reserve = await hh.getContractAt("InsuranceReserveV2", address("InsuranceReserveV2"));
-  const loanNFT = await hh.getContractAt("LoanNFTV2", address("LoanNFTV2"));
+  const saleAdapter = await hh.getContractAt("LiquidationSaleAdapterV2", address("LiquidationSaleAdapterV2"));
   const ethFeed = await hh.getContractAt("MockAggregatorV3V2", address("MockAggregatorV3V2_ETH_USD"));
+  const abcdFeed = await hh.getContractAt("MockAggregatorV3V2", address("MockAggregatorV3V2_ABCD_USD"));
   const poolAddress = await pool.getAddress();
   const collateral = ethers.parseEther("0.1");
-  const principal = ethers.parseUnits("50", 18);
+  // Exact whitepaper-approved Direct ETH boundary: 0.1 ETH × $2,000 × 35%.
+  const principal = ethers.parseUnits("70", 18);
   const term = 30 * 24 * 60 * 60;
+  const setOraclePrices = async (ethUsd: bigint, label: string) => {
+    await mined(await ethFeed.connect(admin).setAnswer(ethUsd * 10n ** 8n), await ethFeed.getAddress(), `${label} ETH/USD`);
+    await mined(await abcdFeed.connect(admin).setAnswer(1n * 10n ** 8n), await abcdFeed.getAddress(), `${label} ABCD/USD`);
+  };
 
-  // Direct lifecycle: a pending direct deposit becomes one loan, then settles.
+  // A local chain may have advanced beyond the mock heartbeat during an
+  // earlier risk-path run. Refresh both canonical local feeds before the
+  // first capacity read; this is a real local-oracle update, never a
+  // frontend-derived borrowing value.
+  await setOraclePrices(2_000n, "initial direct-loan oracle refresh");
+
+  // Direct originations are real chain transactions. Settlement is deliberately
+  // outside this risk-state harness so it cannot fabricate completion metadata.
   const depositTx = await pool.connect(borrower).depositCollateral({ value: collateral });
   const depositReceipt = await mined(depositTx, poolAddress, "direct deposit");
   const depositArgs = eventArgs(depositReceipt, pool, "CollateralDepositCreated");
@@ -75,49 +89,27 @@ async function main() {
   const opened = await manager.getLoan(directLoanId);
   assert.equal(opened.borrower.toLowerCase(), borrower.address.toLowerCase());
   assert.equal(opened.principal, principal);
-  assert.equal(opened.aprBps, 1_200n);
+  assert.equal(opened.aprBps, 925n);
   assert.equal(opened.collateralETH, collateral);
   assert.equal(await vault.loanCollateral(directLoanId), collateral);
   assert.equal(await token.balanceOf(borrower.address), borrowerBefore + principal);
-  assert.equal((await loanNFT.ownerOf(directLoanId)).toLowerCase(), borrower.address.toLowerCase());
-
-  const partial = ethers.parseUnits("10", 18);
-  const approvePartial = await token.connect(borrower).approve(poolAddress, partial);
-  await mined(approvePartial, await token.getAddress(), "partial-repayment approval");
-  const partialTx = await pool.connect(borrower).repay(directLoanId, partial);
-  const partialReceipt = await mined(partialTx, poolAddress, "partial repayment");
-  const afterPartial = await manager.getLoan(directLoanId);
-  assert.ok(afterPartial.principalOutstanding < principal && afterPartial.principalOutstanding > 0n, "partial repayment did not reduce only part of the principal");
-
-  const outstandingBeforeFinal = await manager.previewOutstanding(directLoanId);
-  const approveAll = await token.connect(borrower).approve(poolAddress, outstandingBeforeFinal + ethers.parseUnits("1", 18));
-  await mined(approveAll, await token.getAddress(), "final-repayment approval");
-  const completionMetadata = (role: string) => {
-    const uri = `ipfs://local-direct-e2e-completion-${directLoanId}-${role}`;
-    return { uri, hash: ethers.keccak256(ethers.toUtf8Bytes(uri)) };
-  };
-  const repayAllTx = await pool.connect(borrower).repayAllWithCompletionMetadata(directLoanId, {
-    lender: completionMetadata("lender"), borrower: completionMetadata("borrower"), platform: completionMetadata("platform"),
-  });
-  const repayAllReceipt = await mined(repayAllTx, poolAddress, "full repayment");
-  const repaid = await manager.getLoan(directLoanId);
-  assert.equal(repaid.state, 1n, "loan did not reach REPAID before collateral release");
-  assert.equal(await manager.previewOutstanding(directLoanId), 0n);
-  const withdrawTx = await pool.connect(borrower).withdrawSettledCollateral(directLoanId);
-  const withdrawReceipt = await mined(withdrawTx, poolAddress, "settled collateral withdrawal");
-  assert.equal(await vault.loanCollateral(directLoanId), 0n);
-  assert.equal((await manager.getLoan(directLoanId)).state, 5n, "loan did not close after collateral withdrawal");
+  assert.equal(await manager.previewOutstanding(directLoanId), principal);
 
   // Margin call and cure: top-up only changes the loan-scoped collateral mapping.
   const marginOpenTx = await pool.connect(marginBorrower).openLoan(principal, term, { value: collateral });
   const marginOpenReceipt = await mined(marginOpenTx, poolAddress, "margin-test loan opening");
   const marginLoanId = eventArgs(marginOpenReceipt, pool, "DirectLoanOpened").loanId as bigint;
-  await mined(await ethFeed.connect(admin).setAnswer(700n * 10n ** 8n), await ethFeed.getAddress(), "margin-test oracle update");
+  await setOraclePrices(1_000n, "margin-test oracle update");
   const riskTx = await liquidation.connect(liquidator).syncRisk(marginLoanId);
   const riskReceipt = await mined(riskTx, await liquidation.getAddress(), "margin risk synchronization");
   const marginLoan = await manager.getLoan(marginLoanId);
   assert.equal(marginLoan.state, 6n, "loan did not enter MARGIN_CALL");
   assert.equal(marginLoan.marginCallCureEnd - marginLoan.marginCallAt, 259_200n);
+  await provider.send("evm_setNextBlockTimestamp", [Number(marginLoan.marginCallCureEnd) - 1]);
+  await provider.send("evm_mine", []);
+  await setOraclePrices(1_000n, "72-hour cure-window oracle refresh");
+  await mined(await liquidation.connect(liquidator).syncRisk(marginLoanId), await liquidation.getAddress(), "72-hour cure-window synchronization");
+  assert.equal((await manager.getLoan(marginLoanId)).state, 6n, "margin call ended before the 72-hour cure boundary");
   const topUp = ethers.parseEther("0.05");
   const directBeforeTopUp = await vault.directDepositCollateral(depositId);
   const requestBeforeTopUp = await vault.requestCollateral(depositId);
@@ -129,30 +121,42 @@ async function main() {
   await mined(await liquidation.connect(liquidator).syncRisk(marginLoanId), await liquidation.getAddress(), "margin-call cure synchronization");
   assert.equal((await manager.getLoan(marginLoanId)).state, 0n, "loan did not return to ACTIVE after cure");
 
-  // Separate full-close liquidation with reserve use: local mock oracle only.
-  await mined(await ethFeed.connect(admin).setAnswer(2_000n * 10n ** 8n), await ethFeed.getAddress(), "oracle reset before liquidation loan");
+  // Separate risk-state check: local-only configured interfaces exercise the
+  // owner-approved protocol-derived partial-sale path. This is not production
+  // configuration: production remains unavailable without approved feed/router/route values.
+  await setOraclePrices(2_000n, "oracle reset before liquidation loan");
   const liquidateOpenTx = await pool.connect(liquidationBorrower).openLoan(principal, term, { value: collateral });
   const liquidateOpenReceipt = await mined(liquidateOpenTx, poolAddress, "liquidation-test loan opening");
   const liquidationLoanId = eventArgs(liquidateOpenReceipt, pool, "DirectLoanOpened").loanId as bigint;
-  let liquiditySigner: any = null;
-  const liquidityWallet = await token.liquidityWallet();
-  for (const signer of signers) if (signer.address.toLowerCase() === liquidityWallet.toLowerCase()) liquiditySigner = signer;
-  assert.ok(liquiditySigner, "canonical liquidity wallet signer is unavailable on local Hardhat");
-  await mined(await token.connect(liquiditySigner).transfer(liquidator.address, ethers.parseUnits("100", 18)), await token.getAddress(), "liquidator ABCD funding");
-  await mined(await ethFeed.connect(admin).setAnswer(100n * 10n ** 8n), await ethFeed.getAddress(), "liquidation-test oracle update");
-  const quote = await liquidation.previewLiquidation(liquidationLoanId);
-  assert.ok(quote.reserveRequested > 0n, "controlled liquidation did not require reserve funding");
-  const reserveBefore = await token.balanceOf(await reserve.getAddress());
-  await mined(await token.connect(liquidator).approve(await liquidation.getAddress(), quote.liquidatorPayment), await token.getAddress(), "liquidator approval");
-  const liquidationTx = await liquidation.connect(liquidator).liquidate(liquidationLoanId);
-  const liquidationReceipt = await mined(liquidationTx, await liquidation.getAddress(), "full-close liquidation");
-  const liquidationArgs = eventArgs(liquidationReceipt, liquidation, "LoanLiquidated");
-  const liquidated = await manager.getLoan(liquidationLoanId);
-  assert.equal(liquidated.state, 4n, "loan did not reach LIQUIDATED");
-  assert.ok(liquidated.reserveContribution > 0n, "reserve was not used for the controlled shortfall");
-  assert.equal(liquidated.badDebt, 0n, "unexpected bad debt with a funded local reserve");
-  assert.equal(await vault.loanCollateral(liquidationLoanId), 0n, "liquidated collateral was not settled");
-  assert.equal(await token.balanceOf(await reserve.getAddress()), reserveBefore - liquidated.reserveContribution);
+  await setOraclePrices(1_000n, "partial-liquidation margin-call oracle update");
+  await mined(await liquidation.connect(liquidator).syncRisk(liquidationLoanId), await liquidation.getAddress(), "partial-liquidation margin-call synchronization");
+  const liquidationMargin = await manager.getLoan(liquidationLoanId);
+  assert.equal(liquidationMargin.state, 6n, "liquidation-test loan did not enter MARGIN_CALL at 70% LTV");
+  await provider.send("evm_setNextBlockTimestamp", [Number(liquidationMargin.marginCallCureEnd) + 1]);
+  await provider.send("evm_mine", []);
+  await setOraclePrices(875n, "partial-liquidation 80-percent oracle update");
+  const riskStateReceipt = await mined(await liquidation.connect(liquidator).syncRisk(liquidationLoanId), await liquidation.getAddress(), "partial-liquidation risk synchronization");
+  assert.equal(await liquidation.isLiquidatable(liquidationLoanId), true, "80% risk threshold was not reached");
+  assert.equal(await saleAdapter.configured(), true, "local test adapter is not configured");
+  const debtBeforeLiquidation = await liquidation.totalDebt(liquidationLoanId);
+  const collateralBeforeLiquidation = await vault.loanCollateral(liquidationLoanId);
+  const reserveBeforeLiquidation = await reserve.availableBalance();
+  const quote = await saleAdapter.quote(liquidationLoanId, debtBeforeLiquidation, collateralBeforeLiquidation, 7000);
+  assert.ok(quote.collateralAmount > 0n && quote.collateralAmount < collateralBeforeLiquidation, "sale is not partial");
+  assert.ok(quote.minOut > 0n, "minOut must never be zero");
+  const expectedABCDOut = quote.collateralAmount * await oracle.priceUSD("0x0000000000000000000000000000000000000001") / await oracle.priceUSD(await token.getAddress());
+  assert.equal(quote.minOut, expectedABCDOut * 9900n / 10000n, "1% slippage minimum output mismatch");
+  const liquidationReceipt = await mined(await liquidation.connect(liquidator).liquidate(liquidationLoanId), await liquidation.getAddress(), "protocol-derived partial liquidation");
+  const recovery = await saleAdapter.recoveryOf(liquidationLoanId);
+  const loanAfterLiquidation = await manager.getLoan(liquidationLoanId);
+  assert.equal(recovery.finalized, true, "sale recovery was not finalized");
+  assert.equal(recovery.consumed, true, "sale recovery was not consumed exactly once");
+  assert.ok(recovery.collateralAmount >= quote.collateralAmount, "sale amount did not preserve ceiling rounding");
+  assert.ok(recovery.realizedRecoveryABCD >= quote.minOut, "actual recovery was below minOut");
+  assert.ok(await reserve.availableBalance() < reserveBeforeLiquidation, "reserve did not cover eligible residual loss");
+  assert.equal(loanAfterLiquidation.state, 4n, "fully recovered direct loan did not reach LIQUIDATED settlement state");
+  assert.equal(await liquidation.totalDebt(liquidationLoanId), 0n, "lender obligation remains after reserve recovery");
+  assert.equal(await vault.loanCollateral(liquidationLoanId), 0n, "remaining collateral was not released after complete recovery");
 
   console.log(JSON.stringify({
     status: "PASS",
@@ -163,22 +167,24 @@ async function main() {
       capacity: capacity.toString(),
       deposit: { hash: depositReceipt.hash, block: depositReceipt.blockNumber },
       borrow: { hash: borrowReceipt.hash, block: borrowReceipt.blockNumber },
-      partialRepay: { hash: partialReceipt.hash, block: partialReceipt.blockNumber },
-      fullRepay: { hash: repayAllReceipt.hash, block: repayAllReceipt.blockNumber },
-      withdraw: { hash: withdrawReceipt.hash, block: withdrawReceipt.blockNumber },
     },
     margin: {
       loanId: marginLoanId.toString(),
       sync: { hash: riskReceipt.hash, block: riskReceipt.blockNumber },
       topUp: { hash: topUpReceipt.hash, block: topUpReceipt.blockNumber },
     },
-    liquidation: {
+    partialLiquidation: {
       loanId: liquidationLoanId.toString(),
-      hash: liquidationReceipt.hash,
-      block: liquidationReceipt.blockNumber,
-      reserveUsed: liquidated.reserveContribution.toString(),
-      badDebt: liquidated.badDebt.toString(),
-      liquidatorPayment: liquidationArgs.liquidatorPayment.toString(),
+      riskSync: { hash: riskStateReceipt.hash, block: riskStateReceipt.blockNumber },
+      execution: {
+        hash: liquidationReceipt.hash,
+        block: liquidationReceipt.blockNumber,
+        collateralSold: recovery.collateralAmount.toString(),
+        realizedABCD: recovery.realizedRecoveryABCD.toString(),
+        reserveUsed: (reserveBeforeLiquidation - await reserve.availableBalance()).toString(),
+        debtBefore: debtBeforeLiquidation.toString(),
+        debtAfter: (await liquidation.totalDebt(liquidationLoanId)).toString(),
+      },
     },
   }, null, 2));
 }

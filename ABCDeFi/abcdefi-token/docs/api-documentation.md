@@ -32,41 +32,10 @@ Calculates token estimation and prepares transaction parameters for buying ABCD 
 
 ---
 
-## 2. Staking & Yield Endpoints
-
-### `POST /api/v1/stake`
-Constructs transaction data for locking ABCD tokens into staking pools.
-
-- **Request Body**:
-  ```json
-  {
-    "userAddress": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-    "amount": "1000.0",
-    "lockDurationDays": 30
-  }
-  ```
-- **Response**:
-  ```json
-  {
-    "status": "success",
-    "expectedApyBps": 500,
-    "lockDurationSeconds": 2592000,
-    "tx": {
-      "to": "0xStakingPoolContractAddress",
-      "data": "0xa694fc3a..."
-    }
-  }
-  ```
-
-### `POST /api/v1/claim`
-Prepares reward claim transactions for active staking or vesting schedules.
-
----
-
-## 3. Portfolio & User Account Analytics
+## 2. Portfolio & User Account Analytics
 
 ### `GET /api/v1/portfolio/:address`
-Returns complete portfolio balances, active stakes, collateral deposits, and loan positions for a wallet.
+Returns complete portfolio balances, collateral deposits, and loan positions for a wallet.
 
 - **URL Params**: `:address` (Wallet Address)
 - **Response**:
@@ -74,15 +43,6 @@ Returns complete portfolio balances, active stakes, collateral deposits, and loa
   {
     "address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
     "tokenBalance": "25000.0",
-    "stakedBalance": "5000.0",
-    "activeStakes": [
-      {
-        "stakeIndex": 0,
-        "amount": "5000.0",
-        "lockDurationDays": 90,
-        "unclaimedRewards": "150.0"
-      }
-    ],
     "lendingPosition": {
       "collateralETH": "2.0",
       "borrowedABCD": "1000.0",
@@ -93,7 +53,7 @@ Returns complete portfolio balances, active stakes, collateral deposits, and loa
 
 ---
 
-## 4. Lending & Loan Management Endpoints
+## 3. Lending & Loan Management Endpoints
 
 ### `GET /api/v1/loan/:id`
 Queries metadata, interest accrual, and status for a specific loan ID.

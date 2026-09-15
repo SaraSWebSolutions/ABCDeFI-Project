@@ -47,7 +47,7 @@
 
 1. Migrate or archive duplicate contract, mobile/frontend, backend/API and deployment trees. Preserve only designated fixtures and generated artifacts outside tracked source.
 2. Replace mock/demo service data with the selected authenticated API and on-chain indexer. Clearly label any remaining development fixtures and prevent production import.
-3. Deploy/wire or de-scope contracts currently omitted by the canonical script: reward/commission/reserve, ICO allocation/manager, score/oracle/governance, approved NFT families, vaults and `Staking`.
+3. Deploy/wire or de-scope contracts currently omitted by the canonical script: reward/commission/reserve, ICO allocation/manager, score/oracle/governance, approved NFT families, and vaults. Staking is permanently removed from the current product scope.
 4. Establish an event-indexing and reconciliation service for P2P loan creation, schedule events, payments, defaults, collateral settlement and retries/reorg handling.
 5. Add security/operational controls: structured/redacted logging, error tracking, backups, RPC/provider failover, monitoring, admin audit trails, incident runbooks and rate/abuse controls.
 6. Expand tests:

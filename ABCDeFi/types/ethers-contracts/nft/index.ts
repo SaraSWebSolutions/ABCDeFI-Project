@@ -4,7 +4,10 @@
 export type { AppreciatingGiftNFT } from './AppreciatingGiftNFT.js';
 export type { BarterNFT } from './BarterNFT.js';
 export type { FranchiseNFT } from './FranchiseNFT.js';
+export type { FranchiseRegistry } from './FranchiseRegistry.js';
 export type { GuruNFT } from './GuruNFT.js';
+export type { LegionCredentialV2 } from './LegionCredentialV2.js';
+export type { LegionNFTV2 } from './LegionNFTV2.js';
 export type { LoanNFT } from './LoanNFT.js';
 export type { LoanNFTV2 } from './LoanNFTV2.js';
 export type { ParticipantNFT } from './ParticipantNFT.js';

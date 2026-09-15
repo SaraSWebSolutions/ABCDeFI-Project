@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface LoanMarketplaceV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "LIQUIDATION_SETTLEMENT_ROLE" | "P2P_INITIAL_LTV_BPS" | "abcd" | "cancelRequest" | "collateralValueUSD" | "collateralVault" | "createRequest" | "emiManager" | "fundRequest" | "getRoleAdmin" | "grantRole" | "hasRole" | "isP2PLoan" | "lendingReferralManager" | "liquidationEngine" | "loanManager" | "loanNFT" | "markLoanRepaid" | "nextRequestId" | "oracle" | "pause" | "paused" | "previewMaxP2PPrincipal" | "renounceRole" | "requestByLoanId" | "requests" | "revokeRole" | "setEMIManager" | "setLiquidationEngine" | "settleDefault" | "settleLiquidation" | "supportsInterface" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "LIQUIDATION_SETTLEMENT_ROLE" | "P2P_INITIAL_LTV_BPS" | "abcd" | "cancelRequest" | "collateralValueUSD" | "collateralVault" | "createRequest" | "emiManager" | "fundRequest" | "getRoleAdmin" | "grantRole" | "hasRole" | "isP2PLoan" | "lendingReferralManager" | "liquidationEngine" | "loanManager" | "loanNFT" | "markLoanRepaid" | "nextRequestId" | "oracle" | "pause" | "paused" | "previewMaxP2PPrincipal" | "renounceRole" | "requestByLoanId" | "requests" | "revokeRole" | "setEMIManager" | "setLiquidationEngine" | "settleDefault" | "settleLiquidation" | "settlePartialLiquidation" | "supportsInterface" | "unpause"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "P2PDefaultSettled" | "P2PLiquidationSettled" | "Paused" | "RequestCancelled" | "RequestCreated" | "RequestFunded" | "RequestRepaid" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "Paused" | "RequestCancelled" | "RequestCreated" | "RequestFunded" | "RequestRepaid" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ETH_ASSET', values?: undefined): string;
@@ -43,6 +43,7 @@ encodeFunctionData(functionFragment: 'setEMIManager', values: [AddressLike]): st
 encodeFunctionData(functionFragment: 'setLiquidationEngine', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'settleDefault', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'settleLiquidation', values: [BigNumberish, AddressLike, BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'settlePartialLiquidation', values: [BigNumberish, AddressLike, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 
@@ -79,35 +80,12 @@ decodeFunctionResult(functionFragment: 'setEMIManager', data: BytesLike): Result
 decodeFunctionResult(functionFragment: 'setLiquidationEngine', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'settleDefault', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'settleLiquidation', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'settlePartialLiquidation', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   }
 
   
-    export namespace P2PDefaultSettledEvent {
-      export type InputTuple = [requestId: BigNumberish, loanId: BigNumberish, lender: AddressLike, collateralToLender: BigNumberish, borrowerSurplus: BigNumberish, borrowerLiability: BigNumberish];
-      export type OutputTuple = [requestId: bigint, loanId: bigint, lender: string, collateralToLender: bigint, borrowerSurplus: bigint, borrowerLiability: bigint];
-      export interface OutputObject {requestId: bigint, loanId: bigint, lender: string, collateralToLender: bigint, borrowerSurplus: bigint, borrowerLiability: bigint };
-      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
-      export type Filter = TypedDeferredTopicFilter<Event>
-      export type Log = TypedEventLog<Event>
-      export type LogDescription = TypedLogDescription<Event>
-    }
-
-  
-
-    export namespace P2PLiquidationSettledEvent {
-      export type InputTuple = [requestId: BigNumberish, loanId: BigNumberish, liquidator: AddressLike, lender: AddressLike, debtCovered: BigNumberish, collateralToLiquidator: BigNumberish, reserveContribution: BigNumberish, badDebt: BigNumberish, borrowerSurplus: BigNumberish];
-      export type OutputTuple = [requestId: bigint, loanId: bigint, liquidator: string, lender: string, debtCovered: bigint, collateralToLiquidator: bigint, reserveContribution: bigint, badDebt: bigint, borrowerSurplus: bigint];
-      export interface OutputObject {requestId: bigint, loanId: bigint, liquidator: string, lender: string, debtCovered: bigint, collateralToLiquidator: bigint, reserveContribution: bigint, badDebt: bigint, borrowerSurplus: bigint };
-      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
-      export type Filter = TypedDeferredTopicFilter<Event>
-      export type Log = TypedEventLog<Event>
-      export type LogDescription = TypedLogDescription<Event>
-    }
-
-  
-
     export namespace PausedEvent {
       export type InputTuple = [account: AddressLike];
       export type OutputTuple = [account: string];
@@ -514,6 +492,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    settlePartialLiquidation: TypedContractMethod<
+      [loanId: BigNumberish, liquidator: AddressLike, debtReduction: BigNumberish, collateralToLiquidator: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     supportsInterface: TypedContractMethod<
       [interfaceId: BytesLike, ],
       [boolean],
@@ -697,6 +683,11 @@ getFunction(nameOrSignature: 'settleLiquidation'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'settlePartialLiquidation'): TypedContractMethod<
+      [loanId: BigNumberish, liquidator: AddressLike, debtReduction: BigNumberish, collateralToLiquidator: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod<
       [interfaceId: BytesLike, ],
       [boolean],
@@ -708,9 +699,7 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
       'nonpayable'
     >;
 
-    getEvent(key: 'P2PDefaultSettled'): TypedContractEvent<P2PDefaultSettledEvent.InputTuple, P2PDefaultSettledEvent.OutputTuple, P2PDefaultSettledEvent.OutputObject>;
-getEvent(key: 'P2PLiquidationSettled'): TypedContractEvent<P2PLiquidationSettledEvent.InputTuple, P2PLiquidationSettledEvent.OutputTuple, P2PLiquidationSettledEvent.OutputObject>;
-getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+    getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
 getEvent(key: 'RequestCancelled'): TypedContractEvent<RequestCancelledEvent.InputTuple, RequestCancelledEvent.OutputTuple, RequestCancelledEvent.OutputObject>;
 getEvent(key: 'RequestCreated'): TypedContractEvent<RequestCreatedEvent.InputTuple, RequestCreatedEvent.OutputTuple, RequestCreatedEvent.OutputObject>;
 getEvent(key: 'RequestFunded'): TypedContractEvent<RequestFundedEvent.InputTuple, RequestFundedEvent.OutputTuple, RequestFundedEvent.OutputObject>;
@@ -722,14 +711,6 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
     filters: {
       
-      'P2PDefaultSettled(uint256,uint256,address,uint256,uint256,uint256)': TypedContractEvent<P2PDefaultSettledEvent.InputTuple, P2PDefaultSettledEvent.OutputTuple, P2PDefaultSettledEvent.OutputObject>;
-      P2PDefaultSettled: TypedContractEvent<P2PDefaultSettledEvent.InputTuple, P2PDefaultSettledEvent.OutputTuple, P2PDefaultSettledEvent.OutputObject>;
-    
-
-      'P2PLiquidationSettled(uint256,uint256,address,address,uint256,uint256,uint256,uint256,uint256)': TypedContractEvent<P2PLiquidationSettledEvent.InputTuple, P2PLiquidationSettledEvent.OutputTuple, P2PLiquidationSettledEvent.OutputObject>;
-      P2PLiquidationSettled: TypedContractEvent<P2PLiquidationSettledEvent.InputTuple, P2PLiquidationSettledEvent.OutputTuple, P2PLiquidationSettledEvent.OutputObject>;
-    
-
       'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
       Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
     

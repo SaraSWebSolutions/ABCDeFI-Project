@@ -42,7 +42,7 @@ export const LegionNFTDashboard: React.FC<LegionNFTDashboardProps> = ({ nfts = [
   // Form state for Legion NFT minting
   const [tier, setTier] = useState('Legion Alpha');
   const [rank, setRank] = useState('3');
-  const [perks, setPerks] = useState('Community Staking Boost, Governance Vote');
+  const [perks, setPerks] = useState('Governance Vote');
 
   const handleMintLegionNFT = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,7 +93,7 @@ export const LegionNFTDashboard: React.FC<LegionNFTDashboardProps> = ({ nfts = [
             Legion Governance & Rank NFTs
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Hierarchical Legion NFTs granting community voting power and staking multipliers.
+            Hierarchical Legion NFTs with governance-related display metadata.
           </p>
         </div>
 

@@ -124,7 +124,7 @@ export const FinancialWellnessDashboard: React.FC = () => {
               </span>
             </div>
 
-            {/* 8 METRICS CARDS (Assets, Liabilities, Net Worth, Loans, Investments, Staking, Learning Progress, Credit Score) */}
+            {/* Financial wellness metrics */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl">
                 <div className="text-slate-400 font-bold">Total Assets</div>
@@ -154,12 +154,6 @@ export const FinancialWellnessDashboard: React.FC = () => {
                 <div className="text-slate-400 font-bold">Investments</div>
                 <div className="text-lg font-black text-white mt-1">${USER_WELLNESS_DATA.investmentsUSD.toLocaleString()} USD</div>
                 <div className="text-[10px] text-slate-500">Yield Strategy Vaults</div>
-              </div>
-
-              <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl">
-                <div className="text-slate-400 font-bold">Staking Pool</div>
-                <div className="text-lg font-black text-purple-300 mt-1">{USER_WELLNESS_DATA.stakingABCD.toLocaleString()} ABCD</div>
-                <div className="text-[10px] text-slate-500">Pool 3 (25% APY)</div>
               </div>
 
               <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl">

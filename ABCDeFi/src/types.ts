@@ -230,7 +230,7 @@ export interface WalletAllocation {
   vestingSchedule?: string;
 }
 
-// ----- User Accounts / Staking -----
+// ----- User Accounts -----
 
 export interface UserAccount {
   address: string;

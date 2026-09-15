@@ -1,0 +1,7 @@
+{
+  "network": "bscTestnet",
+  "chainId": 97,
+  "environment": "testnet",
+  "deploymentStatus": "UNDEPLOYED",
+  "contracts": {}
+}

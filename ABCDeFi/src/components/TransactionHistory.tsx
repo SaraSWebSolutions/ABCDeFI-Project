@@ -9,7 +9,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   ShoppingBag,
-  Layers,
   Sparkles,
   Landmark,
   Image as ImageIcon,
@@ -29,7 +28,6 @@ export type TxFilterCategory =
   | 'All'
   | 'Transfers'
   | 'Presale'
-  | 'Staking'
   | 'Lending'
   | 'Borrowing'
   | 'NFTs'
@@ -94,8 +92,6 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         return type === 'Token Transfer';
       case 'Presale':
         return type === 'Buy Token';
-      case 'Staking':
-        return type === 'Stake' || type === 'Unstake';
       case 'Lending':
         return type === 'Deposit Collateral' || type === 'Release Collateral';
       case 'Borrowing':
@@ -137,10 +133,6 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         return <ArrowUpRight className="w-4 h-4 text-cyan-400" />;
       case 'Buy Token':
         return <ShoppingBag className="w-4 h-4 text-amber-400" />;
-      case 'Stake':
-        return <Layers className="w-4 h-4 text-emerald-400" />;
-      case 'Unstake':
-        return <ArrowDownRight className="w-4 h-4 text-rose-400" />;
       case 'Claim Reward':
         return <Sparkles className="w-4 h-4 text-emerald-400" />;
       case 'Borrow':
@@ -169,11 +161,8 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
         return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30';
       case 'Buy Token':
         return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
-      case 'Stake':
       case 'Claim Reward':
         return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
-      case 'Unstake':
-        return 'bg-rose-500/10 text-rose-300 border-rose-500/30';
       case 'Borrow':
         return 'bg-purple-500/10 text-purple-300 border-purple-500/30';
       case 'Repay':
@@ -281,7 +270,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
             <Filter className="w-3.5 h-3.5 text-indigo-400" /> Filter:
           </span>
           {(
-            ['All', 'Transfers', 'Presale', 'Staking', 'Lending', 'Borrowing', 'NFTs', 'Rewards', 'Referrals'] as TxFilterCategory[]
+            ['All', 'Transfers', 'Presale', 'Lending', 'Borrowing', 'NFTs', 'Rewards', 'Referrals'] as TxFilterCategory[]
           ).map((cat) => (
             <button
               key={cat}

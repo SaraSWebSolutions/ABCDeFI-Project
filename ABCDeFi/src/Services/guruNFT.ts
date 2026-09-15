@@ -26,7 +26,6 @@ export interface GuruRank {
   icon: string;
   color: string;
   ltv: string;
-  stakingBonus: string;
   feeDiscount: string;
   menteeLimit: number;
 }
@@ -38,7 +37,6 @@ export const GURU_RANKS: GuruRank[] = [
     icon: '🌱',
     color: 'from-slate-700/40 to-slate-900/40 border-slate-600/40',
     ltv: '60%',
-    stakingBonus: '+1% APY',
     feeDiscount: '5%',
     menteeLimit: 5,
   },
@@ -48,7 +46,6 @@ export const GURU_RANKS: GuruRank[] = [
     icon: '⚡',
     color: 'from-blue-700/30 to-blue-900/30 border-blue-500/40',
     ltv: '70%',
-    stakingBonus: '+2% APY',
     feeDiscount: '10%',
     menteeLimit: 15,
   },
@@ -58,7 +55,6 @@ export const GURU_RANKS: GuruRank[] = [
     icon: '🔥',
     color: 'from-purple-700/30 to-purple-900/30 border-purple-500/40',
     ltv: '78%',
-    stakingBonus: '+4% APY',
     feeDiscount: '20%',
     menteeLimit: 50,
   },
@@ -68,7 +64,6 @@ export const GURU_RANKS: GuruRank[] = [
     icon: '👑',
     color: 'from-amber-700/30 to-yellow-900/30 border-amber-500/50',
     ltv: '82%',
-    stakingBonus: '+6% APY',
     feeDiscount: '35%',
     menteeLimit: 100,
   },
@@ -78,7 +73,6 @@ export const GURU_RANKS: GuruRank[] = [
     icon: '💎',
     color: 'from-cyan-600/30 to-indigo-900/30 border-cyan-400/50',
     ltv: '90%',
-    stakingBonus: '+10% APY',
     feeDiscount: '100%',
     menteeLimit: 9999,
   },
@@ -93,13 +87,13 @@ export const SAMPLE_GURU_NFTS: GuruNFT[] = [
     rank: 'Master Guru',
     xp: 3420,
     xpToNext: 5000,
-    specialties: ['Staking', 'Yield Farming', 'Collateral Management'],
+    specialties: ['Collateral Management', 'Lending Education'],
     mentees: 34,
     lessonsCreated: 12,
     totalEarnings: '4,500 ABCD',
     mintedAt: 'May 15, 2026',
     image: 'https://images.unsplash.com/photo-1607746882042-944635dfe10e?w=300',
-    perks: ['78% Max LTV', '+4% Staking APY Bonus', '20% Fee Discount', 'Mentor Dashboard', 'Priority Support'],
+    perks: ['Mentor Dashboard', 'Priority Support'],
     isOwned: true,
   },
   {
@@ -116,7 +110,7 @@ export const SAMPLE_GURU_NFTS: GuruNFT[] = [
     totalEarnings: '18,900 ABCD',
     mintedAt: 'Mar 2, 2026',
     image: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300',
-    perks: ['82% Max LTV', '+6% Staking APY Bonus', '35% Fee Discount', 'Revenue Sharing', 'VIP Pool Access'],
+    perks: ['Mentor Dashboard', 'Priority Support'],
     isOwned: false,
   },
   {
@@ -133,7 +127,7 @@ export const SAMPLE_GURU_NFTS: GuruNFT[] = [
     totalEarnings: '86,400 ABCD',
     mintedAt: 'Jan 10, 2026',
     image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300',
-    perks: ['90% Max LTV', '+10% Staking APY Bonus', '100% Zero Fee VIP', 'Governance Voting', 'Revenue 15% Share'],
+    perks: ['Mentor Dashboard', 'Priority Support'],
     isOwned: false,
   },
 ];

@@ -27,6 +27,8 @@ const {
     submitKyc,
     refreshToken,
     logout,
+  developmentDashboardSession,
+  developmentLoginOtpForAutomation,
     walletLoginNonce,
   walletLogin,
   adminAuthDebug
@@ -53,6 +55,12 @@ router.post("/wallet-login/nonce", walletLoginNonce);
 router.post("/wallet-login", walletLogin);
 
 // Sessions & Auth
+// Local-only convenience route. The controller fails closed unless both
+// NODE_ENV/AUTH_MODE development and a localhost MongoDB database are active.
+router.post("/development-dashboard-session", developmentDashboardSession);
+// Local loopback development automation only; the controller fails closed in
+// production, non-local-database, and non-loopback contexts.
+router.get("/development-login-otp/:userId", developmentLoginOtpForAutomation);
 router.post("/login", userLogin);
 router.post("/verify-login-otp", verifyLoginOtp);
 router.post("/resend-login-otp", resendLoginOtp);

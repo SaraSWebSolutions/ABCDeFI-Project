@@ -18,7 +18,6 @@ export interface CeFiSettings {
   transactionPinEnabled: boolean;
   emailMarginCallAlerts: boolean;
   emailEmiReminders: boolean;
-  emailStakingYields: boolean;
   emailPresaleNews: boolean;
 }
 
@@ -51,7 +50,6 @@ const DEFAULT_SETTINGS: CeFiSettings = {
   transactionPinEnabled: true,
   emailMarginCallAlerts: true,
   emailEmiReminders: true,
-  emailStakingYields: true,
   emailPresaleNews: false,
 };
 
@@ -71,14 +69,6 @@ const DEFAULT_NOTIFICATIONS: CeFiNotification[] = [
     type: 'Transaction',
     timestamp: '2 hours ago',
     read: false,
-  },
-  {
-    id: 'notif-3',
-    title: 'Staking Yield Distributed',
-    message: 'You received +145.20 ABCD in staking rewards from Pool #1.',
-    type: 'Yield',
-    timestamp: '1 day ago',
-    read: true,
   },
   {
     id: 'notif-4',
@@ -206,7 +196,6 @@ export interface AdminUserItem {
   kycStatus: 'Verified / Approved' | 'Pending Verification' | 'Rejected' | 'Not Submitted';
   creditScore: number;
   borrowedBalance: string;
-  stakedBalance: string;
   isFrozen: boolean;
   registeredAt: string;
 }
@@ -220,7 +209,6 @@ export async function getAllAdminUsers(): Promise<AdminUserItem[]> {
       kycStatus: 'Verified / Approved',
       creditScore: 780,
       borrowedBalance: '5,000 ABCD',
-      stakedBalance: '10,000 ABCD',
       isFrozen: false,
       registeredAt: 'Jan 2026',
     },
@@ -231,7 +219,6 @@ export async function getAllAdminUsers(): Promise<AdminUserItem[]> {
       kycStatus: 'Pending Verification',
       creditScore: 640,
       borrowedBalance: '0 ABCD',
-      stakedBalance: '25,000 ABCD',
       isFrozen: false,
       registeredAt: 'Feb 2026',
     },
@@ -242,7 +229,6 @@ export async function getAllAdminUsers(): Promise<AdminUserItem[]> {
       kycStatus: 'Verified / Approved',
       creditScore: 820,
       borrowedBalance: '12,500 ABCD',
-      stakedBalance: '50,000 ABCD',
       isFrozen: false,
       registeredAt: 'Mar 2026',
     },
@@ -253,7 +239,6 @@ export async function getAllAdminUsers(): Promise<AdminUserItem[]> {
       kycStatus: 'Rejected',
       creditScore: 520,
       borrowedBalance: '8,000 ABCD',
-      stakedBalance: '0 ABCD',
       isFrozen: true,
       registeredAt: 'Apr 2026',
     },
@@ -264,5 +249,4 @@ export async function freezeUserAccount(walletAddress: string, freezeState: bool
   await new Promise((r) => setTimeout(r, 400));
   return freezeState;
 }
-
 

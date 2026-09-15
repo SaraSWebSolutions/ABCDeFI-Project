@@ -1,0 +1,25 @@
+{
+  "chainId": 31337,
+  "network": "localhost",
+  "rpcUrl": "http://127.0.0.1:8545",
+  "deploymentVersion": "legion-credential-v2-local-0x21e82c5d3b81156dac366f093787868f34e8c98773ab5b35049297f1032b1822",
+  "deploymentBlock": 1,
+  "localOnly": true,
+  "contracts": {
+    "LegionCredentialV2": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "deploymentTransactionHash": "0x42a3d9706c6517c08f1e5210294168bd62da727adcaeab8b6e292e1e39ef84b4",
+      "deploymentBlock": 1,
+      "constructorArgs": [
+        "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+      ]
+    }
+  },
+  "roles": {
+    "defaultAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "legionAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "legionMinter": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "pauser": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  }
+}

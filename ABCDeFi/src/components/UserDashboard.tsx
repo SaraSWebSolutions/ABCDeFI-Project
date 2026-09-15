@@ -8,7 +8,6 @@ import {
   RefreshCcw,
   CalendarClock,
   History,
-  TrendingUp,
   Gift,
   Image as ImageIcon,
   ShoppingCart,
@@ -34,22 +33,18 @@ import {
 import { PortfolioDashboard } from './PortfolioDashboard';
 import { TransactionHistory } from './TransactionHistory';
 import { NFTEcosystem } from './NFTEcosystem';
-import { LegionNFT } from './LegionNFT';
-import { FranchiseNFT } from './FranchiseNFT';
-import { PresaleICO } from './PresaleICO';
+import { LegionNFTV2Dashboard } from './LegionNFTV2Dashboard';
+import { ABCDNFTMarketplaceV2Dashboard } from './ABCDNFTMarketplaceV2Dashboard';
+import { FranchiseRegistryDashboard } from './FranchiseRegistryDashboard';
+import { ICOv2Dashboard } from './ICOv2Dashboard';
 import { ClaimPortal } from './ClaimPortal';
-import { ReferralSystem } from './ReferralSystem';
+import { LendingReferralDashboard } from './LendingReferralDashboard';
 import { AIFinancialAssistant } from './AIFinancialAssistant';
 import { FinancialEducation } from './FinancialEducation';
 import { AIGamesDashboard } from './AIGamesDashboard';
-import { ProtocolDashboard } from './ProtocolDashboard';
-import { ContractInteractDashboard } from './ContractInteractDashboard';
 import { MasterProtocolManager } from './MasterProtocolManager';
 import { NFTSubModuleManager } from './NFTSubModuleManager';
-import P2PLendingDashboard from './P2PLendingDashboard';
-import { LendingPool } from './LendingPool';
 import { LendingV2 } from './LendingV2';
-import { StakingPools } from './StakingPools';
 
 import NextGenProtocolDashboard from './NextGenProtocolDashboard';
 
@@ -138,14 +133,13 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
     { id: 'liquidation', label: 'Liquidation', icon: Coins },
     // { id: 'loan-reports', label: 'Loan Reports', icon: PieChart },
     { id: 'history', label: 'Transaction History', icon: History },
-    // { id: 'staking', label: 'Staking', icon: TrendingUp },
     // { id: 'rewards', label: 'Rewards', icon: Gift },
     { id: 'nft-ecosystem', label: 'NFT Ecosystem', icon: Layers },
-    { id: 'legion', label: 'Legion NFTs', icon: MapPinned },
+    { id: 'legion', label: 'Legion Territories', icon: MapPinned },
     { id: 'franchise', label: 'Franchise NFTs', icon: Building2 },
+    { id: 'abcd-nft-marketplace', label: 'ABCD NFT Marketplace', icon: ShoppingCart },
     // { id: 'ai-59c', label: '🤖 59C AI Games & Learning', icon: Bot },
     { id: 'ico', label: 'ICO Participation', icon: Rocket },
-    { id: 'staking-pools', label: 'Staking Pools', icon: TrendingUp },
     { id: 'referral', label: 'Referrals', icon: Users },
     { id: 'security', label: 'Security 2FA', icon: ShieldCheck },
     { id: 'ai-copilot', label: 'AI Copilot', icon: Bot },
@@ -309,7 +303,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
         />
       )}
       {activeTab === 'portfolio' && <PortfolioDashboard />}
-      {activeTab === 'ico' && <PresaleICO />}
+      {activeTab === 'ico' && <ICOv2Dashboard />}
       {activeTab === 'lending' && <LendingV2 />}
       {activeTab === 'lending-v2' && <LendingV2 />}
       {activeTab === 'p2p-loans' && <LendingV2 />}
@@ -354,14 +348,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
       {activeTab === 'history' && <TransactionHistory />}
       {activeTab === 'ai-59c' && <AIGamesDashboard />}
 
-      {activeTab === 'staking' && (
-        <div className="space-y-6">
-          <ProtocolDashboard />
-          <ContractInteractDashboard />
-        </div>
-      )}
-      {activeTab === 'staking-pools' && <StakingPools />}
-
       {/* {activeTab === 'rewards' && (
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 max-w-3xl mx-auto">
           <h2 className="text-xl font-bold text-white uppercase flex items-center gap-2 border-b border-slate-800 pb-3">
@@ -404,9 +390,12 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
         <NFTEcosystem connectedWallet={wallet.address || undefined} />
       )}
 
-      {activeTab === 'legion' && <LegionNFT />}
+      {/* Canonical Phase 8 hierarchy: Country → State → District only. The
+          personal credential and legacy territorial marketplace remain isolated. */}
+      {activeTab === 'legion' && <LegionNFTV2Dashboard />}
 
-      {activeTab === 'franchise' && <FranchiseNFT />}
+      {activeTab === 'franchise' && <FranchiseRegistryDashboard />}
+      {activeTab === 'abcd-nft-marketplace' && <ABCDNFTMarketplaceV2Dashboard />}
 
       {/* {activeTab === 'vesting' && (
         <ClaimPortal
@@ -422,7 +411,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
         />
       )} */}
 
-      {activeTab === 'referral' && <ReferralSystem />}
+      {activeTab === 'referral' && <LendingReferralDashboard />}
 
       {activeTab === 'security' && (
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-3 max-w-2xl mx-auto">

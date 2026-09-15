@@ -95,7 +95,6 @@ const MY_NFTS = [
     color2: '#D97706',
     attributes: [
       { trait: 'Commission Boost', value: '8%' },
-      { trait: 'Staking Multiplier', value: '1.5×' },
       { trait: 'Governance Votes', value: '3' },
     ],
   },
@@ -112,7 +111,6 @@ const MY_NFTS = [
     color2: '#1D4ED8',
     attributes: [
       { trait: 'Commission Boost', value: '5%' },
-      { trait: 'Staking Multiplier', value: '1.2×' },
       { trait: 'Governance Votes', value: '1' },
     ],
   },
@@ -129,7 +127,6 @@ const MY_NFTS = [
     color2: '#6C3CF0',
     attributes: [
       { trait: 'Commission Boost', value: '2%' },
-      { trait: 'Staking Multiplier', value: '1.0×' },
       { trait: 'Governance Votes', value: '0' },
     ],
   },

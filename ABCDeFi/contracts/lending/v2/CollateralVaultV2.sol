@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+interface ILiquidationCollateralReceiverV2 { function receiveCollateral(uint256 loanId) external payable; }
+
 /// @notice Native ETH collateral is isolated by direct-deposit ID, P2P request ID, or final loan ID.
 contract CollateralVaultV2 is AccessControl, ReentrancyGuard {
     bytes32 public constant VAULT_OPERATOR_ROLE = keccak256("VAULT_OPERATOR_ROLE");
@@ -36,4 +38,12 @@ contract CollateralVaultV2 is AccessControl, ReentrancyGuard {
     function releaseDirectDeposit(uint256 depositId, address payable borrower) external onlyRole(VAULT_OPERATOR_ROLE) nonReentrant returns(uint256 amount) { amount=directDepositCollateral[depositId]; require(amount != 0, "no direct deposit collateral"); directDepositCollateral[depositId]=0; (bool ok,)=borrower.call{value:amount}(""); require(ok,"eth transfer failed"); emit CollateralReleased(depositId, borrower, amount); }
     function release(uint256 loanId, address payable borrower) external onlyRole(VAULT_OPERATOR_ROLE) nonReentrant returns(uint256 amount) { amount=loanCollateral[loanId]; require(amount != 0, "no collateral"); loanCollateral[loanId]=0; (bool ok,)=borrower.call{value:amount}(""); require(ok,"eth transfer failed"); emit CollateralReleased(loanId, borrower, amount); }
     function seize(uint256 loanId, address payable recipient, uint256 amount) external onlyRole(VAULT_OPERATOR_ROLE) nonReentrant { require(amount != 0 && amount <= loanCollateral[loanId], "invalid seizure"); loanCollateral[loanId]-=amount; (bool ok,)=recipient.call{value:amount}(""); require(ok,"eth transfer failed"); emit CollateralSeized(loanId,recipient,amount); }
+    /// @notice Sends loan-bound ETH only to the canonical sale adapter receiver.
+    /// The adapter records the loan ID before it can wrap or sell the ETH.
+    function seizeToSaleAdapter(uint256 loanId, address adapter, uint256 amount) external onlyRole(VAULT_OPERATOR_ROLE) nonReentrant {
+        require(adapter != address(0) && amount != 0 && amount <= loanCollateral[loanId], "invalid seizure");
+        loanCollateral[loanId] -= amount;
+        ILiquidationCollateralReceiverV2(adapter).receiveCollateral{value: amount}(loanId);
+        emit CollateralSeized(loanId, adapter, amount);
+    }
 }

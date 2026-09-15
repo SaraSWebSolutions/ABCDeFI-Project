@@ -19,7 +19,8 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     address public constant ETH_ASSET = address(1);
     /// @notice P2P ETH requests use the whitepaper's ETH-specific 35% initial LTV.
-    /// Direct Lending V2 keeps its independent 50% policy in LendingPoolV2.
+    /// Direct Lending V2 independently applies the same approved 35% ETH
+    /// initial-LTV policy through LendingPoolV2.
     uint16 public constant P2P_INITIAL_LTV_BPS = 3_500;
     uint256 private constant BPS_DENOMINATOR = 10_000;
     IERC20 public immutable abcd;
@@ -42,8 +43,6 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
     event RequestFunded(uint256 indexed requestId, uint256 indexed loanId, address indexed lender, uint256 principal, uint256 collateral, uint48 maturity);
     event RequestRepaid(uint256 indexed requestId, uint256 indexed loanId, address indexed borrower, address lender);
     event RequestCancelled(uint256 indexed requestId);
-    event P2PLiquidationSettled(uint256 indexed requestId, uint256 indexed loanId, address indexed liquidator, address lender, uint256 debtCovered, uint256 collateralToLiquidator, uint256 reserveContribution, uint256 badDebt, uint256 borrowerSurplus);
-    event P2PDefaultSettled(uint256 indexed requestId, uint256 indexed loanId, address lender, uint256 collateralToLender, uint256 borrowerSurplus, uint256 borrowerLiability);
 
     constructor(address admin, address abcd_, address manager_, address vault_, address oracle_, address loanNFT_, address lendingReferralManager_) {
         require(admin != address(0) && abcd_ != address(0) && manager_ != address(0) && vault_ != address(0) && oracle_ != address(0) && loanNFT_ != address(0) && lendingReferralManager_ != address(0), "invalid address");
@@ -79,8 +78,7 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
     function fundRequest(uint256 requestId) external whenNotPaused nonReentrant returns(uint256 loanId) {
         Request storage r=requests[requestId]; require(r.state==RequestState.OPEN && r.borrower!=msg.sender && address(emiManager)!=address(0),"not fundable");
         r.state=RequestState.FUNDED; r.lender=msg.sender; abcd.safeTransferFrom(msg.sender,r.borrower,r.principal);
-        uint16 aprBps = loanManager.newLoanAprBps();
-        loanId=loanManager.create(r.borrower,msg.sender,r.collateral,r.principal,aprBps,r.term); r.loanId=loanId; requestByLoanId[loanId]=requestId;
+        loanId=loanManager.createP2P(r.borrower,msg.sender,r.collateral,r.principal,r.term); r.loanId=loanId; requestByLoanId[loanId]=requestId;
         // Funding, rather than request creation, establishes the actual P2P
         // lender/borrower relationship eligible for referral accounting.
         lendingReferralManager.registerLoan(loanId, requestId, true);
@@ -103,32 +101,25 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
         uint256 requestId = requestByLoanId[loanId];
         return requestId != 0 && requests[requestId].state == RequestState.FUNDED && requests[requestId].loanId == loanId;
     }
-    /// @notice Terminal P2P-only callback from the configured risk engine. The
-    /// engine pays the lender directly; no P2P proceeds enter the direct pool.
+    /// @notice Retained ABI boundary. Terminal P2P settlement cannot execute
+    /// until its whitepaper-undefined recovery and accounting policy is approved.
     function settleLiquidation(uint256 loanId, address payable liquidator, uint256 debtCovered, uint256 collateralToLiquidator, uint256 reserveContribution, uint256 badDebt)
         external onlyRole(LIQUIDATION_SETTLEMENT_ROLE) nonReentrant
     {
-        uint256 requestId = requestByLoanId[loanId]; require(requestId != 0, "missing request");
-        Request storage r = requests[requestId]; require(r.state == RequestState.FUNDED && r.loanId == loanId, "not funded request");
-        LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
-        require(loan.state == LoanManagerV2.State.ACTIVE || loan.state == LoanManagerV2.State.GRACE_PERIOD || loan.state == LoanManagerV2.State.MARGIN_CALL || loan.state == LoanManagerV2.State.DEFAULTED, "not liquidatable");
-        loanManager.liquidate(loanId, debtCovered, reserveContribution, badDebt);
-        loanNFT.setStatus(loanId, LoanNFTV2.Status.LIQUIDATED);
-        if (collateralToLiquidator != 0) collateralVault.seize(loanId, liquidator, collateralToLiquidator);
-        uint256 surplus = collateralVault.loanCollateral(loanId);
-        if (surplus != 0) collateralVault.release(loanId, payable(r.borrower));
-        r.state = RequestState.SETTLED;
-        emit P2PLiquidationSettled(requestId, loanId, liquidator, r.lender, debtCovered, collateralToLiquidator, reserveContribution, badDebt, surplus);
+        loanId; liquidator; debtCovered; collateralToLiquidator; reserveContribution; badDebt;
+        revert("p2p liquidation settlement policy required");
+    }
+    /// @notice Retained ABI boundary. A P2P partial-sale callback requires an
+    /// approved sale, rounding, residual-accounting, and settlement policy.
+    function settlePartialLiquidation(uint256 loanId, address payable liquidator, uint256 debtReduction, uint256 collateralToLiquidator)
+        external onlyRole(LIQUIDATION_SETTLEMENT_ROLE) nonReentrant
+    {
+        loanId; liquidator; debtReduction; collateralToLiquidator;
+        revert("p2p partial sale policy required");
     }
     function settleDefault(uint256 requestId) external whenNotPaused nonReentrant {
-        Request storage r=requests[requestId]; require(r.state==RequestState.FUNDED,"not funded"); loanManager.sync(r.loanId);
-        LoanManagerV2.Loan memory loan=loanManager.getLoan(r.loanId); require(loan.state==LoanManagerV2.State.DEFAULTED,"not defaulted");
-        uint256 debt=uint256(loan.principalOutstanding)+loan.accruedInterest+loan.fees; uint256 ethPrice=oracle.priceUSD(ETH_ASSET); uint256 tokenPrice=oracle.priceUSD(address(abcd));
-        uint256 neededETH=debt*tokenPrice*1e18/ethPrice; uint256 collateral=collateralVault.loanCollateral(r.loanId); uint256 toLender=neededETH<collateral?neededETH:collateral;
-        uint256 recovered=toLender*ethPrice/tokenPrice; if(recovered>debt) recovered=debt; uint256 liability=debt-recovered;
-        if(toLender!=0) collateralVault.seize(r.loanId,payable(r.lender),toLender); uint256 surplus=collateralVault.loanCollateral(r.loanId); if(surplus!=0) collateralVault.release(r.loanId,payable(r.borrower));
-        loanManager.liquidate(r.loanId,recovered,0,liability); loanNFT.setStatus(r.loanId,LoanNFTV2.Status.LIQUIDATED); r.state=RequestState.SETTLED;
-        emit P2PDefaultSettled(requestId,r.loanId,r.lender,toLender,surplus,liability);
+        requestId;
+        revert("p2p default settlement policy required");
     }
     function pause() external onlyRole(DEFAULT_ADMIN_ROLE) { _pause(); }
     function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) { _unpause(); }

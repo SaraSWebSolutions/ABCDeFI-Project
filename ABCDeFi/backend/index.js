@@ -69,7 +69,6 @@ app.listen(PORT, () => {
   const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:8545';
   const addresses = {
     Presale: process.env.PRESALE_ADDRESS || '',
-    StakingPool: process.env.STAKING_ADDRESS || '',
     TokenVesting: process.env.VESTING_ADDRESS || '',
   };
 

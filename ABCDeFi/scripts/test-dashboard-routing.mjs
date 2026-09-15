@@ -70,13 +70,13 @@ test('the active user dashboard has no admin-only component dependency', () => {
   }
 });
 
-test('user-facing Franchise and Legion views cannot issue administrator certificates', () => {
+test('user-facing Franchise and canonical Legion views cannot issue administrator certificates', () => {
   const franchiseSource = fs.readFileSync(new URL('../src/components/FranchiseNFT.tsx', import.meta.url), 'utf8');
-  const legionSource = fs.readFileSync(new URL('../src/components/LegionNFT.tsx', import.meta.url), 'utf8');
+  const legionSource = fs.readFileSync(new URL('../src/components/LegionCredentialDashboard.tsx', import.meta.url), 'utf8');
 
   assert.doesNotMatch(franchiseSource, /\bmintFranchise\b/);
   assert.doesNotMatch(franchiseSource, /Issue a Franchise certificate/);
-  assert.doesNotMatch(legionSource, /\bmintLegion\b/);
+  assert.doesNotMatch(legionSource, /\bmintCredential\b/);
   assert.doesNotMatch(legionSource, /Issue a Legion certificate/);
   assert.doesNotMatch(legionSource, /Mint Legion certificate/);
 });
@@ -138,22 +138,18 @@ test('top-level incomplete navigation renders an explicit state instead of a bla
   assert.match(userDashboardSource, /not implemented in the active canonical runtime/);
 });
 
-test('Staking Pools remains a labeled, reachable top-level dashboard destination', () => {
-  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
-  const navbarSource = fs.readFileSync(new URL('../src/components/Navbar.tsx', import.meta.url), 'utf8');
-  assert.match(userDashboardSource, /\{ id: 'staking-pools', label: 'Staking Pools'/);
-  assert.match(userDashboardSource, /activeTab === 'staking-pools' && <StakingPools\s*\/>/);
-  assert.doesNotMatch(navbarSource, /Dashboard navigation/);
-});
-
 test('the primary UserDashboard lending and P2P tabs use the isolated V2 workflow', () => {
   const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+  const mobileDashboardSource = fs.readFileSync(new URL('../src/components/MobileUserDashboard.tsx', import.meta.url), 'utf8');
   assert.match(userDashboardSource, /\{ id: 'lending', label: 'Lending'/);
   assert.match(userDashboardSource, /\{ id: 'lending-v2', label: 'Lending V2'/);
   assert.match(userDashboardSource, /\{ id: 'p2p-loans', label: 'P2P Loans'/);
   assert.match(userDashboardSource, /activeTab === 'lending' && <LendingV2\s*\/>/);
   assert.match(userDashboardSource, /activeTab === 'lending-v2' && <LendingV2\s*\/>/);
   assert.match(userDashboardSource, /activeTab === 'p2p-loans' && <LendingV2\s*\/>/);
+  assert.doesNotMatch(userDashboardSource, /from ['"]\.\/LendingPool['"]/);
+  assert.doesNotMatch(userDashboardSource, /from ['"]\.\/P2PLendingDashboard['"]/);
+  assert.doesNotMatch(mobileDashboardSource, /from ['"]\.\/P2PLendingDashboard['"]/);
 });
 
 test('active summary and NFT surfaces do not query legacy V1 lending or LoanNFT state', () => {
@@ -174,35 +170,28 @@ test('active summary and NFT surfaces do not query legacy V1 lending or LoanNFT 
   assert.doesNotMatch(activeSnapshotSource, /assertLoanNftDeployment|loan\.balanceOf/);
 });
 
-test('the active Treasury dashboard uses canonical balances and approved eight-way allocation policy', () => {
-  const protocolDashboardSource = fs.readFileSync(new URL('../src/components/ProtocolDashboard.tsx', import.meta.url), 'utf8');
+test('the active dashboard does not route through the retired Treasury mock while Treasury reads remain canonical', () => {
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
   const treasuryServiceSource = fs.readFileSync(new URL('../src/Services/treasury.ts', import.meta.url), 'utf8');
 
   assert.match(treasuryServiceSource, /return \{ ethBalance: state\.ethBalance, abcdBalance: state\.abcdBalance \};/);
-  assert.match(protocolDashboardSource, /treasury\.abcdBalance/);
-  assert.match(protocolDashboardSource, /Canonical contract read/);
-  assert.match(protocolDashboardSource, /Allocation policy percentages are not live Treasury asset holdings/);
-  assert.doesNotMatch(protocolDashboardSource, /treasuryEth: '50\.50'/);
-  assert.doesNotMatch(protocolDashboardSource, /treasuryAbcd: '2,500,000'/);
-  for (const allocation of ['Infrastructure', 'Liquidity & Financial Activities', 'Marketing / Ad / Promo / PR', 'Contracts / Endorsements / Tie-ups', 'Community', 'ACF Education / Welfare / Excellence', 'Contingency', 'Reserve']) {
-    assert.match(protocolDashboardSource, new RegExp(allocation.replace(/[.*+?^$\{\}()|[\]\\]/g, '\\$&')));
-  }
-  for (const legacyAllocation of ['Staking Rewards', 'Public Presale', 'ETH Reserve', 'Yield Farming']) {
-    assert.doesNotMatch(protocolDashboardSource, new RegExp(`name: '${legacyAllocation}'`));
-  }
+  assert.doesNotMatch(userDashboardSource, /from ['"]\.\/ProtocolDashboard['"]/);
+  assert.doesNotMatch(userDashboardSource, /treasuryEth: '50\.50'/);
+  assert.doesNotMatch(userDashboardSource, /treasuryAbcd: '2,500,000'/);
 });
 
 test('V2 direct lending exposes only the canonical V2 deposit handler while legacy V1 P2P is explicitly labelled', () => {
   const v2Source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
   const v1P2pSource = fs.readFileSync(new URL('../src/components/P2PLendingDashboard.tsx', import.meta.url), 'utf8');
-  const legacyContractSource = fs.readFileSync(new URL('../src/components/ContractInteractDashboard.tsx', import.meta.url), 'utf8');
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
   assert.match(v2Source, /aria-label="Lending V2 direct lending flow"/);
   assert.match(v2Source, /depositV2Collateral\(collateral, progress\)/);
   assert.match(v2Source, /LendingPoolV2/);
   assert.match(v1P2pSource, /Legacy Lending V1 \/ P2P/);
+  assert.match(v1P2pSource, /It exposes no transaction controls/);
   assert.doesNotMatch(v1P2pSource, /<LendingPool/);
-  assert.match(legacyContractSource, /Legacy \/ Compatibility \/ Historical V1/);
-  assert.doesNotMatch(legacyContractSource, /<LendingPool/);
+  assert.doesNotMatch(userDashboardSource, /ContractInteractDashboard/);
+  assert.doesNotMatch(v2Source, /ContractInteractDashboard/);
 });
 
 test('the V2 collateral-deposit trigger is a visible, guarded real transaction button', () => {
@@ -212,7 +201,8 @@ test('the V2 collateral-deposit trigger is a visible, guarded real transaction b
   assert.match(v2Source, /disabled=\{!canWrite \|\| !positiveAmount\(collateral\)\}/);
   assert.match(v2Source, /depositV2Collateral\(collateral, progress\)/);
   assert.match(service, /pool\.depositCollateral\.estimateGas\(\{ value \}\)/);
-  assert.match(service, /pool\.depositCollateral\(\{ value, gasLimit: gas \}\)/);
+  assert.match(service, /canonicalProvider\.getTransactionCount\(await signer\.getAddress\(\), 'pending'\)/);
+  assert.match(service, /pool\.depositCollateral\(await walletTransactionOverrides\(signer, gas, value\)\)/);
   assert.match(service, /pool\.maxBorrowable\(collateral\)/);
   assert.doesNotMatch(service, /pool\.maxBorrowable\(depositId\)/);
   assert.match(service, /log\.address\.toLowerCase\(\) !== expectedPool/);

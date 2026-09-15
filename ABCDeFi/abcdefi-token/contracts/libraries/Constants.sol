@@ -34,7 +34,6 @@ library Constants {
     bytes32 public constant WITHDRAWER_ROLE     = keccak256("WITHDRAWER_ROLE");
     bytes32 public constant VESTING_ADMIN_ROLE  = keccak256("VESTING_ADMIN_ROLE");
     bytes32 public constant PRESALE_ADMIN_ROLE  = keccak256("PRESALE_ADMIN_ROLE");
-    bytes32 public constant STAKING_ADMIN_ROLE  = keccak256("STAKING_ADMIN_ROLE");
     bytes32 public constant BONUS_ADMIN_ROLE    = keccak256("BONUS_ADMIN_ROLE");
     bytes32 public constant LENDING_ADMIN_ROLE  = keccak256("LENDING_ADMIN_ROLE");
     bytes32 public constant VAULT_ADMIN_ROLE    = keccak256("VAULT_ADMIN_ROLE");

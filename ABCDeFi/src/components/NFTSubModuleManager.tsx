@@ -126,7 +126,7 @@ export const NFTSubModuleManager: React.FC<NFTSubModuleManagerProps> = ({
               </div>
               <div>
                 <h2 className="text-lg font-bold text-white uppercase tracking-wider">Legion Territory & Guru NFT Airdrop Portal</h2>
-                <p className="text-xs text-slate-400">Claim promotional territory NFTs awarded to top stakers and franchise node owners.</p>
+                <p className="text-xs text-slate-400">Promotional NFT eligibility is not configured in the current product scope.</p>
               </div>
             </div>
           </div>
@@ -134,7 +134,7 @@ export const NFTSubModuleManager: React.FC<NFTSubModuleManagerProps> = ({
           <div className="bg-slate-950 p-5 rounded-2xl border border-pink-500/40 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
             <div className="space-y-1">
               <div className="font-bold text-pink-300 text-sm">Eligible Airdrop: Hyderabad Cyberabad Node NFT #002</div>
-              <div className="text-[11px] text-slate-400">Status: Eligible (Top Staker Tier 1) • Claim Fee: Free (+ Gas)</div>
+              <div className="text-[11px] text-slate-400">Status: Unavailable — no current eligibility rule is configured.</div>
             </div>
             <button
               onClick={() => triggerAction('Claim Airdrop Territory NFT', 'LegionNFT', 'claimAirdrop', '0.00 ETH', '🎁')}

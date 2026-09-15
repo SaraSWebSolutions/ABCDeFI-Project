@@ -1,0 +1,930 @@
+contracts/nft/LoanNFTV2.sol:8:/// @notice Transferable completion certificates for settled Lending V2 loans.
+contracts/nft/LoanNFTV2.sol:10:/// redeemable claim, transfer of loan proceeds, reserve withdrawal, or token payout.
+contracts/nft/LoanNFTV2.sol:11:contract LoanNFTV2 is ERC721URIStorage, AccessControl {
+contracts/nft/LoanNFTV2.sol:14:    /// minter role.  A direct-pool operator cannot assign a P2P request and a
+contracts/nft/LoanNFTV2.sol:15:    /// P2P settlement operator cannot mint a direct-loan completion record.
+contracts/nft/LoanNFTV2.sol:17:    bytes32 public constant P2P_COMPLETION_OPERATOR_ROLE = keccak256("P2P_COMPLETION_OPERATOR_ROLE");
+contracts/nft/LoanNFTV2.sol:21:    // Appended value preserves legacy status values consumed by prior indexed events.
+contracts/nft/LoanNFTV2.sol:22:    enum Status { ACTIVE, REPAID, GRACE_PERIOD, DEFAULTED, LIQUIDATED, CLOSED, COMPLETED }
+contracts/nft/LoanNFTV2.sol:23:    enum CertificateRole { LENDER, BORROWER, PLATFORM }
+contracts/nft/LoanNFTV2.sol:32:        uint128 certificateValue;
+contracts/nft/LoanNFTV2.sol:35:        bool isP2P;
+contracts/nft/LoanNFTV2.sol:37:    struct Certificate {
+contracts/nft/LoanNFTV2.sol:48:        uint128 certificateValue;
+contracts/nft/LoanNFTV2.sol:49:        uint16 aprBps;
+contracts/nft/LoanNFTV2.sol:55:        CertificateRole role;
+contracts/nft/LoanNFTV2.sol:56:        bool isP2P;
+contracts/nft/LoanNFTV2.sol:63:    mapping(uint256 => Certificate) private _certificates;
+contracts/nft/LoanNFTV2.sol:64:    /// @notice Legacy borrower-certificate lookup retained for compatibility.
+contracts/nft/LoanNFTV2.sol:65:    mapping(uint256 => uint256) public loanCertificate;
+contracts/nft/LoanNFTV2.sol:66:    mapping(uint256 => mapping(CertificateRole => uint256)) public loanCertificates;
+contracts/nft/LoanNFTV2.sol:69:    event LoanCertificateCreated(
+contracts/nft/LoanNFTV2.sol:71:        uint256 indexed certificateId,
+contracts/nft/LoanNFTV2.sol:72:        CertificateRole indexed certificateRole,
+contracts/nft/LoanNFTV2.sol:74:        uint256 certificateValue,
+contracts/nft/LoanNFTV2.sol:78:    event CertificateStatusUpdated(uint256 indexed loanId, uint256 indexed tokenId, Status status);
+contracts/nft/LoanNFTV2.sol:81:        ERC721("ABCDeFi Loan Completion Certificate V2", "ABCD-LOAN-COMP-V2")
+contracts/nft/LoanNFTV2.sol:89:        _grantRole(P2P_COMPLETION_OPERATOR_ROLE, admin);
+contracts/nft/LoanNFTV2.sol:92:    /// @notice Creates lender, borrower, and platform certificates atomically
+contracts/nft/LoanNFTV2.sol:94:    function mintCompletionCertificates(uint256 loanId, uint256 requestId, bool isP2P, CompletionMetadata calldata metadata)
+contracts/nft/LoanNFTV2.sol:97:        if (isP2P) _checkRole(P2P_COMPLETION_OPERATOR_ROLE, msg.sender);
+contracts/nft/LoanNFTV2.sol:99:        require(!completionCreated[loanId], "completion certificates exist");
+contracts/nft/LoanNFTV2.sol:104:        require(loan.principalOutstanding == 0 && loan.accruedInterest == 0 && loan.fees == 0, "debt remains");
+contracts/nft/LoanNFTV2.sol:105:        require(isP2P ? requestId != 0 : requestId == 0, "invalid request association");
+contracts/nft/LoanNFTV2.sol:107:        uint256 agreedInterest = uint256(loan.principal) * loan.aprBps * (loan.maturity - loan.start) / (BPS * 365 days);
+contracts/nft/LoanNFTV2.sol:109:        uint256 certificateValue = totalScheduledRepayment * CERTIFICATE_VALUATION_BPS / BPS;
+contracts/nft/LoanNFTV2.sol:110:        require(agreedInterest <= type(uint128).max && totalScheduledRepayment <= type(uint128).max && certificateValue <= type(uint128).max, "valuation overflow");
+contracts/nft/LoanNFTV2.sol:115:        CompletionValues memory values = CompletionValues(loanId, requestId, uint128(agreedInterest), uint128(totalScheduledRepayment), uint128(certificateValue), completedAt, uint64(block.number), isP2P);
+contracts/nft/LoanNFTV2.sol:116:        lenderId = _mintCertificate(loan, values, CertificateRole.LENDER, loan.lender, metadata.lender);
+contracts/nft/LoanNFTV2.sol:117:        borrowerId = _mintCertificate(loan, values, CertificateRole.BORROWER, loan.borrower, metadata.borrower);
+contracts/nft/LoanNFTV2.sol:118:        platformId = _mintCertificate(loan, values, CertificateRole.PLATFORM, platformRecipient, metadata.platform);
+contracts/nft/LoanNFTV2.sol:119:        loanCertificate[loanId] = borrowerId;
+contracts/nft/LoanNFTV2.sol:131:    function _mintCertificate(
+contracts/nft/LoanNFTV2.sol:134:        CertificateRole role,
+contracts/nft/LoanNFTV2.sol:138:        require(owner != address(0) && loanCertificates[values.loanId][role] == 0, "duplicate certificate role");
+contracts/nft/LoanNFTV2.sol:140:        loanCertificates[values.loanId][role] = id;
+contracts/nft/LoanNFTV2.sol:141:        Certificate storage certificate = _certificates[id];
+contracts/nft/LoanNFTV2.sol:142:        certificate.loanId = values.loanId;
+contracts/nft/LoanNFTV2.sol:143:        certificate.requestId = values.requestId;
+contracts/nft/LoanNFTV2.sol:144:        certificate.borrower = loan.borrower;
+contracts/nft/LoanNFTV2.sol:145:        certificate.lender = loan.lender;
+contracts/nft/LoanNFTV2.sol:146:        certificate.platform = platformRecipient;
+contracts/nft/LoanNFTV2.sol:147:        certificate.principal = loan.principal;
+contracts/nft/LoanNFTV2.sol:148:        certificate.collateral = loan.collateralETH;
+contracts/nft/LoanNFTV2.sol:149:        certificate.agreedInterest = values.agreedInterest;
+contracts/nft/LoanNFTV2.sol:150:        certificate.totalScheduledRepayment = values.totalScheduledRepayment;
+contracts/nft/LoanNFTV2.sol:151:        certificate.actualRepayment = loan.totalRepaid;
+contracts/nft/LoanNFTV2.sol:152:        certificate.certificateValue = values.certificateValue;
+contracts/nft/LoanNFTV2.sol:153:        certificate.aprBps = loan.aprBps;
+contracts/nft/LoanNFTV2.sol:154:        certificate.start = loan.start;
+contracts/nft/LoanNFTV2.sol:155:        certificate.maturity = loan.maturity;
+contracts/nft/LoanNFTV2.sol:156:        certificate.completedAt = values.completedAt;
+contracts/nft/LoanNFTV2.sol:157:        certificate.completionBlock = values.completionBlock;
+contracts/nft/LoanNFTV2.sol:158:        certificate.status = Status.COMPLETED;
+contracts/nft/LoanNFTV2.sol:159:        certificate.role = role;
+contracts/nft/LoanNFTV2.sol:160:        certificate.isP2P = values.isP2P;
+contracts/nft/LoanNFTV2.sol:161:        certificate.metadataHash = metadata.hash;
+contracts/nft/LoanNFTV2.sol:168:        emit LoanCertificateCreated(values.loanId, id, role, owner, values.certificateValue, metadata.uri, metadata.hash);
+contracts/nft/LoanNFTV2.sol:171:    /// @notice There is intentionally no certificate before completion.
+contracts/nft/LoanNFTV2.sol:173:        uint256 id = loanCertificate[loanId];
+contracts/nft/LoanNFTV2.sol:175:        _certificates[id].status = status;
+contracts/nft/LoanNFTV2.sol:176:        emit CertificateStatusUpdated(loanId, id, status);
+contracts/nft/LoanNFTV2.sol:179:    function getCertificate(uint256 certificateId) external view returns (Certificate memory) {
+contracts/nft/LoanNFTV2.sol:180:        return _certificates[certificateId];
+src/components/LendingV2.tsx:8:  getV2P2PRequestCapacity, getV2Request, getV2WalletHistory, lendingV2ErrorMessage, liquidateV2,
+src/components/LendingV2.tsx:11:  type CompletionCertificateMetadata, type V2PendingDeposit, type V2ProgressListener, type V2Read, type V2Tx,
+src/components/LendingV2.tsx:42:type Scope = 'direct' | 'p2p';
+src/components/LendingV2.tsx:43:type Selection = { wallet: string; depositId: string; loanId: string; requestId: string; p2pLoanId: string };
+src/components/LendingV2.tsx:44:const emptySelection = (wallet: string): Selection => ({ wallet, depositId: '', loanId: '', requestId: '', p2pLoanId: '' });
+src/components/LendingV2.tsx:53:  const { depositId, loanId, requestId, p2pLoanId } = selected;
+src/components/LendingV2.tsx:64:  const [p2pPrincipal, setP2pPrincipal] = useState(''); const [p2pCollateral, setP2pCollateral] = useState('');
+src/components/LendingV2.tsx:65:  const [p2pTerm, setP2pTerm] = useState('30');
+src/components/LendingV2.tsx:66:  const [p2pPayment, setP2pPayment] = useState('');
+src/components/LendingV2.tsx:67:  const [p2pTopUp, setP2pTopUp] = useState('');
+src/components/LendingV2.tsx:79:  const peerLoan = useRead(contracts && wallet && validId(p2pLoanId) ? `${wallet}:p2p:${p2pLoanId}` : null, () => getV2Loan(p2pLoanId));
+src/components/LendingV2.tsx:82:  const p2pCapacity = useRead(contracts && wallet && positiveAmount(p2pCollateral) ? `${wallet}:p2p-capacity:${p2pCollateral}` : null, () => getV2P2PRequestCapacity(p2pCollateral));
+src/components/LendingV2.tsx:85:  const p2pLoan = peerLoan.data && !peerLoan.data.isDirect ? peerLoan.data : null;
+src/components/LendingV2.tsx:86:  const p2pInstallmentOverdue = Boolean(p2pLoan?.schedule && !p2pLoan.schedule.completed && Number(p2pLoan.schedule.nextDueAt) * 1000 <= Date.now());
+src/components/LendingV2.tsx:90:  const peerActions = loanActions(p2pLoan, wallet);
+src/components/LendingV2.tsx:135:    if (funded && validId(funded.loanId)) select('p2pLoanId', funded.loanId);
+src/components/LendingV2.tsx:140:  // different direct/P2P loan after a dashboard selection change.
+src/components/LendingV2.tsx:143:  }, [tab, loanId, p2pLoanId]);
+src/components/LendingV2.tsx:168:        return { ...value, requestId: tx.requestId || value.requestId, p2pLoanId: tx.loanId || value.p2pLoanId };
+src/components/LendingV2.tsx:177:      if (scope === 'p2p' && validId(requestId)) reads.push(request.reload());
+src/components/LendingV2.tsx:178:      if (scope === 'p2p' && validId(p2pLoanId)) reads.push(peerLoan.reload());
+src/components/LendingV2.tsx:186:  const p2pWithinCapacity = Boolean(p2pCapacity.data && withinCapacity(p2pPrincipal, p2pCapacity.data.maxPrincipal));
+src/components/LendingV2.tsx:187:  const p2pRemainingCapacity = (() => {
+src/components/LendingV2.tsx:188:    if (!p2pCapacity.data || !positiveAmount(p2pPrincipal) || !p2pWithinCapacity) return 'Unavailable';
+src/components/LendingV2.tsx:189:    try { return formatEther(parseEther(p2pCapacity.data.maxPrincipal) - parseEther(p2pPrincipal)); }
+src/components/LendingV2.tsx:199:  const loadP2PRequest = () => {
+src/components/LendingV2.tsx:207:  const prepareCompletionMetadata = async (selectedLoanId: string): Promise<CompletionCertificateMetadata> => {
+src/components/LendingV2.tsx:236:      <button role="tab" aria-selected={tab === 'p2p'} onClick={() => setTab('p2p')} className={tab === 'p2p' ? primary : secondary}>P2P Lending</button>
+src/components/LendingV2.tsx:252:        {deposit && <div data-testid="v2-pending-deposit-preview" className="space-y-4"><p className="font-bold text-emerald-200">Pending Deposit ID: <code>{deposit.depositId}</code></p><Metrics><Metric label="Collateral" value={`${deposit.collateralETH} ETH`} /><Metric label="Oracle value" value={`$${deposit.collateralUSD}`} /><Metric label="Maximum LTV" value={percent(p?.initialLtvBps)} /><Metric label="Max borrow" value={`${deposit.maxBorrowable} ABCD`} /><Metric label="Borrower" value={deposit.borrower} /><Metric label="Active" value={deposit.active ? 'Yes' : 'No'} /></Metrics></div>}
+src/components/LendingV2.tsx:253:        <V2BorrowForm deposit={deposit} principal={principal} setPrincipal={setPrincipal} term={term} setTerm={setTerm} blocker={blocker} busy={busy} apr={p?.aprBps} ltv={p?.initialLtvBps} onBorrow={() => { if (!blocker) void execute('direct', 'Borrow', progress => borrowV2(depositId, principal, Number(term), progress)); }} />
+src/components/LendingV2.tsx:262:        {directLoan.data && !directLoan.data.isDirect && <Empty>This is a P2P loan. Open it under P2P Lending.</Empty>}
+src/components/LendingV2.tsx:266:        {actions.repay ? <><Metrics><Metric label="Loan ID" value={loanId} /><Metric label="Current outstanding debt" value={`${loan!.outstanding} ABCD`} /><Metric label="Accrued interest" value={`${loan!.accruedInterest} ABCD`} /><Metric label="Late fee" value={`${loan!.lateFee} ABCD`} /></Metrics><Field label="Partial ABCD amount" inputMode="decimal" value={repayment} onChange={setRepayment} /><CompletionSettlementNotice busy={completionBusy} message={completionMessage} metadata={publishedCompletionMetadata} /><div className="flex flex-wrap gap-3"><button className={primary} disabled={!canWrite || !withinCapacity(repayment, loan!.outstanding) || sameAmount(repayment, loan!.outstanding)} onClick={() => void execute('direct', 'Partial repayment', progress => repayV2(loanId, repayment, progress))}>Repay partial</button><button className={secondary} disabled={!canWrite || completionBusy} onClick={() => void execute('direct', 'Full repayment', progress => repayAllV2(loanId, prepareCompletionMetadata, progress))}>Repay all & create certificates</button></div></> : <Empty>{!loan ? 'Repayment becomes available after a loan is created.' : 'Repayment is unavailable for this wallet or the current loan state.'}</Empty>}
+src/components/LendingV2.tsx:269:        {loan?.state === 6 && <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-4 text-amber-100"><p className="font-bold">Margin Call Active</p><p>{p ? Number(p.marginCallCureSeconds) / 3600 : 'Unavailable'}-hour cure period</p><p>Deadline: {timestamp(loan.marginCallCureEnd)}</p><p className="mt-2 text-sm">Repay to cure or add collateral to cure. Refresh and sync risk state to confirm whether the margin call is cleared.</p></div>}
+src/components/LendingV2.tsx:270:        {actions.topUp ? <><Metrics><Metric label="Current collateral" value={`${loan!.collateralETH} ETH`} /><Metric label="Current debt" value={`${loan!.outstanding} ABCD`} /><Metric label="Current LTV" value={percent(loan!.ltvBps)} /><Metric label="Margin-call threshold" value={percent(p?.marginCallThresholdBps)} /><Metric label="Liquidation threshold" value={percent(p?.liquidationThresholdBps)} /></Metrics><Field label="Additional ETH collateral" inputMode="decimal" value={topUp} onChange={setTopUp} /><button className={primary} disabled={!canWrite || !positiveAmount(topUp)} onClick={() => void execute('direct', 'Loan collateral top-up', progress => addV2LoanCollateral(loanId, topUp, progress))}>{loan?.state === 6 ? 'Add collateral to cure' : 'Add collateral'}</button></> : <Empty>Collateral top-ups become available for an active loan owned by this wallet.</Empty>}
+src/components/LendingV2.tsx:276:      {loan?.liquidatable && <Card title="Liquidation eligible"><p className="text-sm text-amber-200">The contract reports that this loan is eligible for liquidation. Settlement is confirmed only after the transaction receipt.</p><button className={secondary} disabled={!canWrite} onClick={() => void execute('direct', 'Liquidation', progress => liquidateV2(loanId, progress))}>Approve ABCD & liquidate</button></Card>}
+src/components/LendingV2.tsx:278:    {tab === 'p2p' && <section role="tabpanel" aria-label="P2P Lending" className="space-y-5">
+src/components/LendingV2.tsx:280:        <p className="text-sm text-slate-300">Create an ETH-collateral-backed request for another wallet to fund. The marketplace contract independently prices collateral through the canonical oracle and enforces the ETH-specific 35% initial LTV policy. A funded ETH P2P loan uses the canonical 9.25% whitepaper-table APR stored on that loan.</p>
+src/components/LendingV2.tsx:282:          <Field label="ABCD principal" value={p2pPrincipal} onChange={setP2pPrincipal} inputMode="decimal" />
+src/components/LendingV2.tsx:283:          <Field label="ETH collateral" value={p2pCollateral} onChange={setP2pCollateral} inputMode="decimal" />
+src/components/LendingV2.tsx:284:          <Term value={p2pTerm} onChange={setP2pTerm} />
+src/components/LendingV2.tsx:286:        <ReadError error={p2pCapacity.error} retry={() => void p2pCapacity.reload().catch(() => {})} />
+src/components/LendingV2.tsx:287:        {p2pCapacity.loading && <p role="status">Reading canonical P2P ETH capacity from LoanMarketplaceV2…</p>}
+src/components/LendingV2.tsx:288:        {p2pCapacity.data && <Metrics>
+src/components/LendingV2.tsx:289:          <Metric label="Oracle collateral value" value={`$${p2pCapacity.data.collateralUSD}`} />
+src/components/LendingV2.tsx:290:          <Metric label="P2P initial LTV" value={percent(p2pCapacity.data.initialLtvBps)} />
+src/components/LendingV2.tsx:291:          <Metric label="P2P ETH APR" value={percent(p?.p2pAprBps)} />
+src/components/LendingV2.tsx:292:          <Metric label="Maximum P2P principal" value={`${p2pCapacity.data.maxPrincipal} ABCD`} />
+src/components/LendingV2.tsx:293:          <Metric label="Remaining capacity" value={p2pRemainingCapacity === 'Unavailable' ? 'Enter a valid principal' : `${p2pRemainingCapacity} ABCD`} />
+src/components/LendingV2.tsx:295:        {positiveAmount(p2pPrincipal) && p2pCapacity.data && !p2pWithinCapacity && <p role="alert" className="text-sm text-amber-200">Requested principal exceeds the contract-authoritative P2P capacity.</p>}
+src/components/LendingV2.tsx:297:        <button className={primary} disabled={!canWrite || !p2pWithinCapacity || !validTerm(p2pTerm)} onClick={() => void execute('p2p', 'P2P request', progress => createV2Request(p2pPrincipal, p2pCollateral, Number(p2pTerm), progress))}>Create P2P request</button>
+src/components/LendingV2.tsx:299:      <Card title="Fund Request"><div className="grid items-end gap-4 sm:grid-cols-[1fr_auto]"><Field label="Request ID" value={requestId} onChange={value => { select('requestId', value); select('p2pLoanId', ''); }} inputMode="numeric" /><button type="button" aria-label="Load P2P request from LoanMarketplaceV2" className={secondary} disabled={!validId(requestId) || request.loading} onClick={loadP2PRequest}>{request.loading ? 'Loading request…' : 'Load request'}</button></div>{!validId(requestId) && <p className="text-sm text-slate-400">Enter an existing positive request ID to read its current canonical marketplace state.</p>}<ReadError error={request.error} retry={loadP2PRequest} />{request.loading && <p role="status">Reading request directly from LoanMarketplaceV2…</p>}{currentRequest ? <><Metrics><Metric label="Request" value={`#${requestId}`} /><Metric label="Principal" value={`${currentRequest.principal} ABCD`} /><Metric label="Collateral" value={`${currentRequest.collateralETH} ETH`} /><Metric label="Borrower" value={currentRequest.borrower} /><Metric label="Status" value={['Open', 'Funded', 'Cancelled', 'Settled'][currentRequest.state] || 'Unavailable'} /><Metric label="Lender" value={currentRequest.state === 0 ? 'Awaiting funding' : currentRequest.lender} /></Metrics><button className={primary} disabled={!canWrite || currentRequest.state !== 0 || sameWallet(currentRequest.borrower, wallet)} onClick={() => void execute('p2p', 'P2P funding', progress => fundV2Request(requestId, progress))}>Approve ABCD & fund request</button></> : <Empty>Enter a real request ID and select Load request to review it before funding.</Empty>}</Card>
+src/components/LendingV2.tsx:300:      <Card title="Active Loan & EMI"><LoanSelector value={p2pLoanId} onChange={value => select('p2pLoanId', value)} records={knownLoans.filter(record => !sameWallet((record.loan as Record<string, unknown> | undefined)?.lender as string, contracts.pool))} /><ReadError error={peerLoan.error} retry={() => void peerLoan.reload().catch(() => {})} />{peerLoan.loading && <p role="status">Reading P2P loan…</p>}{peerLoan.data?.isDirect && <Empty>This is a direct loan. Use Direct Lending.</Empty>}{p2pLoan ? <><LoanStatus loan={p2pLoan} loanId={p2pLoanId} wallet={wallet} />{p2pLoan.state === 6 && sameWallet(p2pLoan.borrower, wallet) && <div className="space-y-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4"><p className="font-bold text-amber-100">P2P Margin Call Active</p><p className="text-sm text-amber-100">Add ETH collateral before {timestamp(p2pLoan.marginCallCureEnd)} to cure the position. The canonical pool/vault applies the top-up to this exact P2P loan ID.</p><Field label="Additional P2P ETH collateral" inputMode="decimal" value={p2pTopUp} onChange={setP2pTopUp} /><button className={primary} disabled={!canWrite || !peerActions.topUp || !positiveAmount(p2pTopUp)} onClick={() => void execute('p2p', 'P2P loan collateral top-up', progress => addV2LoanCollateral(p2pLoanId, p2pTopUp, progress))}>Add P2P collateral to cure</button><button className={secondary} disabled={!canWrite} onClick={() => void execute('p2p', 'P2P risk-state synchronization', progress => syncV2LoanRisk(p2pLoanId, progress))}>Sync P2P risk state</button></div>}{p2pLoan.schedule ? <><Metrics><Metric label="Next EMI" value={`${p2pLoan.schedule.installmentAmount} ABCD`} /><Metric label="Installments paid" value={`${p2pLoan.schedule.paidInstallments} / ${p2pLoan.schedule.installmentCount}`} /><Metric label="Next due" value={timestamp(p2pLoan.schedule.nextDueAt)} /></Metrics>{sameWallet(p2pLoan.borrower, wallet) && <CompletionSettlementNotice busy={completionBusy} message={completionMessage} metadata={publishedCompletionMetadata} />}<button className={primary} disabled={!canWrite || !peerActions.repay || p2pLoan.schedule.completed || completionBusy} onClick={() => void execute('p2p', 'EMI payment', progress => payV2Emi(p2pLoanId, prepareCompletionMetadata, progress))}>Approve ABCD & pay next EMI</button></> : <Empty>No EMI schedule is available for this loan.</Empty>}</> : <Empty>A funded P2P request creates a loan and its EMI schedule.</Empty>}</Card>
+src/components/LendingV2.tsx:301:      <Card title="Settlement & Default Recovery">{p2pLoan ? <><Field label="Outstanding ABCD payment" value={p2pPayment} onChange={setP2pPayment} inputMode="decimal" /><button className={secondary} disabled={!canWrite || !peerActions.repay || !withinCapacity(p2pPayment, p2pLoan.outstanding) || completionBusy} onClick={() => void execute('p2p', 'Outstanding EMI repayment', progress => payV2OutstandingEmi(p2pLoanId, p2pPayment, prepareCompletionMetadata, progress))}>Approve ABCD & settle outstanding</button><p className="text-sm text-slate-300">Collateral release and lender settlement follow the on-chain EMI and marketplace state.</p>{p2pInstallmentOverdue && <div className="space-y-2 rounded-xl border border-cyan-500/40 bg-cyan-500/10 p-3"><p className="text-sm text-cyan-100">This next EMI is overdue. Any connected ABCD holder may execute the canonical no-bonus collateral deduction. The contract rejects early or duplicate collection, pays the exact scheduled amount to the lender, and fails without moving funds if collateral is insufficient.</p><button className={secondary} disabled={!canWrite || completionBusy} onClick={() => void execute('p2p', 'Execute overdue P2P EMI', progress => executeV2OverdueEmi(p2pLoanId, prepareCompletionMetadata, progress))}>Approve ABCD & execute overdue EMI</button></div>}{p2pLoan.liquidatable && <div className="space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3"><p className="text-sm text-amber-100">P2P liquidation is a zero-bonus partial collateral sale. The canonical contract quotes the exact debt reduction and ETH portion required to restore toward 70% LTV; residual debt and collateral remain active and locked.</p><button className={secondary} disabled={!canWrite} onClick={() => void execute('p2p', 'P2P partial liquidation', progress => liquidateV2(p2pLoanId, progress))}>Approve ABCD & partially liquidate</button></div>}<button className={secondary} disabled={!canWrite || !currentRequest || currentRequest.state !== 1 || currentRequest.loanId !== p2pLoanId || p2pLoan.state !== 3} onClick={() => void execute('p2p', 'P2P default settlement', progress => settleV2Default(requestId, progress))}>Settle eligible default</button></> : <Empty>Load a funded request and loan to review settlement or default recovery.</Empty>}</Card>
+src/components/LendingV2.tsx:306:      {history.data ? <><Metrics><Metric label="Direct positions" value={String(history.data.directPositions.length)} /><Metric label="Loans" value={String(history.data.loans.length)} /><Metric label="Indexed events" value={String(history.data.events.length)} /></Metrics><div className="flex flex-wrap gap-2">{history.data.directPositions.filter(value => value.active).map(value => <button key={value.depositId} className={secondary} onClick={() => { select('depositId', value.depositId); setTab('direct'); }}>Deposit #{value.depositId}</button>)}{history.data.requests.map(value => <button key={value.requestId} className={secondary} onClick={() => { select('requestId', value.requestId); setTab('p2p'); }}>Request #{value.requestId}</button>)}</div><details><summary className="cursor-pointer text-sm text-cyan-200">Confirmed events</summary><ul className="mt-3 space-y-2 text-xs text-slate-300">{history.data.events.map((event, index) => <li key={String(event._id || index)} className="break-all">{String(event.eventName || 'Event')} — block {String(event.blockNumber ?? 'Unavailable')} — {String(event.transactionHash || 'Transaction unavailable')}</li>)}</ul></details></> : !history.loading && !history.error && <Empty>Connect a wallet to read confirmed history.</Empty>}
+src/components/LendingV2.tsx:310:      <div className="mt-4 space-y-4"><p className="text-sm text-amber-200">Local Hardhat only — chain 31337. Oracle feeds are local mocks and are not production prices.</p><ReadError error={protocol.error} retry={() => void protocol.reload().catch(() => {})} />
+src/components/LendingV2.tsx:311:        {p && <Metrics><Metric label="Direct initial LTV" value={percent(p.initialLtvBps)} /><Metric label="Direct new-loan APR" value={percent(p.aprBps)} /><Metric label="P2P ETH initial LTV" value={percent(p.p2pInitialLtvBps)} /><Metric label="P2P ETH APR" value={percent(p.p2pAprBps)} /><Metric label="Margin-call threshold" value={percent(p.marginCallThresholdBps)} /><Metric label="Cure period" value={`${Number(p.marginCallCureSeconds) / 3600} hours`} /><Metric label="Liquidation threshold" value={percent(p.liquidationThresholdBps)} /><Metric label="P2P restoration target" value={percent(p.p2pPartialTargetLtvBps)} /><Metric label="Direct liquidation bonus" value={percent(p.liquidationBonusBps)} /><Metric label="P2P liquidation bonus" value={percent(p.p2pLiquidationBonusBps)} /><Metric label="Late fee" value={percent(p.lateFeeBps)} /><Metric label="Terms (deployment configuration)" value={p.supportedTermsDays?.join(' / ') || 'Unavailable'} /><Metric label="Maturity grace (deployment configuration)" value={p.gracePeriodDays ? `${p.gracePeriodDays} days` : 'Unavailable'} /><Metric label="Pool liquidity" value={`${p.poolLiquidity} ABCD`} /><Metric label="Pool balance" value={`${p.poolTokenBalance} ABCD`} /><Metric label="Insurance reserve" value={`${p.reserveBalance} ABCD`} /><Metric label="Local oracle prices" value={`ETH $ ${p.ethUsd}; ABCD $ ${p.abcdUsd}`} /></Metrics>}
+src/components/LendingV2.tsx:318:export function V2BorrowForm({ deposit, principal, setPrincipal, term, setTerm, blocker, busy, apr, ltv, onBorrow }: { deposit: V2PendingDeposit | null; principal: string; setPrincipal: (v: string) => void; term: string; setTerm: (v: string) => void; blocker: string | null; busy: boolean; apr?: string; ltv?: string; onBorrow: () => void }) {
+src/components/LendingV2.tsx:324:    <Metrics><Metric label="Requested principal" value={positiveAmount(principal) ? `${principal} ABCD` : 'Enter amount'} /><Metric label="Collateral" value={deposit ? `${deposit.collateralETH} ETH` : 'Unavailable'} /><Metric label="Maximum LTV" value={percent(ltv)} /><Metric label="APR for a new loan" value={percent(apr)} /><Metric label="Term" value={validTerm(term) ? `${term} days` : 'Choose term'} /><Metric label="Maturity" value="Set by the mined borrow transaction" /></Metrics>
+src/components/LendingV2.tsx:330:  return <p className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-3 text-xs text-slate-300">Completion LoanNFTs are not created at origination. During a full-settlement action, ABCDeFi prepares genuine role-specific IPFS provenance; the same successful repayment transaction atomically mints the lender, borrower, and platform certificates.</p>;
+src/components/LendingV2.tsx:333:  return <div className="space-y-3 rounded-xl border border-violet-500/30 bg-violet-500/5 p-4"><h4 className="font-semibold text-violet-100">Completion LoanNFT certificates</h4><p className="text-xs text-slate-300">On a full settlement, the authenticated ABCDeFi platform prepares three genuine public-IPFS provenance records from canonical loan state, then the same settlement transaction mints the lender, borrower, and platform certificates. No borrower artwork, manual URI, or manual hash is accepted.</p>{busy && <p role="status" className="text-xs text-cyan-200">Preparing completion records…</p>}{message && <p role="status" className="break-all text-xs text-cyan-200">{message}</p>}{metadata && <Metrics><Metric label="Lender metadata URI" value={metadata.lender.metadataUri} /><Metric label="Borrower metadata URI" value={metadata.borrower.metadataUri} /><Metric label="Platform metadata URI" value={metadata.platform.metadataUri} /></Metrics>}</div>;
+src/components/LendingV2.tsx:339:  return <div className="space-y-4"><Metrics><Metric label="Loan ID" value={loanId} /><Metric label="Status" value={stateLabel(loan.state)} /><Metric label="Principal" value={`${loan.principal} ABCD`} /><Metric label="Remaining collateral (vault)" value={`${loan.collateralETH} ETH`} /><Metric label="Current debt including fees" value={`${loan.outstanding} ABCD`} /><Metric label="Accrued interest" value={`${loan.accruedInterest} ABCD`} /><Metric label="Late fee" value={`${loan.lateFee} ABCD`} /><Metric label="Agreed APR" value={percent(loan.aprBps)} /><Metric label="Maturity" value={timestamp(loan.maturity)} /><Metric label="Current LTV" value={positiveAmount(loan.collateralETH) ? percent(loan.ltvBps) : 'No remaining collateral'} /><Metric label="Margin call" value={loan.state === 6 ? 'Active' : 'Not active'} /><Metric label="Margin-call deadline" value={loan.state === 6 || loan.state === 3 ? timestamp(loan.marginCallCureEnd) : 'Not applicable'} /><Metric label="Liquidation eligibility" value={loan.liquidatable === null ? 'Unavailable — refresh risk reads' : loan.liquidatable ? 'Eligible' : 'Not eligible'} /></Metrics>
+src/components/LendingV2.tsx:341:    {loan.certificates.filter(certificate => sameWallet(certificate.owner, wallet)).length ? <details><summary className="cursor-pointer text-sm text-cyan-200">Your completed LoanNFT certificates</summary>{loan.certificates.filter(certificate => sameWallet(certificate.owner, wallet)).map(certificate => <Metrics key={certificate.tokenId}><Metric label="Certificate role" value={certificate.role} /><Metric label="Token ID" value={certificate.tokenId} /><Metric label="Owner" value={certificate.owner} /><Metric label="Loan association" value={certificate.loanId} /><Metric label="Metadata URI" value={certificate.uri || 'Unavailable'} /><Metric label="Metadata hash" value={certificate.hash || 'Unavailable'} /><Metric label="1% certificate valuation" value={`${certificate.valuation} ABCD accounting value`} /><Metric label="Completion time" value={timestamp(certificate.completedAt)} /><Metric label="Completion block" value={certificate.completionBlock} /></Metrics>)}</details> : <Empty>No completed certificate is owned by this wallet for this loan.</Empty>}
+test/LendingV2.test.ts:12:  let admin: any, borrower: any, liquidator: any, lender: any;
+test/LendingV2.test.ts:13:  let token: any, ethFeed: any, abcdFeed: any, oracle: any, vault: any, manager: any, nft: any, referral: any, reserve: any, pool: any, liquidation: any, liquidationMarketplace: any;
+test/LendingV2.test.ts:16:    [admin, borrower, liquidator, lender] = await hh.ethers.getSigners();
+test/LendingV2.test.ts:19:    const Feed = await hh.ethers.getContractFactory("MockAggregatorV3V2");
+test/LendingV2.test.ts:20:    ethFeed = await Feed.deploy(8, 2000n * 10n ** 8n); abcdFeed = await Feed.deploy(8, 1n * 10n ** 8n);
+test/LendingV2.test.ts:22:    await oracle.configureFeed("0x0000000000000000000000000000000000000001", await ethFeed.getAddress(), 2 * DAY, true);
+test/LendingV2.test.ts:23:    await oracle.configureFeed(await token.getAddress(), await abcdFeed.getAddress(), 2 * DAY, true);
+test/LendingV2.test.ts:26:    const NFT = await hh.ethers.getContractFactory("LoanNFTV2"); nft = await NFT.deploy(admin.address, await manager.getAddress(), admin.address);
+test/LendingV2.test.ts:29:    const Reserve = await hh.ethers.getContractFactory("InsuranceReserveV2"); reserve = await Reserve.deploy(admin.address, await token.getAddress(), await manager.getAddress());
+test/LendingV2.test.ts:30:    const Market = await hh.ethers.getContractFactory("LoanMarketplaceV2"); liquidationMarketplace = await Market.deploy(admin.address, await token.getAddress(), await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await nft.getAddress(), await referral.getAddress());
+test/LendingV2.test.ts:31:    const Liquidation = await hh.ethers.getContractFactory("LiquidationV2"); liquidation = await Liquidation.deploy(admin.address, await token.getAddress(), await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await reserve.getAddress(), await nft.getAddress(), await pool.getAddress(), await liquidationMarketplace.getAddress());
+test/LendingV2.test.ts:32:    await liquidationMarketplace.setLiquidationEngine(await liquidation.getAddress());
+test/LendingV2.test.ts:33:    await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), await pool.getAddress()); await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), await liquidation.getAddress());
+test/LendingV2.test.ts:34:    await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), await pool.getAddress()); await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), await liquidation.getAddress());
+test/LendingV2.test.ts:35:    await nft.grantRole(ROLE("MINTER_ROLE"), await pool.getAddress()); await nft.grantRole(ROLE("MINTER_ROLE"), await liquidation.getAddress());
+test/LendingV2.test.ts:38:    await reserve.grantRole(ROLE("RESERVE_OPERATOR_ROLE"), await liquidation.getAddress());
+test/LendingV2.test.ts:39:    await token.transfer(lender.address, ethers.parseEther("10000")); await token.connect(lender).approve(await pool.getAddress(), ethers.parseEther("5000")); await pool.connect(admin).grantRole(ROLE("LIQUIDITY_MANAGER_ROLE"), lender.address); await pool.connect(lender).fundLiquidity(ethers.parseEther("5000"));
+test/LendingV2.test.ts:51:  async function deployP2P() {
+test/LendingV2.test.ts:52:    const market = liquidationMarketplace;
+test/LendingV2.test.ts:57:    await emi.setOverdueInstallmentExecutor(await liquidation.getAddress());
+test/LendingV2.test.ts:58:    await liquidation.setOverdueEmiManager(await emi.getAddress());
+test/LendingV2.test.ts:62:    await nft.grantRole(ROLE("P2P_COMPLETION_OPERATOR_ROLE"), await emi.getAddress());
+test/LendingV2.test.ts:64:    await emi.grantRole(ROLE("P2P_OPERATOR_ROLE"), await market.getAddress());
+test/LendingV2.test.ts:69:  it("allows exactly 50% LTV without creating a completion certificate at origination", async () => {
+test/LendingV2.test.ts:71:    const loan = await manager.getLoan(1); expect(loan.principal).eq(ethers.parseEther("1000")); expect(loan.aprBps).eq(1200);
+test/LendingV2.test.ts:72:    expect(await nft.loanCertificate(1)).eq(0);
+test/LendingV2.test.ts:74:  it("preserves the complete direct deposit, borrow, repayment, and settled-withdrawal lifecycle", async () => {
+test/LendingV2.test.ts:89:    expect(await nft.loanCertificate(1)).eq(2); expect(await nft.loanCertificates(1, 0)).eq(1); expect(await nft.loanCertificates(1, 1)).eq(2); expect(await nft.loanCertificates(1, 2)).eq(3);
+test/LendingV2.test.ts:90:    expect((await nft.getCertificate(2)).certificateValue).eq((await nft.getCertificate(2)).totalScheduledRepayment / 100n);
+test/LendingV2.test.ts:96:  it("creates exactly three transferable direct completion certificates with the authoritative owners and one-percent accounting value", async () => {
+test/LendingV2.test.ts:98:    await expect(nft.mintCompletionCertificates(1, 0, false, completionMetadata("too-early"))).to.be.revertedWith("loan not completed");
+test/LendingV2.test.ts:103:    const lenderId = await nft.loanCertificates(1, 0); const borrowerId = await nft.loanCertificates(1, 1); const platformId = await nft.loanCertificates(1, 2);
+test/LendingV2.test.ts:104:    expect(lenderId).eq(1); expect(borrowerId).eq(2); expect(platformId).eq(3); expect(await nft.loanCertificate(1)).eq(borrowerId);
+test/LendingV2.test.ts:106:    const lenderCertificate = await nft.getCertificate(lenderId); const borrowerCertificate = await nft.getCertificate(borrowerId);
+test/LendingV2.test.ts:107:    expect(lenderCertificate.role).eq(0); expect(borrowerCertificate.role).eq(1); expect(lenderCertificate.status).eq(6); expect(lenderCertificate.actualRepayment).eq((await manager.getLoan(1)).totalRepaid);
+test/LendingV2.test.ts:108:    expect(lenderCertificate.certificateValue).eq(lenderCertificate.totalScheduledRepayment / 100n);
+test/LendingV2.test.ts:109:    expect(lenderCertificate.completionBlock).eq(BigInt(settlement!.blockNumber)); expect(borrowerCertificate.completionBlock).eq(BigInt(settlement!.blockNumber));
+test/LendingV2.test.ts:111:    await expect(nft.mintCompletionCertificates(1, 0, false, completionMetadata("duplicate"))).to.be.revertedWith("completion certificates exist");
+test/LendingV2.test.ts:119:    expect((await manager.getLoan(1)).state).eq(0); expect(await nft.loanCertificate(1)).eq(0);
+test/LendingV2.test.ts:121:  it("rejects opening above the oracle-priced 50% LTV", async () => { await expect(open("1000.000000000000000001")).to.be.revertedWith("ltv exceeded"); });
+test/LendingV2.test.ts:122:  it("governs the APR for future loans only and preserves an existing loan APR", async () => {
+test/LendingV2.test.ts:123:    await open(); expect((await manager.getLoan(1)).aprBps).eq(1200);
+test/LendingV2.test.ts:127:    expect((await manager.getLoan(1)).aprBps).eq(1200);
+test/LendingV2.test.ts:128:    expect((await manager.getLoan(2)).aprBps).eq(900);
+test/LendingV2.test.ts:130:    expect((await manager.getLoan(3)).aprBps).eq(800);
+test/LendingV2.test.ts:132:  it("creates an on-chain 70% margin call, permits cure, and enforces the 72-hour cure deadline", async () => {
+test/LendingV2.test.ts:133:    await open(); await ethFeed.setAnswer(1400n * 10n ** 8n); // 1,000 / 1,400 = 71.42%
+test/LendingV2.test.ts:134:    await expect(liquidation.connect(liquidator).syncRisk(1)).to.emit(manager, "MarginCallActivated");
+test/LendingV2.test.ts:135:    let loan = await manager.getLoan(1); expect(loan.state).eq(6); expect(loan.marginCallCureEnd - loan.marginCallAt).eq(72 * 60 * 60);
+test/LendingV2.test.ts:137:    await expect(liquidation.syncRisk(1)).to.emit(manager, "MarginCallCured"); expect((await manager.getLoan(1)).state).eq(0);
+test/LendingV2.test.ts:138:    await ethFeed.setAnswer(1300n * 10n ** 8n); await liquidation.syncRisk(1);
+test/LendingV2.test.ts:140:    await ethFeed.setAnswer(1300n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
+test/LendingV2.test.ts:141:    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("2000")); await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("2000"));
+test/LendingV2.test.ts:142:    await expect(liquidation.connect(liquidator).liquidate(1)).to.emit(liquidation, "LoanLiquidated");
+test/LendingV2.test.ts:145:  it("lets only the borrower add ETH to the same loan-scoped position to cure a margin call", async () => {
+test/LendingV2.test.ts:146:    await open(); await ethFeed.setAnswer(1400n * 10n ** 8n);
+test/LendingV2.test.ts:147:    await liquidation.syncRisk(1); expect((await manager.getLoan(1)).state).eq(6);
+test/LendingV2.test.ts:152:    await liquidation.syncRisk(1); expect((await manager.getLoan(1)).state).eq(0);
+test/LendingV2.test.ts:163:    // ETH/USD = $2,000, ABCD/USD = $1, and initial LTV = 50%.
+test/LendingV2.test.ts:169:  it("enforces the independent oracle-priced 35% initial LTV for ETH-backed P2P requests", async () => {
+test/LendingV2.test.ts:170:    const { market } = await deployP2P();
+test/LendingV2.test.ts:173:    expect(await market.P2P_INITIAL_LTV_BPS()).eq(3_500);
+test/LendingV2.test.ts:175:    expect(await market.previewMaxP2PPrincipal(collateral)).eq(ethers.parseEther("70"));
+test/LendingV2.test.ts:183:    await expect(market.connect(borrower).createRequest(ethers.parseEther("70.000000000000000001"), 30 * DAY, { value: collateral })).to.be.revertedWith("p2p ltv exceeded");
+test/LendingV2.test.ts:184:    await expect(market.connect(borrower).createRequest(ethers.parseEther("100"), 30 * DAY, { value: collateral })).to.be.revertedWith("p2p ltv exceeded");
+test/LendingV2.test.ts:186:  it("rejects invalid P2P requests and uses the current validated oracle prices for capacity", async () => {
+test/LendingV2.test.ts:187:    const { market } = await deployP2P();
+test/LendingV2.test.ts:193:    await ethFeed.setAnswer(1500n * 10n ** 8n);
+test/LendingV2.test.ts:194:    expect(await market.previewMaxP2PPrincipal(collateral)).eq(ethers.parseEther("52.5"));
+test/LendingV2.test.ts:195:    await abcdFeed.setAnswer(5n * 10n ** 7n); // $0.50 ABCD doubles token capacity.
+test/LendingV2.test.ts:196:    expect(await market.previewMaxP2PPrincipal(collateral)).eq(ethers.parseEther("105"));
+test/LendingV2.test.ts:199:    await ethFeed.setRoundData(1500n * 10n ** 8n, now - 3 * DAY, 8, 8);
+test/LendingV2.test.ts:200:    await expect(market.previewMaxP2PPrincipal(collateral)).to.be.revertedWith("stale price");
+test/LendingV2.test.ts:201:    await ethFeed.setRoundData(1500n * 10n ** 8n, now, 9, 9);
+test/LendingV2.test.ts:202:    await abcdFeed.setAnswer(0);
+test/LendingV2.test.ts:203:    await expect(market.previewMaxP2PPrincipal(collateral)).to.be.revertedWith("invalid price");
+test/LendingV2.test.ts:205:  it("stores the whitepaper ETH P2P table APR independently from the direct-loan APR", async () => {
+test/LendingV2.test.ts:206:    const { market } = await deployP2P();
+test/LendingV2.test.ts:210:    expect(await manager.P2P_ETH_APR_BPS()).eq(925);
+test/LendingV2.test.ts:211:    expect((await manager.getLoan(1)).aprBps).eq(925);
+test/LendingV2.test.ts:214:  it("keeps direct deposit ID 1 and P2P request ID 1 in independent collateral namespaces", async () => {
+test/LendingV2.test.ts:215:    const { market } = await deployP2P();
+test/LendingV2.test.ts:217:    const p2pCollateral = ethers.parseEther("0.2");
+test/LendingV2.test.ts:219:    await market.connect(borrower).createRequest(ethers.parseEther("100"), 30 * DAY, { value: p2pCollateral });
+test/LendingV2.test.ts:222:    expect(await vault.requestCollateral(1)).eq(p2pCollateral);
+test/LendingV2.test.ts:223:    expect(await vault.directDepositCollateral(1) + await vault.requestCollateral(1)).eq(directCollateral + p2pCollateral);
+test/LendingV2.test.ts:225:  it("rejects unauthorized attempts to deposit P2P request collateral", async () => {
+test/LendingV2.test.ts:229:  it("never aggregates direct and P2P collateral even when both flows use ID 1", async () => {
+test/LendingV2.test.ts:230:    const { market } = await deployP2P();
+test/LendingV2.test.ts:232:    const p2pCollateral = ethers.parseEther("0.2");
+test/LendingV2.test.ts:234:    await market.connect(borrower).createRequest(ethers.parseEther("100"), 30 * DAY, { value: p2pCollateral });
+test/LendingV2.test.ts:243:    expect(await vault.loanCollateral(2)).eq(p2pCollateral);
+test/LendingV2.test.ts:245:  it("exposes non-mutating interest, total-repayment, outstanding, fee, and time-state previews", async () => {
+test/LendingV2.test.ts:250:    expect(await manager.previewLoanStatus(1)).eq(2); expect(await manager.previewLateFee(1)).gt(0); expect(await manager.previewOutstanding(1)).gt(ethers.parseEther("1000"));
+test/LendingV2.test.ts:253:  it("accrues 12% APR only over elapsed time and respects partial repayment ordering", async () => {
+test/LendingV2.test.ts:259:    expect(after.accruedInterest).eq(0); expect(after.fees).eq(0); expect(principalReduction).lt(ethers.parseEther("100")); expect(principalReduction).gt(0);
+test/LendingV2.test.ts:261:  it("assesses the one-time 2% fee at maturity and permits settlement then collateral withdrawal", async () => {
+test/LendingV2.test.ts:263:    let loan = await manager.getLoan(1); expect(loan.state).eq(2); const fee = (loan.principalOutstanding + loan.accruedInterest) * 200n / 10000n; expect(loan.fees).eq(fee);
+test/LendingV2.test.ts:264:    await pool.syncLoan(1); loan = await manager.getLoan(1); expect(loan.fees).eq(fee);
+test/LendingV2.test.ts:270:    const now = (await hh.ethers.provider.getBlock("latest")).timestamp; await ethFeed.setRoundData(2000n * 10n ** 8n, now - 3 * DAY, 8, 8); await expect(pool.maxBorrowable(1)).to.be.revertedWith("stale price");
+test/LendingV2.test.ts:271:    await ethFeed.setRoundData(0, now, 9, 9); await expect(pool.maxBorrowable(1)).to.be.revertedWith("invalid price"); await ethFeed.setAnswer(-1); await expect(pool.maxBorrowable(1)).to.be.revertedWith("invalid price");
+test/LendingV2.test.ts:273:  it("rejects oracle reads and liquidations while the emergency oracle circuit breaker is paused", async () => {
+test/LendingV2.test.ts:274:    await open(); await oracle.pause(); await expect(pool.maxBorrowable(ethers.parseEther("1"))).to.be.revertedWithCustomError(oracle, "EnforcedPause"); await expect(liquidation.healthFactor(1)).to.be.revertedWithCustomError(oracle, "EnforcedPause");
+test/LendingV2.test.ts:276:  it("liquidates at the approved 80% threshold and pays the 5% bonus", async () => {
+test/LendingV2.test.ts:277:    await open(); await ethFeed.setAnswer(1250n * 10n ** 8n); expect(await liquidation.isLiquidatable(1)).to.be.true;
+test/LendingV2.test.ts:278:    await token.connect(admin).approve(await reserve.getAddress(), ethers.parseEther("100")); await reserve.fund(ethers.parseEther("100"));
+test/LendingV2.test.ts:279:    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("2000")); await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("2000"));
+test/LendingV2.test.ts:280:    await expect(liquidation.connect(liquidator).liquidate(1)).to.emit(liquidation, "LoanLiquidated");
+test/LendingV2.test.ts:281:    const loan = await manager.getLoan(1); expect(loan.state).eq(4); expect(loan.reserveContribution).eq(0); expect(await vault.loanCollateral(1)).eq(0);
+test/LendingV2.test.ts:282:    await expect(liquidation.connect(liquidator).liquidate(1)).to.be.revertedWith("not liquidatable");
+test/LendingV2.test.ts:284:  it("uses the reserve exactly once for a direct liquidation shortfall and records only the actual payout", async () => {
+test/LendingV2.test.ts:287:    await ethFeed.setAnswer(500n * 10n ** 8n);
+test/LendingV2.test.ts:289:    await token.connect(admin).approve(await reserve.getAddress(), funded);
+test/LendingV2.test.ts:290:    await expect(reserve.fund(funded)).to.emit(reserve, "ReserveFunded");
+test/LendingV2.test.ts:291:    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("2000"));
+test/LendingV2.test.ts:292:    await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("2000"));
+test/LendingV2.test.ts:294:    const quote = await liquidation.previewLiquidation(1);
+test/LendingV2.test.ts:295:    expect(quote.reserveRequested).gt(funded);
+test/LendingV2.test.ts:297:    await expect(liquidation.connect(liquidator).liquidate(1)).to.emit(reserve, "ReserveUsed");
+test/LendingV2.test.ts:300:    expect(await reserve.reserveUsedByLoan(1)).eq(funded);
+test/LendingV2.test.ts:301:    expect(await reserve.reserveSettlementProcessed(1)).true;
+test/LendingV2.test.ts:302:    expect(await token.balanceOf(await reserve.getAddress())).eq(0);
+test/LendingV2.test.ts:303:    expect(loan.reserveContribution).eq(funded);
+test/LendingV2.test.ts:306:    await expect(reserve.cover(1, await pool.getAddress(), 1)).to.be.revertedWith("reserve already settled");
+test/LendingV2.test.ts:308:  it("rejects reserve payouts for invalid loans, wrong recipients, healthy loans, zero amounts, and unauthorized callers", async () => {
+test/LendingV2.test.ts:310:    await expect(reserve.cover(0, await pool.getAddress(), 1)).to.be.revertedWith("invalid settlement");
+test/LendingV2.test.ts:311:    await expect(reserve.cover(999, await pool.getAddress(), 1)).to.be.revertedWith("missing loan");
+test/LendingV2.test.ts:312:    await expect(reserve.cover(1, await pool.getAddress(), 0)).to.be.revertedWith("invalid settlement");
+test/LendingV2.test.ts:313:    await expect(reserve.cover(1, borrower.address, 1)).to.be.revertedWith("loan not reserve eligible");
+test/LendingV2.test.ts:314:    await ethFeed.setAnswer(500n * 10n ** 8n);
+test/LendingV2.test.ts:315:    await liquidation.syncRisk(1);
+test/LendingV2.test.ts:316:    await expect(reserve.cover(1, borrower.address, 1)).to.be.revertedWith("invalid reserve recipient");
+test/LendingV2.test.ts:317:    await expect(reserve.connect(borrower).cover(1, await pool.getAddress(), 1)).to.be.revertedWithCustomError(reserve, "AccessControlUnauthorizedAccount");
+test/LendingV2.test.ts:319:  it("liquidates a direct loan without settling an unrelated funded P2P request", async () => {
+test/LendingV2.test.ts:320:    await open(); const { market } = await deployP2P();
+test/LendingV2.test.ts:323:    const poolBefore = await token.balanceOf(await pool.getAddress()); await ethFeed.setAnswer(1250n * 10n ** 8n);
+test/LendingV2.test.ts:324:    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("2000")); await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("2000"));
+test/LendingV2.test.ts:325:    await liquidation.connect(liquidator).liquidate(1);
+test/LendingV2.test.ts:329:  it("rejects a healthy loan and blocks paused originations", async () => { await open(); await expect(liquidation.liquidate(1)).to.be.revertedWith("not liquidatable"); await pool.pause(); await expect(open()).to.be.revertedWithCustomError(pool, "EnforcedPause"); });
+test/LendingV2.test.ts:330:  it("supports only the approved 30/90/180 day terms and reaches default after the seven-day grace period", async () => {
+test/LendingV2.test.ts:334:  it("prevents overpayment, unauthorized reserve access, and unauthorized certificate minting", async () => {
+test/LendingV2.test.ts:336:    await expect(reserve.connect(borrower).cover(1, borrower.address, 1)).to.be.revertedWithCustomError(reserve, "AccessControlUnauthorizedAccount");
+test/LendingV2.test.ts:337:    await expect(nft.connect(borrower).mintCompletionCertificates(999, 0, false, completionMetadata("forbidden"))).to.be.revertedWithCustomError(nft, "AccessControlUnauthorizedAccount");
+test/LendingV2.test.ts:340:  it("uses request-scoped collateral and creates no completion certificate before settlement", async () => {
+test/LendingV2.test.ts:349:    await nft.grantRole(ROLE("MINTER_ROLE"), await market.getAddress()); await nft.grantRole(ROLE("MINTER_ROLE"), await emi.getAddress()); await nft.grantRole(ROLE("P2P_COMPLETION_OPERATOR_ROLE"), await emi.getAddress()); await referral.grantRole(ROLE("LENDING_REFERRAL_OPERATOR_ROLE"), await market.getAddress()); await referral.grantRole(ROLE("LENDING_REFERRAL_OPERATOR_ROLE"), await emi.getAddress()); await emi.grantRole(ROLE("P2P_OPERATOR_ROLE"), await market.getAddress());
+test/LendingV2.test.ts:350:    await referral.connect(liquidator).createReferralCode("P2P-BORROWER-REF"); await referral.connect(borrower).bindReferrer("P2P-BORROWER-REF");
+test/LendingV2.test.ts:354:    const referralTrack = await referral.getLoanReferral(1, borrower.address); expect(referralTrack.referrer).eq(liquidator.address); expect(referralTrack.requestId).eq(1);
+test/LendingV2.test.ts:356:    expect(await nft.loanCertificate(1)).eq(0);
+test/LendingV2.test.ts:357:    const lenderBefore = await hh.ethers.provider.getBalance(lender.address); await hh.provider.send("evm_increaseTime", [37 * DAY + 1]); await hh.provider.send("evm_mine", []); await ethFeed.setAnswer(2000n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n); await market.connect(admin).settleDefault(1);
+test/LendingV2.test.ts:359:    expect(await nft.loanCertificate(1)).eq(0);
+test/LendingV2.test.ts:361:  it("settles a deterministic V2 P2P EMI at its exact due timestamp and releases only that loan's collateral", async () => {
+test/LendingV2.test.ts:364:    await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), await market.getAddress()); await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), await emi.getAddress()); await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), await market.getAddress()); await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), await emi.getAddress()); await nft.grantRole(ROLE("MINTER_ROLE"), await market.getAddress()); await nft.grantRole(ROLE("MINTER_ROLE"), await emi.getAddress()); await nft.grantRole(ROLE("P2P_COMPLETION_OPERATOR_ROLE"), await emi.getAddress()); await referral.grantRole(ROLE("LENDING_REFERRAL_OPERATOR_ROLE"), await market.getAddress()); await referral.grantRole(ROLE("LENDING_REFERRAL_OPERATOR_ROLE"), await emi.getAddress()); await emi.grantRole(ROLE("P2P_OPERATOR_ROLE"), await market.getAddress());
+test/LendingV2.test.ts:367:    await hh.provider.send("evm_setNextBlockTimestamp", [Number(loan.maturity)]); await emi.connect(borrower).payInstallmentWithCompletionMetadata(1, completionMetadata("p2p-emi"));
+test/LendingV2.test.ts:369:    expect(await nft.ownerOf(await nft.loanCertificates(1, 0))).eq(lender.address); expect(await nft.ownerOf(await nft.loanCertificates(1, 1))).eq(borrower.address); expect(await nft.ownerOf(await nft.loanCertificates(1, 2))).eq(admin.address);
+test/LendingV2.test.ts:370:    expect((await nft.getCertificate(await nft.loanCertificates(1, 0))).requestId).eq(1); expect((await nft.getCertificate(await nft.loanCertificates(1, 0))).isP2P).true;
+test/LendingV2.test.ts:371:    const borrowerCertificate = await nft.loanCertificates(1, 1);
+test/LendingV2.test.ts:372:    await nft.connect(borrower).transferFrom(borrower.address, lender.address, borrowerCertificate);
+test/LendingV2.test.ts:373:    expect(await nft.ownerOf(borrowerCertificate)).eq(lender.address);
+test/LendingV2.test.ts:375:  it("requires a P2P installment to be due and settles the live remainder after a permitted prepayment", async () => {
+test/LendingV2.test.ts:376:    const { market, emi } = await deployP2P();
+test/LendingV2.test.ts:384:    await expect(emi.connect(borrower).payInstallment(1)).to.be.revertedWith("installment not due");
+test/LendingV2.test.ts:389:    await expect(emi.connect(borrower).payInstallmentWithCompletionMetadata(1, completionMetadata("p2p-prepayment"))).to.emit(emi, "InstallmentPaid");
+test/LendingV2.test.ts:393:  it("lets a permissionless keeper pay one exact overdue non-terminal P2P installment and receive only no-bonus collateral", async () => {
+test/LendingV2.test.ts:394:    const { market, emi } = await deployP2P();
+test/LendingV2.test.ts:398:    await token.connect(admin).transfer(liquidator.address, first.amount + ethers.parseEther("1"));
+test/LendingV2.test.ts:399:    await token.connect(liquidator).approve(await liquidation.getAddress(), first.amount + ethers.parseEther("1"));
+test/LendingV2.test.ts:400:    await expect(liquidation.connect(liquidator).executeP2POverdueInstallment(1)).to.be.revertedWith("installment not due");
+test/LendingV2.test.ts:402:    await ethFeed.setAnswer(2000n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
+test/LendingV2.test.ts:404:    await expect(liquidation.connect(liquidator).executeP2POverdueInstallment(1)).to.emit(liquidation, "P2POverdueInstallmentExecuted");
+test/LendingV2.test.ts:409:    await expect(liquidation.connect(liquidator).executeP2POverdueInstallment(1)).to.be.revertedWith("installment not due");
+test/LendingV2.test.ts:411:  it("does not fabricate an overdue P2P payment when locked collateral cannot cover it", async () => {
+test/LendingV2.test.ts:412:    const { market, emi } = await deployP2P();
+test/LendingV2.test.ts:415:    const loan = await manager.getLoan(1); const installment = (await emi.getSchedule(1))[0];
+test/LendingV2.test.ts:416:    await token.connect(admin).transfer(liquidator.address, installment.amount); await token.connect(liquidator).approve(await liquidation.getAddress(), installment.amount);
+test/LendingV2.test.ts:418:    await ethFeed.setAnswer(100n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
+test/LendingV2.test.ts:420:    await expect(liquidation.connect(liquidator).executeP2POverdueInstallment(1)).to.emit(liquidation, "P2POverdueInstallmentExecutionFailed");
+test/LendingV2.test.ts:423:  it("requires the existing three-record metadata path when a keeper's overdue installment would fully settle a P2P loan", async () => {
+test/LendingV2.test.ts:424:    const { market, emi } = await deployP2P();
+test/LendingV2.test.ts:427:    const loan = await manager.getLoan(1); const installment = (await emi.getSchedule(1))[0];
+test/LendingV2.test.ts:428:    await token.connect(admin).transfer(liquidator.address, installment.amount + ethers.parseEther("1")); await token.connect(liquidator).approve(await liquidation.getAddress(), installment.amount + ethers.parseEther("1"));
+test/LendingV2.test.ts:429:    // Keep the fixture's canonical feeds fresh through the due-time block
+test/LendingV2.test.ts:431:    await oracle.configureFeed("0x0000000000000000000000000000000000000001", await ethFeed.getAddress(), 100 * DAY, true);
+test/LendingV2.test.ts:432:    await oracle.configureFeed(await token.getAddress(), await abcdFeed.getAddress(), 100 * DAY, true);
+test/LendingV2.test.ts:434:    await expect(liquidation.connect(liquidator).executeP2POverdueInstallment(1)).to.be.revertedWith("completion metadata required");
+test/LendingV2.test.ts:435:    await expect(liquidation.connect(liquidator).executeP2POverdueInstallmentWithCompletionMetadata(1, completionMetadata("keeper-overdue"))).to.emit(nft, "LoanCertificateCreated");
+test/LendingV2.test.ts:437:    expect(await nft.loanCertificates(1, 0)).eq(1); expect(await nft.loanCertificates(1, 1)).eq(2); expect(await nft.loanCertificates(1, 2)).eq(3);
+test/LendingV2.test.ts:439:  it("records P2P borrower shortfall explicitly when lender-first collateral is insufficient", async () => {
+test/LendingV2.test.ts:442:    await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), await market.getAddress()); await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), await emi.getAddress()); await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), await market.getAddress()); await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), await emi.getAddress()); await nft.grantRole(ROLE("MINTER_ROLE"), await market.getAddress()); await nft.grantRole(ROLE("MINTER_ROLE"), await emi.getAddress()); await nft.grantRole(ROLE("P2P_COMPLETION_OPERATOR_ROLE"), await emi.getAddress()); await referral.grantRole(ROLE("LENDING_REFERRAL_OPERATOR_ROLE"), await market.getAddress()); await referral.grantRole(ROLE("LENDING_REFERRAL_OPERATOR_ROLE"), await emi.getAddress()); await emi.grantRole(ROLE("P2P_OPERATOR_ROLE"), await market.getAddress());
+test/LendingV2.test.ts:444:    await hh.provider.send("evm_increaseTime", [37 * DAY + 1]); await hh.provider.send("evm_mine", []); await ethFeed.setAnswer(400n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n); await market.connect(admin).settleDefault(1);
+test/LendingV2.test.ts:447:  it("partially liquidates P2P ETH collateral at 80% with no bonus and restores toward 70% without terminal settlement", async () => {
+test/LendingV2.test.ts:448:    const { market } = await deployP2P();
+test/LendingV2.test.ts:452:    await ethFeed.setAnswer(800n * 10n ** 8n);
+test/LendingV2.test.ts:453:    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("100"));
+test/LendingV2.test.ts:454:    await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("100"));
+test/LendingV2.test.ts:456:    const quote = await liquidation.previewP2PPartialLiquidation(1);
+test/LendingV2.test.ts:458:    await expect(liquidation.connect(liquidator).liquidate(1)).to.emit(liquidation, "P2PPartialLiquidated");
+test/LendingV2.test.ts:461:    // The liquidation is mined in a later block than this preview, so the
+test/LendingV2.test.ts:465:    expect(await liquidation.currentLtvBps(1)).lte(7000);
+test/LendingV2.test.ts:467:    expect(await reserve.reserveUsedByLoan(1)).eq(0);
+test/LendingV2.test.ts:468:    expect(await reserve.reserveSettlementProcessed(1)).false;
+test/LendingV2.test.ts:469:    expect(await nft.loanCertificate(1)).eq(0);
+test/LendingV2.test.ts:471:  it("keeps an expired P2P margin call non-terminal so partial liquidation can restore the loan toward 70%", async () => {
+test/LendingV2.test.ts:472:    const { market } = await deployP2P();
+test/LendingV2.test.ts:476:    await ethFeed.setAnswer(1_000n * 10n ** 8n);
+test/LendingV2.test.ts:477:    await liquidation.syncRisk(1);
+test/LendingV2.test.ts:478:    const marginCall = await manager.getLoan(1);
+test/LendingV2.test.ts:479:    expect(marginCall.state).eq(6);
+test/LendingV2.test.ts:480:    await hh.provider.send("evm_setNextBlockTimestamp", [Number(marginCall.marginCallCureEnd) + 1]);
+test/LendingV2.test.ts:482:    await ethFeed.setAnswer(800n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
+test/LendingV2.test.ts:484:    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("100"));
+test/LendingV2.test.ts:485:    await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("100"));
+test/LendingV2.test.ts:488:    await expect(liquidation.connect(liquidator).liquidate(1)).to.emit(liquidation, "P2PPartialLiquidated");
+test/LendingV2.test.ts:493:    expect(await liquidation.currentLtvBps(1)).lte(7000);
+test/LendingV2.test.ts:496:  it("rejects a P2P partial liquidation that cannot restore the target without a terminal close", async () => {
+test/LendingV2.test.ts:497:    const { market } = await deployP2P();
+test/LendingV2.test.ts:500:    await ethFeed.setAnswer(500n * 10n ** 8n);
+test/LendingV2.test.ts:501:    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("100")); await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("100"));
+test/LendingV2.test.ts:502:    await expect(liquidation.previewP2PPartialLiquidation(1)).to.be.revertedWith("partial liquidation infeasible");
+test/LendingV2.test.ts:503:    await expect(liquidation.connect(liquidator).liquidate(1)).to.be.revertedWith("partial liquidation infeasible");
+scripts/deploy-lending-v2-local.ts:54:  const ethFeed = await deploy("MockAggregatorV3V2", [8, 2_000n * 10n ** 8n]);
+scripts/deploy-lending-v2-local.ts:56:  const abcdFeed = await deploy("MockAggregatorV3V2", [8, 1n * 10n ** 8n]);
+scripts/deploy-lending-v2-local.ts:68:  // certificates are soulbound and are minted without an ERC721 receiver
+scripts/deploy-lending-v2-local.ts:70:  const loanNFT = await deploy("LoanNFTV2", [admin.address, await manager.getAddress(), platformRecipient]);
+scripts/deploy-lending-v2-local.ts:72:  const reserve = await deploy("InsuranceReserveV2", [admin.address, tokenAddress, await manager.getAddress()]);
+scripts/deploy-lending-v2-local.ts:74:  const liquidation = await deploy("LiquidationV2", [admin.address, tokenAddress, await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await reserve.getAddress(), await loanNFT.getAddress(), await pool.getAddress(), await marketplace.getAddress()]);
+scripts/deploy-lending-v2-local.ts:78:  await confirmed(await oracle.configureFeed(ETH_ASSET, await ethFeed.getAddress(), 24 * 60 * 60, true), "ETH/USD feed configuration");
+scripts/deploy-lending-v2-local.ts:79:  await confirmed(await oracle.configureFeed(tokenAddress, await abcdFeed.getAddress(), 24 * 60 * 60, true), "ABCD/USD feed configuration");
+scripts/deploy-lending-v2-local.ts:80:  for (const operator of [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()]) await confirmed(await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), operator), "LoanManager operator role");
+scripts/deploy-lending-v2-local.ts:81:  for (const operator of [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()]) await confirmed(await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), operator), "Vault operator role");
+scripts/deploy-lending-v2-local.ts:82:  for (const minter of [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()]) await confirmed(await loanNFT.grantRole(ROLE("MINTER_ROLE"), minter), "LoanNFT minter role");
+scripts/deploy-lending-v2-local.ts:83:  await confirmed(await loanNFT.grantRole(ROLE("DIRECT_COMPLETION_OPERATOR_ROLE"), await pool.getAddress()), "LoanNFT direct completion operator role");
+scripts/deploy-lending-v2-local.ts:84:  await confirmed(await loanNFT.grantRole(ROLE("P2P_COMPLETION_OPERATOR_ROLE"), await emi.getAddress()), "LoanNFT P2P completion operator role");
+scripts/deploy-lending-v2-local.ts:85:  await confirmed(await reserve.grantRole(ROLE("RESERVE_OPERATOR_ROLE"), await liquidation.getAddress()), "Reserve operator role");
+scripts/deploy-lending-v2-local.ts:86:  await confirmed(await emi.grantRole(ROLE("P2P_OPERATOR_ROLE"), await marketplace.getAddress()), "EMI P2P operator role");
+scripts/deploy-lending-v2-local.ts:88:  await confirmed(await marketplace.setLiquidationEngine(await liquidation.getAddress()), "Marketplace liquidation configuration");
+scripts/deploy-lending-v2-local.ts:90:  await confirmed(await emi.setOverdueInstallmentExecutor(await liquidation.getAddress()), "EMI overdue-installment executor configuration");
+scripts/deploy-lending-v2-local.ts:91:  await confirmed(await liquidation.setOverdueEmiManager(await emi.getAddress()), "Liquidation overdue EMI configuration");
+scripts/deploy-lending-v2-local.ts:96:  const liquidity = ethers.parseUnits(process.env.LENDING_V2_LOCAL_LIQUIDITY ?? "1000000", 18);
+scripts/deploy-lending-v2-local.ts:97:  const reserveFunding = ethers.parseUnits(process.env.LENDING_V2_LOCAL_RESERVE ?? "100000", 18);
+scripts/deploy-lending-v2-local.ts:101:  const liquidityWallet = await token.liquidityWallet();
+scripts/deploy-lending-v2-local.ts:102:  const reserveWallet = await token.reserveWallet();
+scripts/deploy-lending-v2-local.ts:104:  const liquiditySigner = signers.find((signer: any) => signer.address.toLowerCase() === liquidityWallet.toLowerCase());
+scripts/deploy-lending-v2-local.ts:105:  const reserveSigner = signers.find((signer: any) => signer.address.toLowerCase() === reserveWallet.toLowerCase());
+scripts/deploy-lending-v2-local.ts:106:  if (!liquiditySigner || await token.balanceOf(liquidityWallet) < liquidity) {
+scripts/deploy-lending-v2-local.ts:107:    throw new Error("Canonical liquidity allocation cannot fund the configured local V2 liquidity");
+scripts/deploy-lending-v2-local.ts:109:  if (!reserveSigner || await token.balanceOf(reserveWallet) < reserveFunding) {
+scripts/deploy-lending-v2-local.ts:110:    throw new Error("Canonical reserve allocation cannot fund the configured local V2 insurance reserve");
+scripts/deploy-lending-v2-local.ts:115:  await confirmed(await token.connect(liquiditySigner).transfer(admin.address, liquidity), "Local V2 liquidity funding transfer");
+scripts/deploy-lending-v2-local.ts:116:  await confirmed(await token.connect(reserveSigner).transfer(admin.address, reserveFunding), "Local V2 reserve funding transfer");
+scripts/deploy-lending-v2-local.ts:117:  await confirmed(await token.approve(await pool.getAddress(), liquidity), "V2 pool approval");
+scripts/deploy-lending-v2-local.ts:118:  await confirmed(await pool.fundLiquidity(liquidity), "V2 pool funding");
+scripts/deploy-lending-v2-local.ts:119:  await confirmed(await token.approve(await reserve.getAddress(), reserveFunding), "V2 reserve approval");
+scripts/deploy-lending-v2-local.ts:120:  await confirmed(await reserve.fund(reserveFunding), "V2 reserve funding");
+scripts/deploy-lending-v2-local.ts:124:    [manager, "LOAN_OPERATOR_ROLE", await pool.getAddress()], [manager, "LOAN_OPERATOR_ROLE", await liquidation.getAddress()], [manager, "LOAN_OPERATOR_ROLE", await marketplace.getAddress()], [manager, "LOAN_OPERATOR_ROLE", await emi.getAddress()],
+scripts/deploy-lending-v2-local.ts:125:    [vault, "VAULT_OPERATOR_ROLE", await pool.getAddress()], [vault, "VAULT_OPERATOR_ROLE", await liquidation.getAddress()], [vault, "VAULT_OPERATOR_ROLE", await marketplace.getAddress()], [vault, "VAULT_OPERATOR_ROLE", await emi.getAddress()],
+scripts/deploy-lending-v2-local.ts:126:    [loanNFT, "MINTER_ROLE", await pool.getAddress()], [loanNFT, "MINTER_ROLE", await liquidation.getAddress()], [loanNFT, "MINTER_ROLE", await marketplace.getAddress()], [loanNFT, "MINTER_ROLE", await emi.getAddress()],
+scripts/deploy-lending-v2-local.ts:127:    [loanNFT, "DIRECT_COMPLETION_OPERATOR_ROLE", await pool.getAddress()], [loanNFT, "P2P_COMPLETION_OPERATOR_ROLE", await emi.getAddress()],
+scripts/deploy-lending-v2-local.ts:129:    [reserve, "RESERVE_OPERATOR_ROLE", await liquidation.getAddress()], [emi, "P2P_OPERATOR_ROLE", await marketplace.getAddress()], [marketplace, "LIQUIDATION_SETTLEMENT_ROLE", await liquidation.getAddress()],
+scripts/deploy-lending-v2-local.ts:135:  const defaultAdminChecks = [oracle, vault, manager, loanNFT, referral, reserve, pool, liquidation, marketplace, emi];
+scripts/deploy-lending-v2-local.ts:140:  if (!await pool.hasRole(ROLE("LIQUIDITY_MANAGER_ROLE"), admin.address)) throw new Error("Missing LIQUIDITY_MANAGER_ROLE for deployer");
+scripts/deploy-lending-v2-local.ts:141:  if (!await reserve.hasRole(ROLE("RESERVE_FUNDER_ROLE"), admin.address)) throw new Error("Missing RESERVE_FUNDER_ROLE for deployer");
+scripts/deploy-lending-v2-local.ts:146:  if (!await emi.hasRole(ROLE("P2P_OPERATOR_ROLE"), admin.address)) throw new Error("Missing P2P_OPERATOR_ROLE for deployer");
+scripts/deploy-lending-v2-local.ts:148:  const ethFeedConfig = await oracle.feeds(ETH_ASSET);
+scripts/deploy-lending-v2-local.ts:149:  const abcdFeedConfig = await oracle.feeds(tokenAddress);
+scripts/deploy-lending-v2-local.ts:150:  addressEquals(ethFeedConfig.aggregator, await ethFeed.getAddress(), "ETH/USD feed");
+scripts/deploy-lending-v2-local.ts:151:  addressEquals(abcdFeedConfig.aggregator, await abcdFeed.getAddress(), "ABCD/USD feed");
+scripts/deploy-lending-v2-local.ts:152:  if (ethFeedConfig.heartbeat !== 86_400n || abcdFeedConfig.heartbeat !== 86_400n || !ethFeedConfig.enabled || !abcdFeedConfig.enabled) throw new Error("Local oracle heartbeat/enabled verification failed");
+scripts/deploy-lending-v2-local.ts:159:  addressEquals(await pool.loanNFT(), await loanNFT.getAddress(), "LendingPoolV2 LoanNFT");
+scripts/deploy-lending-v2-local.ts:161:  addressEquals(await loanNFT.loanManager(), await manager.getAddress(), "LoanNFTV2 LoanManager");
+scripts/deploy-lending-v2-local.ts:162:  addressEquals(await loanNFT.platformRecipient(), platformRecipient, "LoanNFTV2 platform recipient");
+scripts/deploy-lending-v2-local.ts:163:  addressEquals(await reserve.asset(), tokenAddress, "InsuranceReserveV2 ABCD");
+scripts/deploy-lending-v2-local.ts:164:  addressEquals(await reserve.loanManager(), await manager.getAddress(), "InsuranceReserveV2 LoanManager");
+scripts/deploy-lending-v2-local.ts:165:  addressEquals(await liquidation.abcd(), tokenAddress, "LiquidationV2 ABCD");
+scripts/deploy-lending-v2-local.ts:166:  addressEquals(await liquidation.loanManager(), await manager.getAddress(), "LiquidationV2 LoanManager");
+scripts/deploy-lending-v2-local.ts:167:  addressEquals(await liquidation.collateralVault(), await vault.getAddress(), "LiquidationV2 CollateralVault");
+scripts/deploy-lending-v2-local.ts:168:  addressEquals(await liquidation.oracle(), await oracle.getAddress(), "LiquidationV2 OracleAdapter");
+scripts/deploy-lending-v2-local.ts:169:  addressEquals(await liquidation.reserve(), await reserve.getAddress(), "LiquidationV2 InsuranceReserve");
+scripts/deploy-lending-v2-local.ts:170:  addressEquals(await liquidation.loanNFT(), await loanNFT.getAddress(), "LiquidationV2 LoanNFT");
+scripts/deploy-lending-v2-local.ts:171:  addressEquals(await liquidation.settlementPool(), await pool.getAddress(), "LiquidationV2 settlement pool");
+scripts/deploy-lending-v2-local.ts:172:  addressEquals(await liquidation.p2pMarketplace(), await marketplace.getAddress(), "LiquidationV2 P2P marketplace");
+scripts/deploy-lending-v2-local.ts:177:  addressEquals(await marketplace.loanNFT(), await loanNFT.getAddress(), "LoanMarketplaceV2 LoanNFT");
+scripts/deploy-lending-v2-local.ts:183:  addressEquals(await emi.loanNFT(), await loanNFT.getAddress(), "EMIManagerV2 LoanNFT");
+scripts/deploy-lending-v2-local.ts:186:  addressEquals(await emi.overdueInstallmentExecutor(), await liquidation.getAddress(), "EMIManagerV2 overdue installment executor");
+scripts/deploy-lending-v2-local.ts:187:  addressEquals(await liquidation.overdueEmiManager(), await emi.getAddress(), "LiquidationV2 overdue EMI manager");
+scripts/deploy-lending-v2-local.ts:188:  if (await pool.MAX_INITIAL_LTV_BPS() !== 5_000n || await marketplace.P2P_INITIAL_LTV_BPS() !== 3_500n || await marketplace.previewMaxP2PPrincipal(ethers.parseEther("0.1")) !== ethers.parseEther("70") || await manager.newLoanAprBps() !== 1_200n || await manager.P2P_ETH_APR_BPS() !== 925n || await manager.LATE_FEE_BPS() !== 200n || await liquidation.MARGIN_CALL_THRESHOLD_BPS() !== 7_000n || await liquidation.LIQUIDATION_THRESHOLD_BPS() !== 8_000n || await liquidation.CLOSE_FACTOR_BPS() !== 10_000n || await liquidation.LIQUIDATION_BONUS_BPS() !== 500n || await liquidation.P2P_LIQUIDATION_BONUS_BPS() !== 0n || await liquidation.P2P_PARTIAL_TARGET_LTV_BPS() !== 7_000n || await manager.MARGIN_CALL_CURE_PERIOD() !== 72n * 60n * 60n) throw new Error("V2 economic configuration verification failed");
+scripts/deploy-lending-v2-local.ts:196:    oracle: { mode: "local-mock", ethAsset: ETH_ASSET, feeds: { ETH_USD: deployed.MockAggregatorV3V2_ETH_USD, ABCD_USD: deployed.MockAggregatorV3V2_ABCD_USD }, heartbeatSeconds: 86400 },
+scripts/deploy-lending-v2-local.ts:197:    configuration: { maxInitialLtvBps: 5000, p2pInitialLtvBps: 3500, marginCallThresholdBps: 7000, marginCallCureSeconds: 259200, aprBps: 1200, lateFeeBps: 200, liquidationThresholdBps: 8000, liquidationBonusBps: 500, closeFactorBps: 10000, supportedTermSeconds: [2592000, 7776000, 15552000], maturityGracePeriodSeconds: 604800, liquidity: liquidity.toString(), reserveFunding: reserveFunding.toString(), lendingReferralMonthlyRewardBps: 5, referralNftValueBps: 50, referralRewardAllowance: referralRewardAllowance.toString(), referralRewardVault: marketingWallet },
+scripts/deploy-lending-v2-local.ts:202:      liquidityManager: admin.address,
+scripts/deploy-lending-v2-local.ts:203:      reserveFunder: admin.address,
+scripts/deploy-lending-v2-local.ts:204:      loanOperators: [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()],
+scripts/deploy-lending-v2-local.ts:205:      vaultOperators: [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()],
+scripts/deploy-lending-v2-local.ts:206:      loanNftMinters: [await pool.getAddress(), await liquidation.getAddress(), await marketplace.getAddress(), await emi.getAddress()],
+scripts/deploy-lending-v2-local.ts:209:      reserveOperator: await liquidation.getAddress(),
+scripts/deploy-lending-v2-local.ts:210:      p2pOperator: await marketplace.getAddress(),
+scripts/deploy-lending-v2-local.ts:211:      p2pLiquidationSettlementOperator: await liquidation.getAddress(),
+scripts/deploy-lending-v2-local.ts:217:  console.log(JSON.stringify({ chainId: "31337", v1Preserved: manifest.contracts, lendingV2: manifest.lendingV2 }, null, 2));
+src/Services/lendingV2.ts:11:import LoanNftArtifact from '../../artifacts/contracts/nft/LoanNFTV2.sol/LoanNFTV2.json';
+src/Services/lendingV2.ts:31:const APR_DENOMINATOR = 10_000n * 365n * 86_400n;
+src/Services/lendingV2.ts:35:export type CompletionCertificateMetadata = {
+src/Services/lendingV2.ts:42:export type CompletionMetadataPreparer = (loanId: string) => Promise<CompletionCertificateMetadata>;
+src/Services/lendingV2.ts:46:  loan: { principalOutstanding: bigint; aprBps: bigint | number },
+src/Services/lendingV2.ts:53:  return outstanding + (loan.principalOutstanding * BigInt(loan.aprBps) * boundedBuffer / APR_DENOMINATOR) + 1n;
+src/Services/lendingV2.ts:58: * mined blocks. For a capped installment that currently equals live debt,
+src/Services/lendingV2.ts:83:  loan: Record<string, unknown>; aprBps: string; start: string; isDirect: boolean; principal: string; collateralETH: string; borrower: string; lender: string; maturity: string; marginCallAt: string; marginCallCureEnd: string;
+src/Services/lendingV2.ts:84:  accruedInterest: string; outstanding: string; lateFee: string; totalRepayment: string; state: number; ltvBps: string | null; healthFactor: string | null; liquidatable: boolean | null; riskError: string | null;
+src/Services/lendingV2.ts:86:  certificates: Array<{ tokenId: string; role: 'Lender' | 'Borrower' | 'Platform'; owner: string; uri: string; hash: string; loanId: string; valuation: string; completedAt: string; completionBlock: string }>;
+src/Services/lendingV2.ts:87:  schedule: { installmentAmount: string; installmentCount: string; paidInstallments: string; nextDueAt: string; completed: boolean } | null;
+src/Services/lendingV2.ts:91:export type V2P2PCapacity = { collateralETH: string; collateralUSD: string; maxPrincipal: string; initialLtvBps: string };
+src/Services/lendingV2.ts:100:  /** Completion certificates currently owned by this wallet. */
+src/Services/lendingV2.ts:101:  completionCertificateCount: string;
+src/Services/lendingV2.ts:104:  poolLiquidity: string; poolTokenBalance: string; reserveBalance: string;
+src/Services/lendingV2.ts:105:  initialLtvBps: string; p2pInitialLtvBps: string; marginCallThresholdBps: string; marginCallCureSeconds: string; aprBps: string; p2pAprBps: string; lateFeeBps: string;
+src/Services/lendingV2.ts:106:  liquidationThresholdBps: string; closeFactorBps: string; liquidationBonusBps: string; p2pLiquidationBonusBps: string; p2pPartialTargetLtvBps: string;
+src/Services/lendingV2.ts:107:  ethUsd: string; abcdUsd: string; supportedTermsDays: string[] | null; gracePeriodDays: string | null;
+src/Services/lendingV2.ts:117:export function v2EmiSchedule(installments: ArrayLike<V2Installment>, nextInstallment: bigint): V2Read['schedule'] {
+src/Services/lendingV2.ts:118:  const installmentCount = Number(installments.length);
+src/Services/lendingV2.ts:119:  if (!Number.isSafeInteger(installmentCount) || installmentCount === 0) return null;
+src/Services/lendingV2.ts:121:  if (!Number.isSafeInteger(nextIndex) || nextIndex < 0) throw new Error('Canonical EMI schedule returned an invalid next-installment index.');
+src/Services/lendingV2.ts:122:  const currentInstallment = nextIndex < installmentCount ? installments[nextIndex] : null;
+src/Services/lendingV2.ts:124:    installmentAmount: currentInstallment ? formatEther(currentInstallment.amount) : '0.0',
+src/Services/lendingV2.ts:125:    installmentCount: String(installmentCount),
+src/Services/lendingV2.ts:128:    completed: nextIndex >= installmentCount,
+src/Services/lendingV2.ts:149:function requireCompletionMetadata(metadata: CompletionCertificateMetadata) {
+src/Services/lendingV2.ts:152:function completionMetadataArgument(metadata: CompletionCertificateMetadata) {
+src/Services/lendingV2.ts:179:  const [feeData, balance] = await Promise.all([signer.provider!.getFeeData(), signer.provider!.getBalance(await signer.getAddress())]);
+src/Services/lendingV2.ts:180:  const gasPrice = feeData.maxFeePerGas || feeData.gasPrice || 0n;
+src/Services/lendingV2.ts:256:  const liquid = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, canonicalProvider);
+src/Services/lendingV2.ts:259:  const [loan, accruedInterest, outstanding, lateFee, totalRepayment, state, certificatesByRole, installments, nextInstallment] = await Promise.all([
+src/Services/lendingV2.ts:260:    manager.getLoan(loanId), manager.previewAccruedInterest(loanId), manager.previewOutstanding(loanId), manager.previewLateFee(loanId), manager.previewTotalRepayment(loanId), manager.previewLoanStatus(loanId), Promise.all([0, 1, 2].map(role => nft.loanCertificates(loanId, role))), emi.getSchedule(loanId), emi.nextInstallment(loanId),
+src/Services/lendingV2.ts:263:  let risk: { ltvBps: string; healthFactor: string; liquidatable: boolean } | null = null;
+src/Services/lendingV2.ts:266:    const [ltvBps, healthFactor, liquidatable] = await Promise.all([liquid.currentLtvBps(loanId), liquid.healthFactor(loanId), liquid.isLiquidatable(loanId)]);
+src/Services/lendingV2.ts:267:    risk = { ltvBps: ltvBps.toString(), healthFactor: healthFactor.toString(), liquidatable: Boolean(liquidatable) };
+src/Services/lendingV2.ts:269:  const certificateRoles = ['Lender', 'Borrower', 'Platform'] as const;
+src/Services/lendingV2.ts:270:  const certificates = (await Promise.all(certificatesByRole.map(async (certificate: bigint, index: number) => {
+src/Services/lendingV2.ts:271:    if (certificate === 0n) return null;
+src/Services/lendingV2.ts:272:    const [owner, uri, info] = await Promise.all([nft.ownerOf(certificate), nft.tokenURI(certificate), nft.getCertificate(certificate)]);
+src/Services/lendingV2.ts:273:    return { tokenId: certificate.toString(), role: certificateRoles[index], owner, uri, hash: info.metadataHash, loanId, valuation: formatEther(info.certificateValue), completedAt: info.completedAt.toString(), completionBlock: info.completionBlock.toString() };
+src/Services/lendingV2.ts:274:  }))).filter((certificate): certificate is NonNullable<typeof certificate> => certificate !== null);
+src/Services/lendingV2.ts:275:  const metadata = certificates.find(certificate => certificate.role === 'Borrower') ?? null;
+src/Services/lendingV2.ts:278:  const p2pSchedule = v2EmiSchedule(installments, nextInstallment);
+src/Services/lendingV2.ts:280:    loan, aprBps: loan.aprBps.toString(), start: loan.start.toString(), isDirect: loan.lender.toLowerCase() === v2Contracts().pool.toLowerCase(), principal: formatEther(loan.principal), collateralETH: formatEther(liveCollateral), borrower: loan.borrower, lender: loan.lender, maturity: loan.maturity.toString(), marginCallAt: loan.marginCallAt.toString(), marginCallCureEnd: loan.marginCallCureEnd.toString(),
+src/Services/lendingV2.ts:281:    accruedInterest: formatEther(accruedInterest), outstanding: formatEther(outstanding), lateFee: formatEther(lateFee), totalRepayment: formatEther(totalRepayment), state: Number(state), ltvBps: risk?.ltvBps ?? null, healthFactor: risk?.healthFactor ?? null, liquidatable: risk?.liquidatable ?? null, riskError, metadata, certificates, schedule: p2pSchedule,
+src/Services/lendingV2.ts:362:/** Reads the P2P marketplace's own oracle-priced ETH capacity; React is never the financial authority. */
+src/Services/lendingV2.ts:363:export async function getV2P2PRequestCapacity(collateral: string): Promise<V2P2PCapacity> {
+src/Services/lendingV2.ts:369:    readProtocol({ contract: 'LoanMarketplaceV2', address: v2Contracts().marketplace, functionName: 'previewMaxP2PPrincipal' }, () => market.previewMaxP2PPrincipal(collateralWei)),
+src/Services/lendingV2.ts:370:    readProtocol({ contract: 'LoanMarketplaceV2', address: v2Contracts().marketplace, functionName: 'P2P_INITIAL_LTV_BPS' }, () => market.P2P_INITIAL_LTV_BPS()),
+src/Services/lendingV2.ts:384: * falls back to the legacy V1 LendingPool or LoanNFT contracts.
+src/Services/lendingV2.ts:396:  let completionCertificateCount = 0n;
+src/Services/lendingV2.ts:407:    const certificates = Array.isArray(entry.certificates) ? entry.certificates : [];
+src/Services/lendingV2.ts:408:    completionCertificateCount += BigInt(certificates.filter((certificate) => {
+src/Services/lendingV2.ts:409:      const owner = certificate && typeof certificate === 'object' ? (certificate as Record<string, unknown>).owner : null;
+src/Services/lendingV2.ts:417:    completionCertificateCount: completionCertificateCount.toString(),
+src/Services/lendingV2.ts:423: * grace period are manifest-backed only because V2 intentionally has no public
+src/Services/lendingV2.ts:431:  const liquid = new Contract(contracts.liquidation, LiquidationArtifact.abi, canonicalProvider);
+src/Services/lendingV2.ts:432:  const reserve = new Contract(contracts.reserve, ['function availableBalance() view returns (uint256)'], canonicalProvider);
+src/Services/lendingV2.ts:436:  // configuration from ever selecting an oracle feed for a V2 dashboard read.
+src/Services/lendingV2.ts:442:  const [poolLiquidity, poolTokenBalance, reserveBalance, initialLtvBps, p2pInitialLtvBps, marginCallThresholdBps, marginCallCureSeconds, aprBps, p2pAprBps, lateFeeBps, liquidationThresholdBps, closeFactorBps, liquidationBonusBps, p2pLiquidationBonusBps, p2pPartialTargetLtvBps, ethUsd, abcdUsd] = await Promise.all([
+src/Services/lendingV2.ts:443:    readProtocol({ contract: 'LendingPoolV2', address: contracts.pool, functionName: 'liquidity' }, () => pool.liquidity()),
+src/Services/lendingV2.ts:445:    readProtocol({ contract: 'InsuranceReserveV2', address: contracts.reserve, functionName: 'availableBalance' }, () => reserve.availableBalance()),
+src/Services/lendingV2.ts:446:    readProtocol({ contract: 'LendingPoolV2', address: contracts.pool, functionName: 'MAX_INITIAL_LTV_BPS' }, () => pool.MAX_INITIAL_LTV_BPS()),
+src/Services/lendingV2.ts:447:    readProtocol({ contract: 'LoanMarketplaceV2', address: contracts.marketplace, functionName: 'P2P_INITIAL_LTV_BPS' }, () => market.P2P_INITIAL_LTV_BPS()),
+src/Services/lendingV2.ts:448:    readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'MARGIN_CALL_THRESHOLD_BPS' }, () => liquid.MARGIN_CALL_THRESHOLD_BPS()),
+src/Services/lendingV2.ts:449:    readProtocol({ contract: 'LoanManagerV2', address: contracts.manager, functionName: 'MARGIN_CALL_CURE_PERIOD' }, () => manager.MARGIN_CALL_CURE_PERIOD()),
+src/Services/lendingV2.ts:451:    readProtocol({ contract: 'LoanManagerV2', address: contracts.manager, functionName: 'P2P_ETH_APR_BPS' }, () => manager.P2P_ETH_APR_BPS()),
+src/Services/lendingV2.ts:453:    readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'LIQUIDATION_THRESHOLD_BPS' }, () => liquid.LIQUIDATION_THRESHOLD_BPS()),
+src/Services/lendingV2.ts:454:    readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'CLOSE_FACTOR_BPS' }, () => liquid.CLOSE_FACTOR_BPS()),
+src/Services/lendingV2.ts:455:    readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'LIQUIDATION_BONUS_BPS' }, () => liquid.LIQUIDATION_BONUS_BPS()),
+src/Services/lendingV2.ts:456:    readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'P2P_LIQUIDATION_BONUS_BPS' }, () => liquid.P2P_LIQUIDATION_BONUS_BPS()),
+src/Services/lendingV2.ts:457:    readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'P2P_PARTIAL_TARGET_LTV_BPS' }, () => liquid.P2P_PARTIAL_TARGET_LTV_BPS()),
+src/Services/lendingV2.ts:463:    poolLiquidity: formatEther(poolLiquidity), poolTokenBalance: formatEther(poolTokenBalance), reserveBalance: formatEther(reserveBalance),
+src/Services/lendingV2.ts:464:    initialLtvBps: initialLtvBps.toString(), p2pInitialLtvBps: p2pInitialLtvBps.toString(), marginCallThresholdBps: marginCallThresholdBps.toString(), marginCallCureSeconds: marginCallCureSeconds.toString(), aprBps: aprBps.toString(), p2pAprBps: p2pAprBps.toString(), lateFeeBps: lateFeeBps.toString(),
+src/Services/lendingV2.ts:465:    liquidationThresholdBps: liquidationThresholdBps.toString(), closeFactorBps: closeFactorBps.toString(), liquidationBonusBps: liquidationBonusBps.toString(), p2pLiquidationBonusBps: p2pLiquidationBonusBps.toString(), p2pPartialTargetLtvBps: p2pPartialTargetLtvBps.toString(),
+src/Services/lendingV2.ts:468:    gracePeriodDays: config?.maturityGracePeriodSeconds === undefined ? null : String(config.maturityGracePeriodSeconds / 86_400),
+src/Services/lendingV2.ts:526:  const signer = await getSigner(); const liquidation = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, signer);
+src/Services/lendingV2.ts:527:  const gas = await liquidation.syncRisk.estimateGas(loanId); await assertGasBalance(signer, gas);
+src/Services/lendingV2.ts:528:  return receipt('Risk-state synchronization', () => liquidation.syncRisk(loanId, { gasLimit: gas }), new Interface(LiquidationArtifact.abi), [], progress);
+src/Services/lendingV2.ts:535:  const maximum = await market.previewMaxP2PPrincipal(value);
+src/Services/lendingV2.ts:536:  if (amount > maximum) throw new Error('Requested P2P principal exceeds the current on-chain 35% ETH LTV capacity.');
+src/Services/lendingV2.ts:538:  return receipt('P2P request', () => market.createRequest(amount, termDays * 86400, { value, gasLimit: gas }), new Interface(MarketplaceArtifact.abi), [], progress);
+src/Services/lendingV2.ts:543:  if (request.state !== 0) throw new Error('This P2P request is not open for funding.');
+src/Services/lendingV2.ts:546:  return receipt('P2P funding', () => market.fundRequest(requestId, { gasLimit: gas }), new Interface(MarketplaceArtifact.abi), approval ? [approval] : [], progress);
+src/Services/lendingV2.ts:552:  const installment = schedule[Number(nextInstallment)]; if (!installment) throw new Error('This EMI schedule is already settled.');
+src/Services/lendingV2.ts:556:  const approvalAmount = await accruingLoanApprovalAmount(loanId, installment.amount, manager);
+src/Services/lendingV2.ts:562: * Permissionless P2P overdue-installment execution. The contract—not React—
+src/Services/lendingV2.ts:572:  const overdue = await emiRead.previewOverdueInstallment(loanId);
+src/Services/lendingV2.ts:573:  const amount = overdue[1] as bigint;
+src/Services/lendingV2.ts:574:  const completion = overdue[3] ? completionMetadataArgument(await prepareCompletionMetadata(loanId)) : null;
+src/Services/lendingV2.ts:577:  const approval = await approveIfNeeded(v2Contracts().liquidation, approvalAmount, progress);
+src/Services/lendingV2.ts:578:  const signer = await getSigner(); const liquid = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, signer);
+src/Services/lendingV2.ts:580:    ? await liquid.executeP2POverdueInstallmentWithCompletionMetadata.estimateGas(loanId, completion)
+src/Services/lendingV2.ts:581:    : await liquid.executeP2POverdueInstallment.estimateGas(loanId);
+src/Services/lendingV2.ts:583:  return receipt('P2P overdue installment', () => completion
+src/Services/lendingV2.ts:584:    ? liquid.executeP2POverdueInstallmentWithCompletionMetadata(loanId, completion, { gasLimit: gas })
+src/Services/lendingV2.ts:585:    : liquid.executeP2POverdueInstallment(loanId, { gasLimit: gas }), new Interface(LiquidationArtifact.abi), approval ? [approval] : [], progress);
+src/Services/lendingV2.ts:598:export async function liquidateV2(loanId: string, progress?: V2ProgressListener) {
+src/Services/lendingV2.ts:599:  progress?.({ stage: 'preparing', action: 'liquidateV2' });
+src/Services/lendingV2.ts:600:  requireId(loanId, 'Loan ID'); await assertV2Write(); const liquidRead = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, canonicalProvider);
+src/Services/lendingV2.ts:603:  const quote = requestId === 0n ? await liquidRead.previewLiquidation(loanId) : await liquidRead.previewP2PPartialLiquidation(loanId);
+src/Services/lendingV2.ts:605:  // a direct liquidation and index zero for P2P's partial debt reduction.
+src/Services/lendingV2.ts:609:  const approval = await approveIfNeeded(v2Contracts().liquidation, approvalAmount, progress); const signer = await getSigner(); const liquid = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, signer);
+src/Services/lendingV2.ts:610:  const gas = await liquid.liquidate.estimateGas(loanId); await assertGasBalance(signer, gas);
+src/Services/lendingV2.ts:611:  return receipt('Liquidation', () => liquid.liquidate(loanId, { gasLimit: gas }), new Interface(LiquidationArtifact.abi), approval ? [approval] : [], progress);
+src/Services/lendingV2.ts:617:  return receipt('P2P default settlement', () => market.settleDefault(requestId, { gasLimit: gas }), new Interface(MarketplaceArtifact.abi), [], progress);
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:8:const loanJson = (loan) => toJson({ borrower: loan.borrower, lender: loan.lender, collateralETH: loan.collateralETH, principal: loan.principal, principalOutstanding: loan.principalOutstanding, accruedInterest: loan.accruedInterest, fees: loan.fees, aprBps: loan.aprBps, start: loan.start, lastAccrual: loan.lastAccrual, maturity: loan.maturity, graceEnd: loan.graceEnd, marginCallAt: loan.marginCallAt, marginCallCureEnd: loan.marginCallCureEnd, state: loan.state, lateFeeAssessed: loan.lateFeeAssessed, reserveContribution: loan.reserveContribution, badDebt: loan.badDebt, totalRepaid: loan.totalRepaid });
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:10:const certificateJson = (certificate) => toJson({ loanId: certificate.loanId, requestId: certificate.requestId, borrower: certificate.borrower, lender: certificate.lender, platform: certificate.platform, principal: certificate.principal, collateral: certificate.collateral, agreedInterest: certificate.agreedInterest, totalScheduledRepayment: certificate.totalScheduledRepayment, actualRepayment: certificate.actualRepayment, certificateValue: certificate.certificateValue, aprBps: certificate.aprBps, start: certificate.start, maturity: certificate.maturity, completedAt: certificate.completedAt, completionBlock: certificate.completionBlock, status: certificate.status, role: certificate.role, isP2P: certificate.isP2P, metadataHash: certificate.metadataHash });
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:18:  const liquidation = new Contract(manifest.contracts.LiquidationV2.address, artifacts.LiquidationV2.abi, provider);
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:19:  const reserve = new Contract(manifest.contracts.InsuranceReserveV2.address, artifacts.InsuranceReserveV2.abi, provider);
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:21:  const nft = new Contract(manifest.contracts.LoanNFTV2.address, artifacts.LoanNFTV2.abi, provider);
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:37:    const [accruedInterest, outstanding, lateFee, totalRepayment, state, currentLtvBps, healthFactor, liquidatable, quote, schedule] = await Promise.all([
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:38:      manager.previewAccruedInterest(loanId), manager.previewOutstanding(loanId), manager.previewLateFee(loanId), manager.previewTotalRepayment(loanId), manager.previewLoanStatus(loanId),
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:39:      liquidation.currentLtvBps(loanId), liquidation.healthFactor(loanId), liquidation.isLiquidatable(loanId), liquidation.previewLiquidation(loanId), emi.getSchedule(loanId),
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:41:    // `previewLiquidation` is retained for direct loans. A P2P partial quote
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:44:    let p2pPartialLiquidation = null;
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:45:    if (requestId !== 0n && liquidatable) p2pPartialLiquidation = await liquidation.previewP2PPartialLiquidation(loanId);
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:47:    const certificateIds = await Promise.all([0, 1, 2].map((role) => nft.loanCertificates(loanId, role)));
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:48:    const certificates = (await Promise.all(certificateIds.map(async (certificateTokenId, role) => {
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:49:      if (certificateTokenId === 0n) return null;
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:50:      const [owner, tokenURI, certificate] = await Promise.all([nft.ownerOf(certificateTokenId), nft.tokenURI(certificateTokenId), nft.getCertificate(certificateTokenId)]);
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:51:      return { role: roleNames[role], tokenId: certificateTokenId, owner, tokenURI, certificate: certificateJson(certificate) };
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:53:    const borrowerCertificate = certificates.find((certificate) => certificate.role === 'BORROWER') || null;
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:54:    return toJson({ loan: loanJson(record), previews: { accruedInterest, outstanding, lateFee, totalRepayment, state, currentLtvBps, healthFactor, liquidatable, liquidation: requestId === 0n ? quote : null, p2pPartialLiquidation }, schedule: scheduleJson(schedule), certificate: borrowerCertificate, certificates });
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:91:    reserve: async (_req, res, next) => { try {
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:94:        reserve.availableBalance(),
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:95:        eventList({ contractName: 'InsuranceReserveV2', eventName: 'ReserveFunded' }, 100),
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:96:        eventList({ contractName: 'InsuranceReserveV2', eventName: 'ReserveUsed' }, 100),
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:97:        eventList({ contractName: 'InsuranceReserveV2', eventName: 'ReserveBalanceUpdated' }, 100),
+backend/backend/modules/lendingV2Projection\lendingV2Read.controller.cjs:99:      // The balance is read directly from InsuranceReserveV2. Events are an
+backend/backend/modules/lendingV2Projection\indexer.cjs:3:const requiredNames = ['OracleAdapterV2', 'CollateralVaultV2', 'LoanManagerV2', 'LendingPoolV2', 'LiquidationV2', 'InsuranceReserveV2', 'LoanMarketplaceV2', 'EMIManagerV2', 'LoanNFTV2'];
+contracts/lending/v2\IP2PSettlementCallbackV2.sol:4:/// @notice Minimal callback used to atomically synchronize a funded P2P request
+contracts/lending/v2\IP2PSettlementCallbackV2.sol:6:interface IP2PSettlementCallbackV2 {
+contracts/lending/v2\IP2PSettlementCallbackV2.sol:8:    function isP2PLoan(uint256 loanId) external view returns (bool);
+contracts/lending/v2\IP2PSettlementCallbackV2.sol:10:    function settleLiquidation(uint256 loanId, address payable liquidator, uint256 debtCovered, uint256 collateralToLiquidator, uint256 reserveContribution, uint256 badDebt) external;
+contracts/lending/v2\IP2PSettlementCallbackV2.sol:11:    function settlePartialLiquidation(uint256 loanId, address payable liquidator, uint256 debtReduction, uint256 collateralToLiquidator) external;
+contracts/lending/v2\OracleAdapterV2.sol:15:    struct Feed { address aggregator; uint48 heartbeat; bool enabled; }
+contracts/lending/v2\OracleAdapterV2.sol:16:    mapping(address => Feed) public feeds;
+contracts/lending/v2\OracleAdapterV2.sol:17:    event FeedConfigured(address indexed asset, address indexed aggregator, uint48 heartbeat, bool enabled);
+contracts/lending/v2\OracleAdapterV2.sol:25:    function configureFeed(address asset, address aggregator, uint48 heartbeat, bool enabled) external onlyRole(ORACLE_ADMIN_ROLE) {
+contracts/lending/v2\OracleAdapterV2.sol:26:        require(asset != address(0) && aggregator != address(0) && heartbeat != 0, "invalid feed");
+contracts/lending/v2\OracleAdapterV2.sol:27:        require(aggregator.code.length != 0, "feed has no code");
+contracts/lending/v2\OracleAdapterV2.sol:28:        feeds[asset] = Feed(aggregator, heartbeat, enabled);
+contracts/lending/v2\OracleAdapterV2.sol:29:        emit FeedConfigured(asset, aggregator, heartbeat, enabled);
+contracts/lending/v2\OracleAdapterV2.sol:33:        Feed memory feed = feeds[asset];
+contracts/lending/v2\OracleAdapterV2.sol:34:        require(feed.enabled, "feed disabled");
+contracts/lending/v2\OracleAdapterV2.sol:35:        (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) = IAggregatorV3V2(feed.aggregator).latestRoundData();
+contracts/lending/v2\OracleAdapterV2.sol:37:        require(block.timestamp - updatedAt <= feed.heartbeat, "stale price");
+contracts/lending/v2\OracleAdapterV2.sol:38:        uint8 decimals = IAggregatorV3V2(feed.aggregator).decimals();
+contracts/lending/v2\InsuranceReserveV2.sol:11:/// @notice ABCD insurance reserve used only to make approved V2 liquidation shortfalls explicit.
+contracts/lending/v2\InsuranceReserveV2.sol:12:contract InsuranceReserveV2 is AccessControl, Pausable, ReentrancyGuard {
+contracts/lending/v2\InsuranceReserveV2.sol:20:    mapping(uint256 => uint256) public reserveUsedByLoan;
+contracts/lending/v2\InsuranceReserveV2.sol:21:    mapping(uint256 => bool) public reserveSettlementProcessed;
+contracts/lending/v2\InsuranceReserveV2.sol:23:    event ReserveFunded(address indexed funder, uint256 amount);
+contracts/lending/v2\InsuranceReserveV2.sol:24:    event ReserveUsed(uint256 indexed loanId, address indexed recipient, uint256 requested, uint256 paid);
+contracts/lending/v2\InsuranceReserveV2.sol:27:    event ReserveBalanceUpdated(uint256 indexed loanId, address indexed recipient, uint256 paid, uint256 balanceAfter);
+contracts/lending/v2\InsuranceReserveV2.sol:43:        emit ReserveFunded(msg.sender, amount);
+contracts/lending/v2\InsuranceReserveV2.sol:44:        emit ReserveBalanceUpdated(0, address(this), 0, asset.balanceOf(address(this)));
+contracts/lending/v2\InsuranceReserveV2.sol:47:    /// @dev Pays no more than the funded reserve. The unpaid amount remains explicit bad debt.
+contracts/lending/v2\InsuranceReserveV2.sol:55:        require(!reserveSettlementProcessed[loanId], "reserve already settled");
+contracts/lending/v2\InsuranceReserveV2.sol:58:        // A reserve payment is a liquidation/default settlement operation,
+contracts/lending/v2\InsuranceReserveV2.sol:59:        // never a discretionary payment on a healthy or merely overdue loan.
+contracts/lending/v2\InsuranceReserveV2.sol:61:            loan.state == LoanManagerV2.State.MARGIN_CALL || loan.state == LoanManagerV2.State.DEFAULTED,
+contracts/lending/v2\InsuranceReserveV2.sol:62:            "loan not reserve eligible"
+contracts/lending/v2\InsuranceReserveV2.sol:64:        // The reserve may only reimburse the loan's recorded lender. This
+contracts/lending/v2\InsuranceReserveV2.sol:65:        // keeps direct shortfalls in the direct pool and makes future P2P
+contracts/lending/v2\InsuranceReserveV2.sol:66:        // reserve use pay its recorded lender, never an operator-selected wallet.
+contracts/lending/v2\InsuranceReserveV2.sol:67:        require(recipient == loan.lender, "invalid reserve recipient");
+contracts/lending/v2\InsuranceReserveV2.sol:69:        reserveSettlementProcessed[loanId] = true;
+contracts/lending/v2\InsuranceReserveV2.sol:72:            reserveUsedByLoan[loanId] += paid;
+contracts/lending/v2\InsuranceReserveV2.sol:75:        emit ReserveUsed(loanId, recipient, requested, paid);
+contracts/lending/v2\InsuranceReserveV2.sol:76:        emit ReserveBalanceUpdated(loanId, recipient, paid, asset.balanceOf(address(this)));
+contracts/lending/v2\EMIManagerV2.sol:11:import "./IP2PSettlementCallbackV2.sol";
+contracts/lending/v2\EMIManagerV2.sol:13:import "../../nft/LoanNFTV2.sol";
+contracts/lending/v2\EMIManagerV2.sol:15:/// @notice Bounded, deterministic (maximum six installments) V2 P2P EMI schedule manager.
+contracts/lending/v2\EMIManagerV2.sol:18:    bytes32 public constant P2P_OPERATOR_ROLE = keccak256("P2P_OPERATOR_ROLE");
+contracts/lending/v2\EMIManagerV2.sol:24:    LoanNFTV2 public immutable loanNFT;
+contracts/lending/v2\EMIManagerV2.sol:27:    /// @notice The canonical V2 risk engine may settle an overdue P2P
+contracts/lending/v2\EMIManagerV2.sol:28:    /// installment only after it has transferred the exact ABCD installment
+contracts/lending/v2\EMIManagerV2.sol:30:    address public overdueInstallmentExecutor;
+contracts/lending/v2\EMIManagerV2.sol:35:    event ScheduleCreated(uint256 indexed loanId, uint256 installments, uint256 total);
+contracts/lending/v2\EMIManagerV2.sol:38:    event InstallmentPaid(uint256 indexed loanId, uint256 indexed installment, address indexed borrower, uint256 amount);
+contracts/lending/v2\EMIManagerV2.sol:39:    event OverdueInstallmentApplied(uint256 indexed loanId, uint256 indexed installment, address indexed keeper, uint256 amount);
+contracts/lending/v2\EMIManagerV2.sol:40:    event P2PCollateralReleased(uint256 indexed loanId, address indexed borrower, uint256 collateral);
+contracts/lending/v2\EMIManagerV2.sol:44:        abcd = IERC20(abcd_); loanManager = LoanManagerV2(manager_); collateralVault = CollateralVaultV2(vault_); loanNFT = LoanNFTV2(loanNFT_); lendingReferralManager = LendingReferralManagerV2(lendingReferralManager_);
+contracts/lending/v2\EMIManagerV2.sol:45:        _grantRole(DEFAULT_ADMIN_ROLE, admin); _grantRole(P2P_OPERATOR_ROLE, admin);
+contracts/lending/v2\EMIManagerV2.sol:48:    /// @notice Configured once before the marketplace can create P2P schedules.
+contracts/lending/v2\EMIManagerV2.sol:60:        require(overdueInstallmentExecutor == address(0) && executor != address(0), "already configured");
+contracts/lending/v2\EMIManagerV2.sol:61:        overdueInstallmentExecutor = executor;
+contracts/lending/v2\EMIManagerV2.sol:65:    function createSchedule(uint256 loanId, uint48 term) external onlyRole(P2P_OPERATOR_ROLE) whenNotPaused {
+contracts/lending/v2\EMIManagerV2.sol:71:        uint256 total = uint256(loan.principal) + uint256(loan.principal) * loan.aprBps * term / (10_000 * 365 days);
+contracts/lending/v2\EMIManagerV2.sol:80:    /// @notice Canonical next overdue amount. The amount is capped at the
+contracts/lending/v2\EMIManagerV2.sol:86:        returns (uint256 installmentIndex, uint256 amount, uint48 dueAt, bool completionRequired)
+contracts/lending/v2\EMIManagerV2.sol:88:        installmentIndex = nextInstallment[loanId];
+contracts/lending/v2\EMIManagerV2.sol:89:        require(installmentIndex < schedules[loanId].length, "schedule complete");
+contracts/lending/v2\EMIManagerV2.sol:90:        Installment memory installment = schedules[loanId][installmentIndex];
+contracts/lending/v2\EMIManagerV2.sol:91:        require(!installment.paid, "installment already settled");
+contracts/lending/v2\EMIManagerV2.sol:92:        require(block.timestamp >= installment.dueAt, "installment not due");
+contracts/lending/v2\EMIManagerV2.sol:95:        amount = installment.amount > outstanding ? outstanding : installment.amount;
+contracts/lending/v2\EMIManagerV2.sol:96:        dueAt = installment.dueAt;
+contracts/lending/v2\EMIManagerV2.sol:104:    function payInstallmentWithCompletionMetadata(uint256 loanId, LoanNFTV2.CompletionMetadata calldata metadata) external nonReentrant {
+contracts/lending/v2\EMIManagerV2.sol:108:    function _payInstallment(uint256 loanId, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata) private {
+contracts/lending/v2\EMIManagerV2.sol:110:        Installment storage installment = schedules[loanId][index];
+contracts/lending/v2\EMIManagerV2.sol:111:        require(block.timestamp >= installment.dueAt, "installment not due");
+contracts/lending/v2\EMIManagerV2.sol:117:        uint256 amount = installment.amount;
+contracts/lending/v2\EMIManagerV2.sol:121:        installment.paid = true; nextInstallment[loanId] = index + 1;
+contracts/lending/v2\EMIManagerV2.sol:125:    /// @notice Settles a fee or rounding remainder after the scheduled installments.
+contracts/lending/v2\EMIManagerV2.sol:127:    function payOutstandingWithCompletionMetadata(uint256 loanId, uint256 amount, LoanNFTV2.CompletionMetadata calldata metadata) external nonReentrant {
+contracts/lending/v2\EMIManagerV2.sol:131:    function _pay(uint256 loanId, uint256 amount, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata) internal {
+contracts/lending/v2\EMIManagerV2.sol:140:    /// @notice Completes one due installment already paid by the configured
+contracts/lending/v2\EMIManagerV2.sol:142:    /// due-time check, or mark an installment twice.
+contracts/lending/v2\EMIManagerV2.sol:148:        LoanNFTV2.CompletionMetadata calldata metadata
+contracts/lending/v2\EMIManagerV2.sol:152:        Installment storage installment = schedules[loanId][index];
+contracts/lending/v2\EMIManagerV2.sol:153:        require(!installment.paid, "installment already settled");
+contracts/lending/v2\EMIManagerV2.sol:154:        require(block.timestamp >= installment.dueAt, "installment not due");
+contracts/lending/v2\EMIManagerV2.sol:159:        require(amount != 0 && amount <= installment.amount, "unexpected overdue amount");
+contracts/lending/v2\EMIManagerV2.sol:160:        installment.paid = true;
+contracts/lending/v2\EMIManagerV2.sol:167:    function _finalizeIfRepaid(uint256 loanId, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata) private {
+contracts/lending/v2\EMIManagerV2.sol:173:            uint256 requestId = IP2PSettlementCallbackV2(marketplace).requestByLoanId(loanId);
+contracts/lending/v2\EMIManagerV2.sol:174:            loanNFT.mintCompletionCertificates(loanId, requestId, true, metadata);
+contracts/lending/v2\EMIManagerV2.sol:175:            IP2PSettlementCallbackV2(marketplace).markLoanRepaid(loanId);
+contracts/lending/v2\EMIManagerV2.sol:177:            emit P2PCollateralReleased(loanId, settled.borrower, collateral);
+contracts/lending/v2\EMIManagerV2.sol:178:        } else if (settled.state == LoanManagerV2.State.GRACE_PERIOD) loanNFT.setStatus(loanId, LoanNFTV2.Status.GRACE_PERIOD);
+contracts/lending/v2\EMIManagerV2.sol:182:        require(msg.sender == overdueInstallmentExecutor, "not overdue executor");
+contracts/lending/v2\EMIManagerV2.sol:186:    function _emptyCompletionMetadata() private pure returns (LoanNFTV2.CompletionMetadata memory metadata) { }
+contracts/lending/v2\EMIManagerV2.sol:188:    function syncLoan(uint256 loanId) external { loanManager.sync(loanId); LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId); if (loan.state == LoanManagerV2.State.DEFAULTED) loanNFT.setStatus(loanId, LoanNFTV2.Status.DEFAULTED); }
+contracts/lending/v2\EMIManagerV2.sol:189:    function _outstanding(uint256 loanId) internal view returns (uint256) { LoanManagerV2.Loan memory l=loanManager.getLoan(loanId); return uint256(l.principalOutstanding)+l.accruedInterest+l.fees; }
+contracts/lending/v2\LendingReferralManagerV2.sol:13:/// from the legacy presale ReferralManager and the LoanNFTV2 lifecycle.
+contracts/lending/v2\LendingReferralManagerV2.sol:43:    struct ReferralCertificate {
+contracts/lending/v2\LendingReferralManagerV2.sol:56:    uint256 public nextCertificateId = 1;
+contracts/lending/v2\LendingReferralManagerV2.sol:62:    mapping(uint256 => ReferralCertificate) private _certificates;
+contracts/lending/v2\LendingReferralManagerV2.sol:69:    event LendingReferralCertificateMinted(uint256 indexed tokenId, uint256 indexed loanId, address indexed referrer, address referred, uint256 value, bool isLenderReferral, bytes32 metadataHash, string metadataURI);
+contracts/lending/v2\LendingReferralManagerV2.sol:73:        ERC721("ABCDeFi Lending Referral Certificate", "ABCD-LREF")
+contracts/lending/v2\LendingReferralManagerV2.sol:108:    /// @notice Called only after a direct loan disburses or a P2P request is funded.
+contracts/lending/v2\LendingReferralManagerV2.sol:110:    function registerLoan(uint256 loanId, uint256 requestId, bool isP2P)
+contracts/lending/v2\LendingReferralManagerV2.sol:115:        require(isP2P ? requestId != 0 : requestId == 0, "request association");
+contracts/lending/v2\LendingReferralManagerV2.sol:155:    /// the loan term or twelve periods. Defaulted/liquidated loans are blocked.
+contracts/lending/v2\LendingReferralManagerV2.sol:160:        require(loan.state != LoanManagerV2.State.DEFAULTED && loan.state != LoanManagerV2.State.LIQUIDATED, "rewards stopped");
+contracts/lending/v2\LendingReferralManagerV2.sol:161:        require(loan.state == LoanManagerV2.State.ACTIVE || loan.state == LoanManagerV2.State.GRACE_PERIOD || loan.state == LoanManagerV2.State.MARGIN_CALL || loan.state == LoanManagerV2.State.CLOSED, "reward unavailable");
+contracts/lending/v2\LendingReferralManagerV2.sol:180:    /// @notice A 0.5% accounting certificate can be minted only after the
+contracts/lending/v2\LendingReferralManagerV2.sol:182:    function mintReferralCertificate(uint256 loanId, address referred, string calldata metadataURI, bytes32 metadataHash)
+contracts/lending/v2\LendingReferralManagerV2.sol:187:        require(!record.referralNftMinted, "certificate exists");
+contracts/lending/v2\LendingReferralManagerV2.sol:191:        uint256 agreedInterest = uint256(loan.principal) * loan.aprBps * (uint256(loan.maturity) - uint256(loan.start)) / (BPS * YEAR);
+contracts/lending/v2\LendingReferralManagerV2.sol:193:        tokenId = nextCertificateId++;
+contracts/lending/v2\LendingReferralManagerV2.sol:195:        _certificates[tokenId] = ReferralCertificate(loanId, record.requestId, msg.sender, referred, value, record.isLenderReferral, metadataHash);
+contracts/lending/v2\LendingReferralManagerV2.sol:198:        emit LendingReferralCertificateMinted(tokenId, loanId, msg.sender, referred, value, record.isLenderReferral, metadataHash, metadataURI);
+contracts/lending/v2\LendingReferralManagerV2.sol:202:    function getReferralCertificate(uint256 tokenId) external view returns (ReferralCertificate memory) { return _certificates[tokenId]; }
+contracts/lending/v2\LoanMarketplaceV2.sol:14:import "./IP2PSettlementCallbackV2.sol";
+contracts/lending/v2\LoanMarketplaceV2.sol:15:import "../../nft/LoanNFTV2.sol";
+contracts/lending/v2\LoanMarketplaceV2.sol:17:/// @notice V2 P2P marketplace with request-scoped collateral and bounded deterministic EMI schedules.
+contracts/lending/v2\LoanMarketplaceV2.sol:21:    /// @notice P2P ETH requests use the whitepaper's ETH-specific 35% initial LTV.
+contracts/lending/v2\LoanMarketplaceV2.sol:23:    uint16 public constant P2P_INITIAL_LTV_BPS = 3_500;
+contracts/lending/v2\LoanMarketplaceV2.sol:29:    LoanNFTV2 public immutable loanNFT;
+contracts/lending/v2\LoanMarketplaceV2.sol:32:    address public liquidationEngine;
+contracts/lending/v2\LoanMarketplaceV2.sol:33:    bytes32 public constant LIQUIDATION_SETTLEMENT_ROLE = keccak256("LIQUIDATION_SETTLEMENT_ROLE");
+contracts/lending/v2\LoanMarketplaceV2.sol:36:    // A request does not create a LoanNFT. Completion provenance belongs to
+contracts/lending/v2\LoanMarketplaceV2.sol:45:    event P2PLiquidationSettled(uint256 indexed requestId, uint256 indexed loanId, address indexed liquidator, address lender, uint256 debtCovered, uint256 collateralToLiquidator, uint256 reserveContribution, uint256 badDebt, uint256 borrowerSurplus);
+contracts/lending/v2\LoanMarketplaceV2.sol:46:    event P2PPartialLiquidated(uint256 indexed requestId, uint256 indexed loanId, address indexed keeper, address lender, uint256 debtReduction, uint256 collateralSold, uint256 remainingCollateral);
+contracts/lending/v2\LoanMarketplaceV2.sol:47:    event P2PDefaultSettled(uint256 indexed requestId, uint256 indexed loanId, address lender, uint256 collateralToLender, uint256 borrowerSurplus, uint256 borrowerLiability);
+contracts/lending/v2\LoanMarketplaceV2.sol:51:        abcd=IERC20(abcd_); loanManager=LoanManagerV2(manager_); collateralVault=CollateralVaultV2(vault_); oracle=OracleAdapterV2(oracle_); loanNFT=LoanNFTV2(loanNFT_); lendingReferralManager=LendingReferralManagerV2(lendingReferralManager_); _grantRole(DEFAULT_ADMIN_ROLE, admin);
+contracts/lending/v2\LoanMarketplaceV2.sol:56:        require(liquidationEngine == address(0) && engine_ != address(0), "already configured");
+contracts/lending/v2\LoanMarketplaceV2.sol:57:        liquidationEngine = engine_;
+contracts/lending/v2\LoanMarketplaceV2.sol:58:        _grantRole(LIQUIDATION_SETTLEMENT_ROLE, engine_);
+contracts/lending/v2\LoanMarketplaceV2.sol:61:    /// OracleAdapterV2 rejects paused, stale, invalid, or unavailable feeds.
+contracts/lending/v2\LoanMarketplaceV2.sol:65:    /// @notice Maximum ABCD principal (18 decimals) for ETH-backed P2P collateral.
+contracts/lending/v2\LoanMarketplaceV2.sol:66:    function previewMaxP2PPrincipal(uint256 collateralETH) public view returns (uint256) {
+contracts/lending/v2\LoanMarketplaceV2.sol:68:        return collateralValueUSD(collateralETH) * P2P_INITIAL_LTV_BPS / BPS_DENOMINATOR * 1e18 / abcdPrice;
+contracts/lending/v2\LoanMarketplaceV2.sol:72:        require(principal <= previewMaxP2PPrincipal(msg.value), "p2p ltv exceeded");
+contracts/lending/v2\LoanMarketplaceV2.sol:76:        requests[requestId]=Request(msg.sender,principal,uint128(msg.value),term,RequestState.OPEN,address(0),0,P2P_INITIAL_LTV_BPS);
+contracts/lending/v2\LoanMarketplaceV2.sol:77:        emit RequestCreated(requestId,msg.sender,principal,msg.value,term,P2P_INITIAL_LTV_BPS);
+contracts/lending/v2\LoanMarketplaceV2.sol:83:        loanId=loanManager.createP2P(r.borrower,msg.sender,r.collateral,r.principal,r.term); r.loanId=loanId; requestByLoanId[loanId]=requestId;
+contracts/lending/v2\LoanMarketplaceV2.sol:84:        // Funding, rather than request creation, establishes the actual P2P
+contracts/lending/v2\LoanMarketplaceV2.sol:102:    function isP2PLoan(uint256 loanId) external view returns (bool) {
+contracts/lending/v2\LoanMarketplaceV2.sol:106:    /// @notice Terminal P2P-only callback from the configured risk engine. The
+contracts/lending/v2\LoanMarketplaceV2.sol:107:    /// engine pays the lender directly; no P2P proceeds enter the direct pool.
+contracts/lending/v2\LoanMarketplaceV2.sol:108:    function settleLiquidation(uint256 loanId, address payable liquidator, uint256 debtCovered, uint256 collateralToLiquidator, uint256 reserveContribution, uint256 badDebt)
+contracts/lending/v2\LoanMarketplaceV2.sol:109:        external onlyRole(LIQUIDATION_SETTLEMENT_ROLE) nonReentrant
+contracts/lending/v2\LoanMarketplaceV2.sol:114:        require(loan.state == LoanManagerV2.State.ACTIVE || loan.state == LoanManagerV2.State.GRACE_PERIOD || loan.state == LoanManagerV2.State.MARGIN_CALL || loan.state == LoanManagerV2.State.DEFAULTED, "not liquidatable");
+contracts/lending/v2\LoanMarketplaceV2.sol:115:        loanManager.liquidate(loanId, debtCovered, reserveContribution, badDebt);
+contracts/lending/v2\LoanMarketplaceV2.sol:116:        loanNFT.setStatus(loanId, LoanNFTV2.Status.LIQUIDATED);
+contracts/lending/v2\LoanMarketplaceV2.sol:117:        if (collateralToLiquidator != 0) collateralVault.seize(loanId, liquidator, collateralToLiquidator);
+contracts/lending/v2\LoanMarketplaceV2.sol:121:        emit P2PLiquidationSettled(requestId, loanId, liquidator, r.lender, debtCovered, collateralToLiquidator, reserveContribution, badDebt, surplus);
+contracts/lending/v2\LoanMarketplaceV2.sol:123:    /// @notice P2P-only partial liquidation callback. The risk engine has
+contracts/lending/v2\LoanMarketplaceV2.sol:124:    /// already transferred the exact debt reduction to the P2P lender and
+contracts/lending/v2\LoanMarketplaceV2.sol:128:    function settlePartialLiquidation(uint256 loanId, address payable liquidator, uint256 debtReduction, uint256 collateralToLiquidator)
+contracts/lending/v2\LoanMarketplaceV2.sol:129:        external onlyRole(LIQUIDATION_SETTLEMENT_ROLE) nonReentrant
+contracts/lending/v2\LoanMarketplaceV2.sol:134:        require(loan.state == LoanManagerV2.State.ACTIVE || loan.state == LoanManagerV2.State.GRACE_PERIOD || loan.state == LoanManagerV2.State.MARGIN_CALL, "not liquidatable");
+contracts/lending/v2\LoanMarketplaceV2.sol:135:        require(debtReduction != 0 && collateralToLiquidator != 0 && collateralToLiquidator < collateralVault.loanCollateral(loanId), "invalid partial liquidation");
+contracts/lending/v2\LoanMarketplaceV2.sol:136:        collateralVault.seize(loanId, liquidator, collateralToLiquidator);
+contracts/lending/v2\LoanMarketplaceV2.sol:137:        emit P2PPartialLiquidated(requestId, loanId, liquidator, r.lender, debtReduction, collateralToLiquidator, collateralVault.loanCollateral(loanId));
+contracts/lending/v2\LoanMarketplaceV2.sol:142:        uint256 debt=uint256(loan.principalOutstanding)+loan.accruedInterest+loan.fees; uint256 ethPrice=oracle.priceUSD(ETH_ASSET); uint256 tokenPrice=oracle.priceUSD(address(abcd));
+contracts/lending/v2\LoanMarketplaceV2.sol:146:        loanManager.liquidate(r.loanId,recovered,0,liability); loanNFT.setStatus(r.loanId,LoanNFTV2.Status.LIQUIDATED); r.state=RequestState.SETTLED;
+contracts/lending/v2\LoanMarketplaceV2.sol:147:        emit P2PDefaultSettled(requestId,r.loanId,r.lender,toLender,surplus,liability);
+contracts/lending/v2\CollateralVaultV2.sol:6:/// @notice Native ETH collateral is isolated by direct-deposit ID, P2P request ID, or final loan ID.
+contracts/lending/v2\CollateralVaultV2.sol:21:    /// @notice Escrows collateral for a P2P marketplace request.
+contracts/lending/v2\CollateralVaultV2.sol:29:    /// The caller must be a trusted lending operator; it cannot affect pending or P2P-request namespaces.
+contracts/lending/v2\LendingPoolV2.sol:13:import "../../nft/LoanNFTV2.sol";
+contracts/lending/v2\LendingPoolV2.sol:19:    uint16 public constant MAX_INITIAL_LTV_BPS = 5_000;
+contracts/lending/v2\LendingPoolV2.sol:23:    bytes32 public constant LIQUIDITY_MANAGER_ROLE = keccak256("LIQUIDITY_MANAGER_ROLE");
+contracts/lending/v2\LendingPoolV2.sol:28:    LoanNFTV2 public immutable loanNFT;
+contracts/lending/v2\LendingPoolV2.sol:30:    uint256 public liquidity;
+contracts/lending/v2\LendingPoolV2.sol:38:    // Completion certificates are deliberately not prepared at origination.
+contracts/lending/v2\LendingPoolV2.sol:42:    event DirectLoanRepaid(uint256 indexed loanId, address indexed borrower, uint256 amount, uint256 fee, uint256 interest, uint256 principal);
+contracts/lending/v2\LendingPoolV2.sol:48:        abcd = IERC20(abcd_); loanManager = LoanManagerV2(manager_); collateralVault = CollateralVaultV2(vault_); oracle = OracleAdapterV2(oracle_); loanNFT = LoanNFTV2(loanNFT_); lendingReferralManager = LendingReferralManagerV2(lendingReferralManager_);
+contracts/lending/v2\LendingPoolV2.sol:49:        _grantRole(DEFAULT_ADMIN_ROLE, admin); _grantRole(LIQUIDITY_MANAGER_ROLE, admin);
+contracts/lending/v2\LendingPoolV2.sol:52:    function fundLiquidity(uint256 amount) external onlyRole(LIQUIDITY_MANAGER_ROLE) whenNotPaused nonReentrant {
+contracts/lending/v2\LendingPoolV2.sol:53:        require(amount != 0, "zero amount"); abcd.safeTransferFrom(msg.sender, address(this), amount); liquidity += amount; emit LiquidityFunded(msg.sender, amount);
+contracts/lending/v2\LendingPoolV2.sol:59:        uint256 usd = collateralValueUSD(collateralETH) * MAX_INITIAL_LTV_BPS / BPS;
+contracts/lending/v2\LendingPoolV2.sol:105:        require(principal <= maxBorrowable(collateral), "ltv exceeded");
+contracts/lending/v2\LendingPoolV2.sol:106:        require(liquidity >= principal, "insufficient liquidity");
+contracts/lending/v2\LendingPoolV2.sol:107:        uint16 aprBps = loanManager.newLoanAprBps();
+contracts/lending/v2\LendingPoolV2.sol:108:        loanId = loanManager.create(msg.sender, address(this), collateral, principal, aprBps, term);
+contracts/lending/v2\LendingPoolV2.sol:113:        liquidity -= principal;
+contracts/lending/v2\LendingPoolV2.sol:121:        if (loan.state == LoanManagerV2.State.GRACE_PERIOD) loanNFT.setStatus(loanId, LoanNFTV2.Status.GRACE_PERIOD);
+contracts/lending/v2\LendingPoolV2.sol:122:        if (loan.state == LoanManagerV2.State.DEFAULTED) loanNFT.setStatus(loanId, LoanNFTV2.Status.DEFAULTED);
+contracts/lending/v2\LendingPoolV2.sol:133:        require(loan.state == LoanManagerV2.State.ACTIVE || loan.state == LoanManagerV2.State.MARGIN_CALL || loan.state == LoanManagerV2.State.GRACE_PERIOD, "loan not active");
+contracts/lending/v2\LendingPoolV2.sol:139:    function repay(uint256 loanId, uint256 amount) external nonReentrant returns (uint256 fee, uint256 interest, uint256 principal) {
+contracts/lending/v2\LendingPoolV2.sol:147:    function repayAll(uint256 loanId) external nonReentrant returns (uint256 fee, uint256 interest, uint256 principal) {
+contracts/lending/v2\LendingPoolV2.sol:155:    /// certificates in the same transaction as a terminal repayment.
+contracts/lending/v2\LendingPoolV2.sol:156:    function repayWithCompletionMetadata(uint256 loanId, uint256 amount, LoanNFTV2.CompletionMetadata calldata metadata)
+contracts/lending/v2\LendingPoolV2.sol:157:        external nonReentrant returns (uint256 fee, uint256 interest, uint256 principal)
+contracts/lending/v2\LendingPoolV2.sol:165:    function repayAllWithCompletionMetadata(uint256 loanId, LoanNFTV2.CompletionMetadata calldata metadata)
+contracts/lending/v2\LendingPoolV2.sol:166:        external nonReentrant returns (uint256 fee, uint256 interest, uint256 principal)
+contracts/lending/v2\LendingPoolV2.sol:174:    function _repay(uint256 loanId, uint256 amount, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata)
+contracts/lending/v2\LendingPoolV2.sol:175:        internal returns (uint256 fee, uint256 interest, uint256 principal)
+contracts/lending/v2\LendingPoolV2.sol:179:        (fee, interest, principal) = loanManager.repay(loanId, msg.sender, amount);
+contracts/lending/v2\LendingPoolV2.sol:180:        liquidity += amount;
+contracts/lending/v2\LendingPoolV2.sol:184:            loanNFT.mintCompletionCertificates(loanId, 0, false, metadata);
+contracts/lending/v2\LendingPoolV2.sol:186:        emit DirectLoanRepaid(loanId, msg.sender, amount, fee, interest, principal);
+contracts/lending/v2\LendingPoolV2.sol:189:    function _emptyCompletionMetadata() private pure returns (LoanNFTV2.CompletionMetadata memory metadata) { }
+contracts/lending/v2\LoanManagerV2.sol:8:    // MARGIN_CALL is appended rather than inserted into the legacy enum ordering.
+contracts/lending/v2\LoanManagerV2.sol:9:    enum State { ACTIVE, REPAID, GRACE_PERIOD, DEFAULTED, LIQUIDATED, CLOSED, MARGIN_CALL }
+contracts/lending/v2\LoanManagerV2.sol:10:    uint16 public constant INITIAL_APR_BPS = 1_200;
+contracts/lending/v2\LoanManagerV2.sol:12:    /// the ABCD-against-crypto 35% LTV / 9.25% rate group. This immutable
+contracts/lending/v2\LoanManagerV2.sol:13:    /// rate is used only by the ETH-backed P2P marketplace. Direct loans keep
+contracts/lending/v2\LoanManagerV2.sol:15:    uint16 public constant P2P_ETH_APR_BPS = 925;
+contracts/lending/v2\LoanManagerV2.sol:17:    uint16 public constant MIN_APR_BPS = 1;
+contracts/lending/v2\LoanManagerV2.sol:18:    uint16 public constant MAX_APR_BPS = 10_000;
+contracts/lending/v2\LoanManagerV2.sol:19:    uint48 public constant MARGIN_CALL_CURE_PERIOD = 72 hours;
+contracts/lending/v2\LoanManagerV2.sol:24:    /// LoanNFT certificate.  It is appended so existing loan fields retain
+contracts/lending/v2\LoanManagerV2.sol:26:    struct Loan { address borrower; address lender; uint128 collateralETH; uint128 principal; uint128 principalOutstanding; uint128 accruedInterest; uint128 fees; uint16 aprBps; uint48 start; uint48 lastAccrual; uint48 maturity; uint48 graceEnd; uint48 marginCallAt; uint48 marginCallCureEnd; State state; bool lateFeeAssessed; uint128 reserveContribution; uint128 badDebt; uint128 totalRepaid; }
+contracts/lending/v2\LoanManagerV2.sol:28:    uint16 public newLoanAprBps = INITIAL_APR_BPS;
+contracts/lending/v2\LoanManagerV2.sol:31:    event LoanCreated(uint256 indexed loanId,address indexed borrower,address indexed lender,uint256 principal,uint256 collateral,uint16 aprBps,uint48 maturity);
+contracts/lending/v2\LoanManagerV2.sol:33:    event FeeAssessed(uint256 indexed loanId,uint256 amount);
+contracts/lending/v2\LoanManagerV2.sol:34:    event RepaymentApplied(uint256 indexed loanId,address indexed payer,uint256 amount,uint256 fees,uint256 interest,uint256 principal,uint256 outstanding);
+contracts/lending/v2\LoanManagerV2.sol:36:    event BadDebtRecorded(uint256 indexed loanId,uint256 reserveContribution,uint256 remainingBadDebt);
+contracts/lending/v2\LoanManagerV2.sol:41:    function setNewLoanAprBps(uint16 aprBps) external onlyRole(RATE_MANAGER_ROLE) {
+contracts/lending/v2\LoanManagerV2.sol:42:        require(aprBps >= MIN_APR_BPS && aprBps <= MAX_APR_BPS, "invalid apr");
+contracts/lending/v2\LoanManagerV2.sol:43:        uint16 previous = newLoanAprBps; newLoanAprBps = aprBps;
+contracts/lending/v2\LoanManagerV2.sol:44:        emit NewLoanAprUpdated(previous, aprBps, msg.sender);
+contracts/lending/v2\LoanManagerV2.sol:46:    function create(address borrower,address lender,uint128 collateral,uint128 principal,uint16 aprBps,uint48 term) external onlyRole(LOAN_OPERATOR_ROLE) returns(uint256 id){
+contracts/lending/v2\LoanManagerV2.sol:47:        require(aprBps == newLoanAprBps, "invalid terms");
+contracts/lending/v2\LoanManagerV2.sol:48:        return _create(borrower, lender, collateral, principal, aprBps, term);
+contracts/lending/v2\LoanManagerV2.sol:50:    /// @notice Creates an ETH-backed P2P loan at the whitepaper table rate.
+contracts/lending/v2\LoanManagerV2.sol:53:    function createP2P(address borrower,address lender,uint128 collateral,uint128 principal,uint48 term) external onlyRole(LOAN_OPERATOR_ROLE) returns(uint256 id){
+contracts/lending/v2\LoanManagerV2.sol:54:        return _create(borrower, lender, collateral, principal, P2P_ETH_APR_BPS, term);
+contracts/lending/v2\LoanManagerV2.sol:56:    function _create(address borrower,address lender,uint128 collateral,uint128 principal,uint16 aprBps,uint48 term) private returns(uint256 id){
+contracts/lending/v2\LoanManagerV2.sol:61:        loans[id]=Loan(borrower,lender,collateral,principal,principal,0,0,aprBps,start,start,start+term,start+term+7 days,0,0,State.ACTIVE,false,0,0,0);
+contracts/lending/v2\LoanManagerV2.sol:62:        emit LoanCreated(id,borrower,lender,principal,collateral,aprBps,start+term);
+contracts/lending/v2\LoanManagerV2.sol:68:        if(l.state==State.REPAID || l.state==State.CLOSED || l.state==State.LIQUIDATED) return l.accruedInterest;
+contracts/lending/v2\LoanManagerV2.sol:71:        return uint256(l.accruedInterest) + (uint256(l.principalOutstanding) * l.aprBps * elapsed) / (BPS * YEAR);
+contracts/lending/v2\LoanManagerV2.sol:73:    /// @notice The fee presently due. The 2% fee is previewed once grace has begun.
+contracts/lending/v2\LoanManagerV2.sol:74:    function previewLateFee(uint256 id) public view returns(uint256) {
+contracts/lending/v2\LoanManagerV2.sol:76:        if(l.lateFeeAssessed || l.state==State.REPAID || l.state==State.CLOSED || l.state==State.LIQUIDATED) return l.fees;
+contracts/lending/v2\LoanManagerV2.sol:77:        if(block.timestamp <= l.maturity) return l.fees;
+contracts/lending/v2\LoanManagerV2.sol:83:        return uint256(l.principalOutstanding) + previewAccruedInterest(id) + previewLateFee(id);
+contracts/lending/v2\LoanManagerV2.sol:85:    /// @notice Contractual total repayment if the remaining principal is paid at maturity, plus an already-triggered late fee.
+contracts/lending/v2\LoanManagerV2.sol:88:        if(l.state==State.REPAID || l.state==State.CLOSED || l.state==State.LIQUIDATED) return previewOutstanding(id);
+contracts/lending/v2\LoanManagerV2.sol:90:        uint256 interestAtMaturity = uint256(l.accruedInterest) + (uint256(l.principalOutstanding) * l.aprBps * remainingSeconds) / (BPS * YEAR);
+contracts/lending/v2\LoanManagerV2.sol:91:        return uint256(l.principalOutstanding) + interestAtMaturity + previewLateFee(id);
+contracts/lending/v2\LoanManagerV2.sol:97:            if(l.state == State.GRACE_PERIOD && block.timestamp > l.graceEnd) return State.DEFAULTED;
+contracts/lending/v2\LoanManagerV2.sol:100:        if(block.timestamp > l.graceEnd) return State.DEFAULTED;
+contracts/lending/v2\LoanManagerV2.sol:101:        if(block.timestamp > l.maturity) return State.GRACE_PERIOD;
+contracts/lending/v2\LoanManagerV2.sol:106:        l.state = State.MARGIN_CALL; l.marginCallAt = uint48(block.timestamp); l.marginCallCureEnd = uint48(block.timestamp + MARGIN_CALL_CURE_PERIOD);
+contracts/lending/v2\LoanManagerV2.sol:107:        emit LoanStateChanged(id, State.ACTIVE, State.MARGIN_CALL); emit MarginCallActivated(id, l.marginCallCureEnd);
+contracts/lending/v2\LoanManagerV2.sol:110:        Loan storage l = loans[id]; require(l.state == State.MARGIN_CALL, "not margin call");
+contracts/lending/v2\LoanManagerV2.sol:111:        l.state = State.ACTIVE; emit LoanStateChanged(id, State.MARGIN_CALL, State.ACTIVE); emit MarginCallCured(id);
+contracts/lending/v2\LoanManagerV2.sol:115:        if(l.state==State.REPAID || l.state==State.CLOSED || l.state==State.LIQUIDATED) return 0;
+contracts/lending/v2\LoanManagerV2.sol:119:            added=(uint256(l.principalOutstanding)*l.aprBps*elapsed)/(BPS*YEAR);
+contracts/lending/v2\LoanManagerV2.sol:127:        // Grace (and its one-time late fee) begins only after that timestamp.
+contracts/lending/v2\LoanManagerV2.sol:129:            l.state=State.GRACE_PERIOD;
+contracts/lending/v2\LoanManagerV2.sol:130:            if(!l.lateFeeAssessed){uint256 fee=(uint256(l.principalOutstanding)+l.accruedInterest)*LATE_FEE_BPS/BPS;l.fees=uint128(fee);l.lateFeeAssessed=true;emit FeeAssessed(id,fee);}
+contracts/lending/v2\LoanManagerV2.sol:131:            emit LoanStateChanged(id,State.ACTIVE,State.GRACE_PERIOD);
+contracts/lending/v2\LoanManagerV2.sol:133:        if(l.state==State.GRACE_PERIOD && block.timestamp>l.graceEnd){l.state=State.DEFAULTED;emit LoanStateChanged(id,State.GRACE_PERIOD,State.DEFAULTED);}
+contracts/lending/v2\LoanManagerV2.sol:134:        // Margin-call expiry is not a terminal default. The approved P2P
+contracts/lending/v2\LoanManagerV2.sol:137:        // determines expiry from `marginCallCureEnd` and may then restore the
+contracts/lending/v2\LoanManagerV2.sol:138:        // position toward the target LTV. Maturity/grace defaults remain
+contracts/lending/v2\LoanManagerV2.sol:141:    function repay(uint256 id,address payer,uint256 amount) external onlyRole(LOAN_OPERATOR_ROLE) returns(uint256 fee,uint256 interest,uint256 principal) {
+contracts/lending/v2\LoanManagerV2.sol:143:        require(l.state == State.ACTIVE || l.state == State.GRACE_PERIOD || l.state == State.MARGIN_CALL, "repay unavailable");
+contracts/lending/v2\LoanManagerV2.sol:145:        fee = amount > l.fees ? l.fees : amount;
+contracts/lending/v2\LoanManagerV2.sol:146:        l.fees -= uint128(fee);
+contracts/lending/v2\LoanManagerV2.sol:147:        amount -= fee;
+contracts/lending/v2\LoanManagerV2.sol:153:        uint256 applied = fee + interest + principal;
+contracts/lending/v2\LoanManagerV2.sol:155:        if (l.principalOutstanding == 0 && l.accruedInterest == 0 && l.fees == 0) {
+contracts/lending/v2\LoanManagerV2.sol:160:        emit RepaymentApplied(id, payer, applied, fee, interest, principal, uint256(l.principalOutstanding) + l.accruedInterest + l.fees);
+contracts/lending/v2\LoanManagerV2.sol:162:    function liquidate(uint256 id,uint256 debtCovered,uint256 reserve,uint256 badDebt) external onlyRole(LOAN_OPERATOR_ROLE){
+contracts/lending/v2\LoanManagerV2.sol:163:        Loan storage l=loans[id];require(l.state==State.ACTIVE||l.state==State.GRACE_PERIOD||l.state==State.MARGIN_CALL||l.state==State.DEFAULTED,"not liquidatable");
+contracts/lending/v2\LoanManagerV2.sol:164:        uint256 debt = uint256(l.principalOutstanding) + l.accruedInterest + l.fees;
+contracts/lending/v2\LoanManagerV2.sol:165:        require(debtCovered + reserve + badDebt == debt, "settlement mismatch");
+contracts/lending/v2\LoanManagerV2.sol:166:        l.principalOutstanding=0;l.accruedInterest=0;l.fees=0;l.reserveContribution=uint128(reserve);l.badDebt=uint128(badDebt);
+contracts/lending/v2\LoanManagerV2.sol:167:        State p=l.state;l.state=State.LIQUIDATED;emit LoanStateChanged(id,p,State.LIQUIDATED);
+contracts/lending/v2\LoanManagerV2.sol:168:        if(reserve!=0||badDebt!=0)emit BadDebtRecorded(id,reserve,badDebt);
+contracts/lending/v2\LiquidationV2.sol:12:import "./InsuranceReserveV2.sol";
+contracts/lending/v2\LiquidationV2.sol:13:import "./IP2PSettlementCallbackV2.sol";
+contracts/lending/v2\LiquidationV2.sol:15:import "../../nft/LoanNFTV2.sol";
+contracts/lending/v2\LiquidationV2.sol:17:/// @notice Oracle-priced V2 risk engine: 70% margin call, 72-hour cure, 80% liquidation.
+contracts/lending/v2\LiquidationV2.sol:21:    uint16 public constant MARGIN_CALL_THRESHOLD_BPS = 7_000;
+contracts/lending/v2\LiquidationV2.sol:22:    uint16 public constant LIQUIDATION_THRESHOLD_BPS = 8_000;
+contracts/lending/v2\LiquidationV2.sol:23:    uint16 public constant LIQUIDATION_BONUS_BPS = 500;
+contracts/lending/v2\LiquidationV2.sol:24:    /// @notice P2P follows the whitepaper portion-sale restoration direction;
+contracts/lending/v2\LiquidationV2.sol:25:    /// the approved policy specifies no P2P liquidation bonus or extra fee.
+contracts/lending/v2\LiquidationV2.sol:26:    uint16 public constant P2P_LIQUIDATION_BONUS_BPS = 0;
+contracts/lending/v2\LiquidationV2.sol:27:    uint16 public constant P2P_PARTIAL_TARGET_LTV_BPS = 7_000;
+contracts/lending/v2\LiquidationV2.sol:36:    InsuranceReserveV2 public immutable reserve;
+contracts/lending/v2\LiquidationV2.sol:37:    LoanNFTV2 public immutable loanNFT;
+contracts/lending/v2\LiquidationV2.sol:39:    IP2PSettlementCallbackV2 public immutable p2pMarketplace;
+contracts/lending/v2\LiquidationV2.sol:40:    EMIManagerV2 public overdueEmiManager;
+contracts/lending/v2\LiquidationV2.sol:42:    event LoanLiquidated(uint256 indexed loanId, address indexed liquidator, uint256 debt, uint256 liquidatorPayment, uint256 collateralSeized, uint256 reserveUsed, uint256 badDebt, uint256 borrowerSurplus);
+contracts/lending/v2\LiquidationV2.sol:43:    event RiskStateSynced(uint256 indexed loanId, uint256 ltvBps, LoanManagerV2.State state);
+contracts/lending/v2\LiquidationV2.sol:44:    event P2PPartialLiquidated(uint256 indexed loanId, uint256 indexed requestId, address indexed keeper, uint256 collateralSold, uint256 debtReduction, uint256 ethPriceUSD, uint256 abcdPriceUSD, uint256 remainingDebt, uint256 remainingCollateral, uint256 resultingLtvBps, uint256 executedAt);
+contracts/lending/v2\LiquidationV2.sol:46:    event P2POverdueInstallmentExecuted(uint256 indexed loanId, uint256 indexed requestId, uint256 indexed installment, address keeper, address lender, uint256 amount, uint256 collateralSeized, uint256 ethPriceUSD, uint256 abcdPriceUSD);
+contracts/lending/v2\LiquidationV2.sol:47:    event P2POverdueInstallmentExecutionFailed(uint256 indexed loanId, uint256 indexed requestId, uint256 indexed installment, address keeper, uint256 amount, uint256 collateralAvailable, uint8 reason);
+contracts/lending/v2\LiquidationV2.sol:49:    constructor(address admin, address abcd_, address manager_, address vault_, address oracle_, address reserve_, address loanNFT_, address settlementPool_, address p2pMarketplace_) {
+contracts/lending/v2\LiquidationV2.sol:50:        require(admin != address(0) && abcd_ != address(0) && manager_ != address(0) && vault_ != address(0) && oracle_ != address(0) && reserve_ != address(0) && loanNFT_ != address(0) && settlementPool_ != address(0) && p2pMarketplace_ != address(0), "invalid address");
+contracts/lending/v2\LiquidationV2.sol:51:        abcd = IERC20(abcd_); loanManager = LoanManagerV2(manager_); collateralVault = CollateralVaultV2(vault_); oracle = OracleAdapterV2(oracle_); reserve = InsuranceReserveV2(reserve_); loanNFT = LoanNFTV2(loanNFT_); settlementPool = settlementPool_; p2pMarketplace = IP2PSettlementCallbackV2(p2pMarketplace_);
+contracts/lending/v2\LiquidationV2.sol:56:        require(address(overdueEmiManager) == address(0) && emiManager_ != address(0), "already configured");
+contracts/lending/v2\LiquidationV2.sol:57:        overdueEmiManager = EMIManagerV2(emiManager_);
+contracts/lending/v2\LiquidationV2.sol:83:        return collateralUSD * LIQUIDATION_THRESHOLD_BPS * 1e18 / BPS / debtUSD;
+contracts/lending/v2\LiquidationV2.sol:86:    /// @notice Persists the whitepaper margin-call state from authoritative oracle values.
+contracts/lending/v2\LiquidationV2.sol:91:        if (loan.state == LoanManagerV2.State.ACTIVE && currentLtvBps(loanId) >= MARGIN_CALL_THRESHOLD_BPS) {
+contracts/lending/v2\LiquidationV2.sol:93:        } else if (loan.state == LoanManagerV2.State.MARGIN_CALL && currentLtvBps(loanId) < MARGIN_CALL_THRESHOLD_BPS) {
+contracts/lending/v2\LiquidationV2.sol:102:        if (state == LoanManagerV2.State.MARGIN_CALL) {
+contracts/lending/v2\LiquidationV2.sol:104:            return block.timestamp > loan.marginCallCureEnd || currentLtvBps(loanId) >= LIQUIDATION_THRESHOLD_BPS;
+contracts/lending/v2\LiquidationV2.sol:106:        if (state != LoanManagerV2.State.ACTIVE && state != LoanManagerV2.State.GRACE_PERIOD) return false;
+contracts/lending/v2\LiquidationV2.sol:107:        return currentLtvBps(loanId) >= LIQUIDATION_THRESHOLD_BPS;
+contracts/lending/v2\LiquidationV2.sol:110:    /// @notice Exact current full-close liquidation quote, without mutating state.
+contracts/lending/v2\LiquidationV2.sol:111:    function previewLiquidation(uint256 loanId) public view returns (uint256 debt, uint256 liquidatorPayment, uint256 collateralToLiquidator, uint256 reserveRequested, uint256 potentialBadDebt) {
+contracts/lending/v2\LiquidationV2.sol:118:        uint256 maxPaymentUSD = collateralUSD * BPS / (BPS + LIQUIDATION_BONUS_BPS);
+contracts/lending/v2\LiquidationV2.sol:120:        liquidatorPayment = debt < maxPayment ? debt : maxPayment;
+contracts/lending/v2\LiquidationV2.sol:121:        uint256 paymentUSD = liquidatorPayment * tokenPrice / 1e18;
+contracts/lending/v2\LiquidationV2.sol:122:        collateralToLiquidator = paymentUSD * (BPS + LIQUIDATION_BONUS_BPS) * 1e18 / BPS / ethPrice;
+contracts/lending/v2\LiquidationV2.sol:124:        reserveRequested = debt - liquidatorPayment;
+contracts/lending/v2\LiquidationV2.sol:125:        uint256 reserveBalance = abcd.balanceOf(address(reserve));
+contracts/lending/v2\LiquidationV2.sol:126:        potentialBadDebt = reserveRequested > reserveBalance ? reserveRequested - reserveBalance : 0;
+contracts/lending/v2\LiquidationV2.sol:129:    /// @notice Exact no-bonus P2P portion-sale quote. USD debt reduction is
+contracts/lending/v2\LiquidationV2.sol:131:    /// prevents over-seizing ETH; the final LTV check proves the stated 70%
+contracts/lending/v2\LiquidationV2.sol:134:    function previewP2PPartialLiquidation(uint256 loanId) public view returns (uint256 debtReduction, uint256 collateralToLiquidator, uint256 remainingDebt, uint256 remainingCollateral, uint256 resultingLtvBps) {
+contracts/lending/v2\LiquidationV2.sol:135:        require(p2pMarketplace.isP2PLoan(loanId), "not p2p loan");
+contracts/lending/v2\LiquidationV2.sol:143:        require(debtUSD * BPS > collateralUSD * P2P_PARTIAL_TARGET_LTV_BPS, "target already met");
+contracts/lending/v2\LiquidationV2.sol:144:        uint256 reductionUSD = _ceilDiv(debtUSD * BPS - collateralUSD * P2P_PARTIAL_TARGET_LTV_BPS, BPS - P2P_PARTIAL_TARGET_LTV_BPS);
+contracts/lending/v2\LiquidationV2.sol:146:        require(debtReduction != 0 && debtReduction < debt, "partial liquidation infeasible");
+contracts/lending/v2\LiquidationV2.sol:147:        // Zero P2P bonus: debt reduction and collateral sold are the same USD
+contracts/lending/v2\LiquidationV2.sol:151:        require(collateralToLiquidator != 0 && collateralToLiquidator < collateral, "partial liquidation infeasible");
+contracts/lending/v2\LiquidationV2.sol:156:        require(remainingCollateralUSD != 0, "partial liquidation infeasible");
+contracts/lending/v2\LiquidationV2.sol:158:        require(resultingLtvBps <= P2P_PARTIAL_TARGET_LTV_BPS, "partial liquidation infeasible");
+contracts/lending/v2\LiquidationV2.sol:165:    function liquidate(uint256 loanId) external whenNotPaused nonReentrant {
+contracts/lending/v2\LiquidationV2.sol:167:        require(isLiquidatable(loanId), "not liquidatable");
+contracts/lending/v2\LiquidationV2.sol:172:        (, uint256 liquidatorPayment, uint256 collateralToLiquidator,,) = previewLiquidation(loanId);
+contracts/lending/v2\LiquidationV2.sol:174:        if (p2pMarketplace.isP2PLoan(loanId)) {
+contracts/lending/v2\LiquidationV2.sol:175:            // P2P is intentionally not routed through the direct pool or its
+contracts/lending/v2\LiquidationV2.sol:176:            // terminal reserve path. It sells only the calculated collateral
+contracts/lending/v2\LiquidationV2.sol:177:            // portion and applies the matching ABCD payment to the P2P lender.
+contracts/lending/v2\LiquidationV2.sol:178:            (uint256 debtReduction, uint256 collateralSold, uint256 remainingDebt, uint256 remainingCollateral, uint256 resultingLtvBps) = previewP2PPartialLiquidation(loanId);
+contracts/lending/v2\LiquidationV2.sol:181:            p2pMarketplace.settlePartialLiquidation(loanId, payable(msg.sender), debtReduction, collateralSold);
+contracts/lending/v2\LiquidationV2.sol:182:            // A payment that has restored LTV below 70% closes the current
+contracts/lending/v2\LiquidationV2.sol:183:            // margin-call state, but a later independent breach may be synced
+contracts/lending/v2\LiquidationV2.sol:184:            // and liquidated again.
+contracts/lending/v2\LiquidationV2.sol:186:            uint256 requestId = p2pMarketplace.requestByLoanId(loanId);
+contracts/lending/v2\LiquidationV2.sol:187:            emit P2PPartialLiquidated(loanId, requestId, msg.sender, collateralSold, debtReduction, oracle.priceUSD(ETH_ASSET), oracle.priceUSD(address(abcd)), remainingDebt, remainingCollateral, resultingLtvBps, block.timestamp);
+contracts/lending/v2\LiquidationV2.sol:190:        if (liquidatorPayment != 0) abcd.safeTransferFrom(msg.sender, settlementPool, liquidatorPayment);
+contracts/lending/v2\LiquidationV2.sol:191:        uint256 reserveRequested = debt - liquidatorPayment;
+contracts/lending/v2\LiquidationV2.sol:192:        // A fully collateralized liquidation has no insurance shortfall. Avoid
+contracts/lending/v2\LiquidationV2.sol:193:        // creating a meaningless zero-value reserve settlement.
+contracts/lending/v2\LiquidationV2.sol:194:        uint256 reservePaid = reserveRequested == 0 ? 0 : reserve.cover(loanId, settlementPool, reserveRequested);
+contracts/lending/v2\LiquidationV2.sol:195:        uint256 badDebt = debt - liquidatorPayment - reservePaid;
+contracts/lending/v2\LiquidationV2.sol:196:        loanManager.liquidate(loanId, liquidatorPayment, reservePaid, badDebt);
+contracts/lending/v2\LiquidationV2.sol:197:        loanNFT.setStatus(loanId, LoanNFTV2.Status.LIQUIDATED);
+contracts/lending/v2\LiquidationV2.sol:201:        emit LoanLiquidated(loanId, msg.sender, debt, liquidatorPayment, collateralToLiquidator, reservePaid, badDebt, surplus);
+contracts/lending/v2\LiquidationV2.sol:204:    /// @notice Permissionless P2P overdue-installment execution. The keeper
+contracts/lending/v2\LiquidationV2.sol:208:    /// state is preserved with a truthful failure event.
+contracts/lending/v2\LiquidationV2.sol:209:    function executeP2POverdueInstallment(uint256 loanId) external whenNotPaused nonReentrant returns (bool) {
+contracts/lending/v2\LiquidationV2.sol:210:        return _executeP2POverdueInstallment(loanId, false, _emptyCompletionMetadata());
+contracts/lending/v2\LiquidationV2.sol:215:    /// than closing a loan without its three completion certificates.
+contracts/lending/v2\LiquidationV2.sol:216:    function executeP2POverdueInstallmentWithCompletionMetadata(uint256 loanId, LoanNFTV2.CompletionMetadata calldata metadata)
+contracts/lending/v2\LiquidationV2.sol:222:        return _executeP2POverdueInstallment(loanId, true, metadata);
+contracts/lending/v2\LiquidationV2.sol:225:    function _executeP2POverdueInstallment(uint256 loanId, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata)
+contracts/lending/v2\LiquidationV2.sol:229:        require(address(overdueEmiManager) != address(0), "overdue EMI manager not configured");
+contracts/lending/v2\LiquidationV2.sol:230:        require(p2pMarketplace.isP2PLoan(loanId), "not p2p loan");
+contracts/lending/v2\LiquidationV2.sol:233:        uint256 requestId = p2pMarketplace.requestByLoanId(loanId);
+contracts/lending/v2\LiquidationV2.sol:234:        if (loan.state != LoanManagerV2.State.ACTIVE && loan.state != LoanManagerV2.State.GRACE_PERIOD && loan.state != LoanManagerV2.State.MARGIN_CALL) {
+contracts/lending/v2\LiquidationV2.sol:235:            emit P2POverdueInstallmentExecutionFailed(loanId, requestId, overdueEmiManager.nextInstallment(loanId), msg.sender, 0, collateralVault.loanCollateral(loanId), 1);
+contracts/lending/v2\LiquidationV2.sol:239:        (uint256 installmentIndex, uint256 amount,, bool completionRequired) = overdueEmiManager.previewOverdueInstallment(loanId);
+contracts/lending/v2\LiquidationV2.sol:243:        // Same no-bonus, floor-ETH conversion used by the P2P risk engine:
+contracts/lending/v2\LiquidationV2.sol:248:            emit P2POverdueInstallmentExecutionFailed(loanId, requestId, installmentIndex, msg.sender, amount, collateral, 2);
+contracts/lending/v2\LiquidationV2.sol:255:        overdueEmiManager.settleOverdueInstallment(loanId, msg.sender, amount, hasCompletionMetadata, metadata);
+contracts/lending/v2\LiquidationV2.sol:256:        emit P2POverdueInstallmentExecuted(loanId, requestId, installmentIndex + 1, msg.sender, loan.lender, amount, collateralSeized, ethPrice, abcdPrice);
+contracts/lending/v2\LiquidationV2.sol:260:    function _emptyCompletionMetadata() private pure returns (LoanNFTV2.CompletionMetadata memory metadata) { }
+backend/backend/modules/lendingV2Projection\lendingV2Read.routes.cjs:9:router.get('/reserve', controller.reserve);

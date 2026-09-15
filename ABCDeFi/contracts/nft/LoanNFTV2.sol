@@ -5,9 +5,11 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "../lending/v2/LoanManagerV2.sol";
 
-/// @notice Soulbound completion certificates for settled Lending V2 loans.
-/// @dev The 1% field is immutable accounting metadata only. It is not a
-/// redeemable claim, transfer of loan proceeds, reserve withdrawal, or token payout.
+/// @notice Transferable completion certificates for settled Lending V2 loans.
+/// @dev The completion-value field remains zero until the whitepaper's
+/// USD valuation timestamp and oracle policy are explicitly approved. It is
+/// never a redeemable claim, transfer of loan proceeds, reserve withdrawal,
+/// or token payout.
 contract LoanNFTV2 is ERC721URIStorage, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     /// @dev Completion authority is deliberately narrower than the legacy
@@ -15,7 +17,6 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
     /// P2P settlement operator cannot mint a direct-loan completion record.
     bytes32 public constant DIRECT_COMPLETION_OPERATOR_ROLE = keccak256("DIRECT_COMPLETION_OPERATOR_ROLE");
     bytes32 public constant P2P_COMPLETION_OPERATOR_ROLE = keccak256("P2P_COMPLETION_OPERATOR_ROLE");
-    uint16 public constant CERTIFICATE_VALUATION_BPS = 100;
     uint256 private constant BPS = 10_000;
 
     // Appended value preserves legacy status values consumed by prior indexed events.
@@ -31,6 +32,7 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
         uint128 totalScheduledRepayment;
         uint128 certificateValue;
         uint48 completedAt;
+        uint64 completionBlock;
         bool isP2P;
     }
     struct Certificate {
@@ -49,6 +51,7 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
         uint48 start;
         uint48 maturity;
         uint48 completedAt;
+        uint64 completionBlock;
         Status status;
         CertificateRole role;
         bool isP2P;
@@ -104,12 +107,17 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
 
         uint256 agreedInterest = uint256(loan.principal) * loan.aprBps * (loan.maturity - loan.start) / (BPS * 365 days);
         uint256 totalScheduledRepayment = uint256(loan.principal) + agreedInterest;
-        uint256 certificateValue = totalScheduledRepayment * CERTIFICATE_VALUATION_BPS / BPS;
+        // The whitepaper describes a USD-denominated completion value but
+        // does not define its valuation timestamp or oracle rule. Do not
+        // mislabel an ABCD-unit calculation as that USD value for either
+        // direct or P2P loans; it remains zero until that policy is approved.
+        uint256 certificateValue = 0;
         require(agreedInterest <= type(uint128).max && totalScheduledRepayment <= type(uint128).max && certificateValue <= type(uint128).max, "valuation overflow");
         completionCreated[loanId] = true;
         uint48 completedAt = uint48(block.timestamp);
+        require(block.number <= type(uint64).max, "completion block overflow");
 
-        CompletionValues memory values = CompletionValues(loanId, requestId, uint128(agreedInterest), uint128(totalScheduledRepayment), uint128(certificateValue), completedAt, isP2P);
+        CompletionValues memory values = CompletionValues(loanId, requestId, uint128(agreedInterest), uint128(totalScheduledRepayment), uint128(certificateValue), completedAt, uint64(block.number), isP2P);
         lenderId = _mintCertificate(loan, values, CertificateRole.LENDER, loan.lender, metadata.lender);
         borrowerId = _mintCertificate(loan, values, CertificateRole.BORROWER, loan.borrower, metadata.borrower);
         platformId = _mintCertificate(loan, values, CertificateRole.PLATFORM, platformRecipient, metadata.platform);
@@ -151,19 +159,27 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
         certificate.start = loan.start;
         certificate.maturity = loan.maturity;
         certificate.completedAt = values.completedAt;
+        certificate.completionBlock = values.completionBlock;
         certificate.status = Status.COMPLETED;
         certificate.role = role;
         certificate.isP2P = values.isP2P;
         certificate.metadataHash = metadata.hash;
-        // Soulbound certificates use `_mint` to avoid ERC721Receiver callbacks
-        // while a repayment transaction is atomically settling a loan.
+        // `_mint` deliberately avoids an ERC721Receiver callback while a
+        // repayment transaction atomically settles a loan. Once minted these
+        // are standard ERC-721 assets, consistent with the whitepaper's
+        // tradable/collateralizable description.
         _mint(owner, id);
         _setTokenURI(id, metadata.uri);
         emit LoanCertificateCreated(values.loanId, id, role, owner, values.certificateValue, metadata.uri, metadata.hash);
     }
 
     /// @notice There is intentionally no certificate before completion.
+    /// @dev The legacy status hook is retained for the pre-completion lending
+    /// flows that call it. Completion certificates are immutable evidence of a
+    /// successfully settled loan, so a privileged minter must not change only
+    /// the legacy borrower-certificate status after the role triple exists.
     function setStatus(uint256 loanId, Status status) external onlyRole(MINTER_ROLE) {
+        require(!completionCreated[loanId], "completion certificate final");
         uint256 id = loanCertificate[loanId];
         if (id == 0) return;
         _certificates[id].status = status;
@@ -172,12 +188,6 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
 
     function getCertificate(uint256 certificateId) external view returns (Certificate memory) {
         return _certificates[certificateId];
-    }
-
-    function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
-        address from = _ownerOf(tokenId);
-        require(from == address(0) || to == address(0), "non-transferable");
-        return super._update(to, tokenId, auth);
     }
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC721URIStorage, AccessControl) returns (bool) {

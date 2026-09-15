@@ -57,12 +57,6 @@ library Errors {
     error PresaleAlreadyFinalized();
     error SoftCapNotMet();
 
-    // --- Staking Errors ---
-    error InvalidDuration();
-    error LockPeriodNotEnded();
-    error InsufficientStakedBalance();
-    error RewardPoolDepleted();
-
     // --- Lending Errors ---
     error ExceedsLTVLimit(uint256 requested, uint256 maxAllowed);
     error InsufficientCollateral();

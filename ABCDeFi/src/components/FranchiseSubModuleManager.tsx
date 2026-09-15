@@ -108,7 +108,6 @@ export const FranchiseSubModuleManager: React.FC<FranchiseSubModuleManagerProps>
                 <div>• Coverage: 1 District (e.g. Cyberabad)</div>
                 <div>• Population Reach: ~1.2M Citizens</div>
                 <div>• Revenue Multiplier: <strong className="text-white">1.25x</strong></div>
-                <div>• Staking Collateral Required: <strong className="text-amber-400">10,000 ABCD</strong></div>
               </div>
             </div>
 
@@ -122,7 +121,6 @@ export const FranchiseSubModuleManager: React.FC<FranchiseSubModuleManagerProps>
                 <div>• Coverage: 1 State Realm (e.g. Telangana)</div>
                 <div>• Population Reach: ~3.8M Citizens</div>
                 <div>• Revenue Multiplier: <strong className="text-white">1.50x</strong></div>
-                <div>• Staking Collateral Required: <strong className="text-amber-400">25,000 ABCD</strong></div>
               </div>
             </div>
 
@@ -136,7 +134,6 @@ export const FranchiseSubModuleManager: React.FC<FranchiseSubModuleManagerProps>
                 <div>• Coverage: Full Country Guild (Bharat)</div>
                 <div>• Population Reach: National Scale</div>
                 <div>• Revenue Multiplier: <strong className="text-white">2.00x</strong></div>
-                <div>• Staking Collateral Required: <strong className="text-amber-400">100,000 ABCD</strong></div>
               </div>
             </div>
           </div>
@@ -307,11 +304,6 @@ export const FranchiseSubModuleManager: React.FC<FranchiseSubModuleManagerProps>
               <div className="text-3xl font-black text-indigo-400">$8,560 USDC</div>
               <div className="text-[10px] text-slate-400">Auto-routed to Treasury Vault</div>
             </div>
-            <div className="bg-slate-950 p-5 rounded-2xl border border-amber-500/40 space-y-2">
-              <div className="text-[10px] text-slate-500 uppercase font-bold">Local Stakers Share (10%)</div>
-              <div className="text-3xl font-black text-amber-400">$4,280 USDC</div>
-              <div className="text-[10px] text-slate-400">Distributed to territory stakers</div>
-            </div>
           </div>
 
           {/* Fee Stream Breakdown */}
@@ -321,10 +313,6 @@ export const FranchiseSubModuleManager: React.FC<FranchiseSubModuleManagerProps>
               <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
                 <div className="text-slate-500 text-[10px]">P2P Loan Origination Fees</div>
                 <div className="text-white font-bold mt-0.5">$18,400 USDC</div>
-              </div>
-              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-                <div className="text-slate-500 text-[10px]">Staking Performance Fees</div>
-                <div className="text-white font-bold mt-0.5">$12,200 USDC</div>
               </div>
               <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
                 <div className="text-slate-500 text-[10px]">NFT Marketplace Royalties</div>

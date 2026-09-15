@@ -27,7 +27,7 @@ const require = createRequire(import.meta.url);
 
 const ROLE = (name: string) => ethers.keccak256(ethers.toUtf8Bytes(name));
 const REQUIRED_CONTRACTS = [
-  "ABCDToken", "Treasury", "TokenVesting", "Presale", "StakingPool",
+  "ABCDToken", "Treasury", "TokenVesting", "Presale",
   "LendingPool", "CollateralVault", "LoanManager", "LoanMarketplace",
   "EMIManager", "Liquidation", "NFTMarketplace", "ParticipantNFT",
   "ReputationNFT", "GuruNFT", "LegionNFT", "FranchiseNFT", "LoanNFT", "ReferralManager", "BonusEngine",
@@ -145,12 +145,12 @@ async function main() {
   assert.match(contractProviderSource, /DEPLOYMENT_RPC_URL/, "Canonical contract provider must use the deployment-manifest RPC");
   assert.match(walletSource, /CONTRACTS, DEPLOYMENT_CHAIN_ID, DEPLOYMENT_RPC_URL/, "Wallet service must use canonical deployment configuration");
   const activeConfigurationSources = [frontendConfig, contractProviderSource, walletSource].join("\n");
-  assert.doesNotMatch(activeConfigurationSources, /VITE_[A-Z0-9_]*(ADDRESS|TOKEN|TREASURY|LENDING|PRESALE|STAKING|VAULT|MANAGER|NFT)/, "Active frontend contract configuration must not use VITE_* deployment addresses");
+  assert.doesNotMatch(activeConfigurationSources, /VITE_[A-Z0-9_]*(ADDRESS|TOKEN|TREASURY|LENDING|PRESALE|VAULT|MANAGER|NFT)/, "Active frontend contract configuration must not use VITE_* deployment addresses");
   const frontendEnvPath = path.resolve(".env.local");
   if (fs.existsSync(frontendEnvPath)) {
     const legacyOverrides = fs.readFileSync(frontendEnvPath, "utf8")
       .split(/\r?\n/)
-      .filter((line) => /^VITE_(?:CHAIN_ID|RPC_URL|(?:.*(?:ADDRESS|TOKEN|TREASURY|LENDING|PRESALE|STAKING|VAULT|MANAGER|NFT)))=/.test(line));
+      .filter((line) => /^VITE_(?:CHAIN_ID|RPC_URL|(?:.*(?:ADDRESS|TOKEN|TREASURY|LENDING|PRESALE|VAULT|MANAGER|NFT)))=/.test(line));
     assert.equal(
       legacyOverrides.length,
       0,

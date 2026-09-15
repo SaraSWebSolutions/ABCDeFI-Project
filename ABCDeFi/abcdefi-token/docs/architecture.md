@@ -1,6 +1,6 @@
 # ABCDeFi Protocol — Comprehensive System Architecture
 
-The **ABCDeFi Protocol** is an enterprise-grade decentralized finance (DeFi) ecosystem integrating an ERC-20 utility token (`ABCDToken`), ICO Presale engine, multi-tier Staking pools, Collateralized Lending & Liquidation, Token Vesting schedules, Chainlink Oracles, and a peer-to-peer NFT Marketplace.
+The **ABCDeFi Protocol** is an enterprise-grade decentralized finance (DeFi) ecosystem integrating an ERC-20 utility token (`ABCDToken`), ICO Presale engine, Collateralized Lending & Liquidation, Token Vesting schedules, Chainlink Oracles, and a peer-to-peer NFT Marketplace.
 
 ---
 
@@ -8,7 +8,7 @@ The **ABCDeFi Protocol** is an enterprise-grade decentralized finance (DeFi) eco
 
 ```mermaid
 graph TD
-    User["👤 User / Borrower / Staker / Buyer"] --> |Web3 Signer| Wallet["🦊 Wallet (MetaMask / Web3)"]
+    User["👤 User / Borrower / Buyer"] --> |Web3 Signer| Wallet["🦊 Wallet (MetaMask / Web3)"]
     Wallet --> |Transactions & Calls| Frontend["💻 React / Next.js DApp"]
     
     Frontend --> |Ethers.js / Thirdweb| Router["Core Smart Contracts"]
@@ -26,11 +26,6 @@ graph TD
         LoanManager["📋 LoanManager"]
         Liquidation["⚡ Liquidation Engine"]
         Oracle["🔮 ChainlinkOracle (IPriceOracle)"]
-    end
-    
-    subgraph Yield & Staking
-        Staking["🥩 Staking & StakingPool"]
-        Bonus["🎁 BonusManager"]
     end
     
     subgraph NFT Suite & Marketplace
@@ -175,36 +170,7 @@ sequenceDiagram
 
 ---
 
-## 5. Staking & Emergency Withdraw Flow
-
-```mermaid
-stateDiagram-v2
-    [*] --> ActiveState: Deposit ABCD Tokens
-
-    state ActiveState {
-        [*] --> LockDuration30Days: 5% APY
-        [*] --> LockDuration90Days: 12% APY
-        [*] --> LockDuration180Days: 25% APY
-        [*] --> LockDuration365Days: 40% APY
-
-        LockDuration30Days --> YieldAccrual
-        YieldAccrual --> ClaimRewards: Intermediary Yield Claim
-        YieldAccrual --> Unstake: Lock Duration Expired (Principal + APY Yield)
-    }
-
-    ActiveState --> PausedState: Protocol Emergency Pause (whenPaused)
-    
-    state PausedState {
-        [*] --> EmergencyWithdraw: 100% Principal Immediate Recovery (Unearned Yield Forfeited)
-    }
-
-    Unstake --> [*]
-    EmergencyWithdraw --> [*]
-```
-
----
-
-## 6. NFT Suite & Peer-to-Peer Marketplace Flow
+## 5. NFT Suite & Peer-to-Peer Marketplace Flow
 
 ```mermaid
 sequenceDiagram

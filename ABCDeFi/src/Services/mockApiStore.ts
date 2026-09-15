@@ -11,7 +11,7 @@ export interface TokenBalance {
 
 export interface TransactionRecord {
   hash: string;
-  type: 'Deposit' | 'Withdraw' | 'Borrow' | 'Repay' | 'Swap' | 'Stake' | 'Harvest' | 'Vote';
+  type: 'Deposit' | 'Withdraw' | 'Borrow' | 'Repay' | 'Swap' | 'Harvest' | 'Vote';
   token: string;
   amount: string;
   usdValue: string;
@@ -48,24 +48,6 @@ export interface BorrowPositionItem {
   liquidationPrice: string;
   interestRate: string;
   status: 'Active' | 'Completed' | 'Liquidated' | 'Defaulted';
-}
-
-export interface StakingVaultItem {
-  id: string;
-  name: string;
-  stakedAmount: string;
-  apr: string;
-  lockDays: number;
-  earnedRewards: string;
-}
-
-export interface YieldFarmItem {
-  id: string;
-  pair: string;
-  apr: string;
-  tvl: string;
-  stakedLp: string;
-  pendingRewards: string;
 }
 
 export interface ProposalItem {
@@ -113,7 +95,6 @@ class MockApiStore {
       totalValue: '$35,840.50',
       allocations: [
         { category: 'Wallet Balances', amount: '$16,975.00', share: '47.3%', color: '#6366f1' },
-        { category: 'Staking Vaults', amount: '$12,500.00', share: '34.9%', color: '#10b981' },
         { category: 'Lending Pools', amount: '$8,500.00', share: '23.7%', color: '#8b5cf6' },
         { category: 'NFT Holdings', amount: '$5,000.00', share: '13.9%', color: '#ec4899' },
         { category: 'Vesting Vault', amount: '$4,800.00', share: '13.4%', color: '#f59e0b' },
@@ -126,7 +107,7 @@ class MockApiStore {
     return [
       { id: 'LEGION-001', name: 'Legion Cyberabad Node #001', category: 'Legion', image: '🛡️', rarity: 'Legendary', estValueEth: '1.5 ETH', estValueUsd: '$5,250', perks: '70% Franchise Revenue Share' },
       { id: 'LOAN-402', name: 'Collateral NFT #402 (2.5 ETH Lock)', category: 'Loan', image: '🔒', rarity: 'Epic', estValueEth: '2.5 ETH', estValueUsd: '$8,750', perks: 'Backs Loan #P2P-1001' },
-      { id: 'GURU-88', name: 'DeFi Master Guru Badge', category: 'Guru', image: '🎓', rarity: 'Rare', estValueEth: '0.4 ETH', estValueUsd: '$1,400', perks: '+2.5% Bonus Staking APY' },
+      { id: 'GURU-88', name: 'DeFi Master Guru Badge', category: 'Guru', image: '🎓', rarity: 'Rare', estValueEth: '0.4 ETH', estValueUsd: '$1,400', perks: 'Mentor recognition badge' },
       { id: 'PART-104', name: 'Genesis Protocol Founder Pass', category: 'Participant', image: '⭐', rarity: 'Legendary', estValueEth: '1.0 ETH', estValueUsd: '$3,500', perks: 'Zero Swap Fee Multiplier' },
       { id: 'GIFT-902', name: 'Yieldable Gift Card #902', category: 'Gift', image: '🎁', rarity: 'Rare', estValueEth: '0.15 ETH', estValueUsd: '$525', perks: 'Yield Accumulation Active' },
       { id: 'BARTER-12', name: 'Gasless Swap Ticket #12', category: 'Barter', image: '🔄', rarity: 'Common', estValueEth: '0.05 ETH', estValueUsd: '$175', perks: 'Gasless Peer Trade Ticket' },
@@ -261,7 +242,6 @@ class MockApiStore {
         { category: 'Swap Fees', amount: '$130,000', share: '31.0%' },
         { category: 'Borrow Interest', amount: '$95,000', share: '22.6%' },
         { category: 'Lending Fees', amount: '$70,000', share: '16.7%' },
-        { category: 'Staking Vault Fees', amount: '$60,000', share: '14.3%' },
         { category: 'Withdrawal Fees', amount: '$25,000', share: '5.9%' },
         { category: 'Other Protocol Yield', amount: '$40,000', share: '9.5%' },
       ],
@@ -307,21 +287,6 @@ class MockApiStore {
     ];
   }
 
-  public getStakingVaults(): StakingVaultItem[] {
-    return [
-      { id: 'stake-1', name: 'Flexible Staking Vault', stakedAmount: '2,500 ABCD', apr: '12.5%', lockDays: 0, earnedRewards: '142 ABCD' },
-      { id: 'stake-2', name: '90-Day VIP Staking Vault', stakedAmount: '5,000 ABCD', apr: '18.5%', lockDays: 90, earnedRewards: '480 ABCD' },
-      { id: 'stake-3', name: '365-Day Governance Vault', stakedAmount: '5,000 ABCD', apr: '28.0%', lockDays: 365, earnedRewards: '1,250 ABCD' },
-    ];
-  }
-
-  public getYieldFarms(): YieldFarmItem[] {
-    return [
-      { id: 'farm-1', pair: 'ETH / ABCD LP', apr: '42.5%', tvl: '$3,800,000', stakedLp: '14.2 LP', pendingRewards: '350 ABCD' },
-      { id: 'farm-2', pair: 'USDC / ABCD LP', apr: '38.0%', tvl: '$2,400,000', stakedLp: '8.5 LP', pendingRewards: '180 ABCD' },
-    ];
-  }
-
   public getTransactionHistory(): TransactionRecord[] {
     return [
       {
@@ -340,23 +305,6 @@ class MockApiStore {
         decodedOutput: 'success: true, poolTokenMinted: 1500000000 aUSDC',
         gasLimit: '120,000',
         nonce: 42,
-      },
-      {
-        hash: '0x3c19b28019a1...8841',
-        type: 'Stake',
-        token: 'ABCD',
-        amount: '2,500 ABCD',
-        usdValue: '$3,125.00',
-        status: 'Completed',
-        timestamp: '2 Hours Ago',
-        blockNumber: 8546180,
-        gasFee: '$1.20',
-        explorerUrl: 'https://sepolia.etherscan.io/tx/0x3c19',
-        method: 'stake(uint256 amount, uint256 lockPeriod)',
-        decodedInput: 'amount: 2500000000000000000000 (2,500 ABCD), lockPeriod: 90 Days',
-        decodedOutput: 'success: true, stakeId: 1042',
-        gasLimit: '150,000',
-        nonce: 43,
       },
       {
         hash: '0x7e88d10492ab...4091',
@@ -381,7 +329,6 @@ class MockApiStore {
   public getProposals(): ProposalItem[] {
     return [
       { id: 'PROP-106', title: 'Lower Minimum Collateral Ratio from 150% to 135%', proposer: 'dinesh.eth', status: 'Active', votesFor: '84.2% (1.2M ABCD)', votesAgainst: '15.8% (225k ABCD)', endsIn: '48 Hours' },
-      { id: 'PROP-105', title: 'Add Arbitrum One Bridge Deployment & Staking Pool', proposer: 'alex.eth', status: 'Passed', votesFor: '98.1% (3.4M ABCD)', votesAgainst: '1.9% (65k ABCD)', endsIn: 'Passed' },
       { id: 'PROP-104', title: 'Increase Regional Franchise Node Revenue Share to 75%', proposer: 'cyberabad.eth', status: 'Executed', votesFor: '92.4% (2.8M ABCD)', votesAgainst: '7.6% (210k ABCD)', endsIn: 'Executed' },
     ];
   }

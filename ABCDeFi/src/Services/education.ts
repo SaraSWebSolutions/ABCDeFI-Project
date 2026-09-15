@@ -200,20 +200,6 @@ export const COURSES: Course[] = [
     teacherId: 'teacher-1',
   },
   {
-    id: 'course-2',
-    title: 'Staking & Yield Strategies',
-    description: 'Learn how to maximize returns through strategic staking, liquidity provision, and compounding rewards.',
-    level: 'Intermediate',
-    duration: '3h 15m',
-    lessons: 10,
-    category: 'DeFi',
-    icon: '🥩',
-    color: 'from-purple-500/20 to-indigo-500/20 border-purple-500/40',
-    enrolled: true,
-    progress: 40,
-    teacherId: 'teacher-2',
-  },
-  {
     id: 'course-3',
     title: 'Collateralized Lending & Borrowing',
     description: 'Deep dive into how overcollateralized loans work, LTV ratios, EMI schedules, and margin call risk management.',
@@ -276,8 +262,6 @@ export const VIDEO_LESSONS: Lesson[] = [
   { id: 'v2', courseId: 'course-1', title: 'Wallets & Keys', duration: '10:15', videoUrl: 'https://www.youtube.com/embed/dnC5mFaIW3Q', completed: true, description: 'Understanding public/private keys, seed phrases, and MetaMask setup.' },
   { id: 'v3', courseId: 'course-1', title: 'Smart Contracts Explained', duration: '14:00', videoUrl: 'https://www.youtube.com/embed/ZE2HxTmxfrI', completed: true, description: 'How smart contracts enable trustless financial transactions.' },
   { id: 'v4', courseId: 'course-1', title: 'Token Standards: ERC-20 & ERC-721', duration: '11:45', videoUrl: 'https://www.youtube.com/embed/9WmTmyYE3l8', completed: false, description: 'Overview of fungible and non-fungible token standards on Ethereum.' },
-  { id: 'v5', courseId: 'course-2', title: 'Introduction to Staking', duration: '15:00', videoUrl: 'https://www.youtube.com/embed/vZ2UZdB07fo', completed: true, description: 'How proof-of-stake and protocol staking rewards work.' },
-  { id: 'v6', courseId: 'course-2', title: 'APY vs APR Explained', duration: '08:20', videoUrl: 'https://www.youtube.com/embed/HKh4BDooFYE', completed: false, description: 'The math behind annual percentage yield and rate calculations.' },
 ];
 
 export const QUIZ_QUESTIONS: QuizQuestion[] = [
@@ -312,14 +296,6 @@ export const QUIZ_QUESTIONS: QuizQuestion[] = [
     correctIndex: 1,
     explanation: 'Your on-chain credit score is based on loans repaid, late payments, liquidations, referrals, and wallet age — not social media activity.',
     category: 'CeFi',
-  },
-  {
-    id: 'q5',
-    question: 'What is the minimum staking amount for Pool 3 (VIP) in ABCDeFi?',
-    options: ['100 ABCD', '500 ABCD', '1,000 ABCD', '2,000 ABCD'],
-    correctIndex: 3,
-    explanation: 'Pool 3 (VIP) requires a minimum of 2,000 ABCD tokens and offers the highest APY of 25% with a 180-day lock period.',
-    category: 'DeFi',
   },
   {
     id: 'q6',

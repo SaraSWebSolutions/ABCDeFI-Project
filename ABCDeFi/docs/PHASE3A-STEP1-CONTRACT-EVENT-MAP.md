@@ -169,7 +169,7 @@ It also lacks handlers for `RequestCreated`, `RequestCancelled`, `EMIManagerUpda
 ### Other non-canonical listeners
 
 - `backend/backend/services/eventListener.js` listens only to Loan/Franchise/Legion NFT events with stale environment fallback addresses; it does not index Lending/P2P.
-- `backend/services/eventListener.js` only logs presale/staking/vesting events and does not write an authoritative P2P projection.
+- `backend/services/eventListener.js` only logs presale/vesting events and does not write an authoritative P2P projection. Staking listeners were removed with the unsupported staking product.
 - `src/Services/eventIndexer.ts` is a browser-side simulated indexer with fixed count/network/fallback addresses and calls a local transaction-history store. It is not a blockchain indexer and must not become the canonical backend path.
 
 None has a deployment manifest reader, block checkpoint, backfill, confirmation policy, reorg handling, retry queue, idempotency key, or exact Phase 1 P2P ABI coverage.
