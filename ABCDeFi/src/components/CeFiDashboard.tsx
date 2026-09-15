@@ -58,7 +58,6 @@ export const CeFiDashboard: React.FC = () => {
   const [emailAlerts, setEmailAlerts] = useState<boolean>(true);
   const [loanReminders, setLoanReminders] = useState<boolean>(true);
   const [rewardAlerts, setRewardAlerts] = useState<boolean>(true);
-  const [stakingNotifs, setStakingNotifs] = useState<boolean>(true);
 
   // Settings Feedback
   const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
@@ -465,7 +464,7 @@ export const CeFiDashboard: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* NOTIFICATIONS (Email, Loan Reminders, Rewards, Staking Alerts)           */}
+      {/* NOTIFICATIONS (Email, Loan Reminders, Rewards)                             */}
       {/* ========================================================================= */}
       {activeTab === 'notifications' && (
         <div className="bg-slate-950 border border-slate-800 p-6 rounded-3xl space-y-6">
@@ -517,18 +516,6 @@ export const CeFiDashboard: React.FC = () => {
                 />
               </div>
 
-              <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between">
-                <div>
-                  <div className="font-bold text-white">Staking Alerts</div>
-                  <div className="text-[10px] text-slate-500">Yield claim reminders</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={stakingNotifs}
-                  onChange={(e) => setStakingNotifs(e.target.checked)}
-                  className="w-4 h-4 accent-emerald-500 cursor-pointer"
-                />
-              </div>
             </div>
           </div>
 

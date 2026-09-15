@@ -5,7 +5,7 @@ const router = express.Router();
 /**
  * Phase 6 — Reward & Bonus APIs
  * GET  /api/reward/status        — Check if user has claimed ICO bonus
- * POST /api/reward/claim         — Claim ICO referral / staking bonus
+ * POST /api/reward/claim         — Claim configured legacy bonus
  * GET  /api/reward/leaderboard   — Top earners leaderboard
  * GET  /api/reward/history       — User reward transaction history
  */
@@ -34,8 +34,7 @@ router.get('/status', (req, res) => {
       kycBonusClaimed: false,
       kycBonusAmount: 50,        // ABCD tokens for completing KYC
       referralBonusAvailable: 120,
-      stakingRewardsPending: 87.5,
-      totalClaimable: 257.5,
+      totalClaimable: 170,
       currency: 'ABCD',
       nextClaimDate: null,       // null means claimable now
     },
@@ -45,7 +44,7 @@ router.get('/status', (req, res) => {
 /**
  * POST /api/reward/claim
  * Claim available bonus rewards
- * Body: { type: 'kyc' | 'referral' | 'staking', walletAddress }
+ * Body: { type: 'kyc' | 'referral', walletAddress }
  */
 router.post('/claim', (req, res) => {
   const { type, walletAddress } = req.body;
@@ -57,7 +56,6 @@ router.post('/claim', (req, res) => {
   const claimAmounts = {
     kyc: 50,
     referral: 120,
-    staking: 87.5,
   };
 
   const amount = claimAmounts[type] || 0;
@@ -105,7 +103,7 @@ router.get('/history', (req, res) => {
   res.json({
     success: true,
     data: {
-      totalEarned: 257.5,
+      totalEarned: 170,
       currency: 'ABCD',
       history: [
         {
@@ -118,14 +116,6 @@ router.get('/history', (req, res) => {
         },
         {
           id: 'RWD-002',
-          type: 'Staking Reward',
-          amount: 87.5,
-          status: 'Pending Claim',
-          date: '2026-07-15T08:00:00Z',
-          txHash: null,
-        },
-        {
-          id: 'RWD-003',
           type: 'Referral Bonus',
           amount: 120,
           status: 'Pending Claim',

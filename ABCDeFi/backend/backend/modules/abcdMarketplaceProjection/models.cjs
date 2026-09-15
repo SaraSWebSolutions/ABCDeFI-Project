@@ -1,0 +1,17 @@
+const mongoose = require('mongoose');
+const { Schema } = mongoose;
+const uint = { type: String, required: true, match: /^\d+$/ };
+const address = { type: String, required: true, lowercase: true, match: /^0x[a-f0-9]{40}$/ };
+const hash = { type: String, required: true, lowercase: true, match: /^0x[a-f0-9]{64}$/ };
+const model = (name, schema, collection) => mongoose.models[name] || mongoose.model(name, schema, collection);
+const evidence = new Schema({ transactionHash: hash, blockNumber: uint, logIndex: { type: Number, required: true }, blockHash: hash, eventName: { type: String, required: true } }, { _id: false });
+const checkpoint = new Schema({ chainId: uint, deploymentVersion: String, marketplaceAddress: address, lastProcessedBlock: uint, lastProcessedBlockHash: hash, indexedAt: Date }, { versionKey: false });
+checkpoint.index({ chainId: 1, deploymentVersion: 1, marketplaceAddress: 1 }, { unique: true });
+const event = new Schema({ chainId: uint, deploymentVersion: String, marketplaceAddress: address, transactionHash: hash, blockNumber: uint, logIndex: Number, blockHash: hash, eventName: String, args: Schema.Types.Mixed, removed: Boolean, indexedAt: Date }, { versionKey: false });
+event.index({ chainId: 1, deploymentVersion: 1, marketplaceAddress: 1, transactionHash: 1, logIndex: 1 }, { unique: true });
+const listing = new Schema({ chainId: uint, deploymentVersion: String, marketplaceAddress: address, listingId: uint, collection: address, tokenId: uint, seller: address, buyer: { type: String, lowercase: true, default: null }, price: uint, status: String, createdEvidence: evidence, latestEvidence: evidence, indexedAt: Date }, { versionKey: false });
+listing.index({ chainId: 1, deploymentVersion: 1, marketplaceAddress: 1, listingId: 1 }, { unique: true });
+listing.index({ chainId: 1, deploymentVersion: 1, marketplaceAddress: 1, collection: 1, tokenId: 1 });
+const collection = new Schema({ chainId: uint, deploymentVersion: String, marketplaceAddress: address, collection: address, supported: Boolean, latestEvidence: evidence, indexedAt: Date }, { versionKey: false });
+collection.index({ chainId: 1, deploymentVersion: 1, marketplaceAddress: 1, collection: 1 }, { unique: true });
+module.exports = { MarketplaceCheckpoint: model('ABCDMarketplaceCheckpoint', checkpoint, 'abcd_marketplace_checkpoints_v2'), MarketplaceEvent: model('ABCDMarketplaceEvent', event, 'abcd_marketplace_events_v2'), MarketplaceListing: model('ABCDMarketplaceListing', listing, 'abcd_marketplace_listings_v2'), MarketplaceCollection: model('ABCDMarketplaceCollection', collection, 'abcd_marketplace_collections_v2') };

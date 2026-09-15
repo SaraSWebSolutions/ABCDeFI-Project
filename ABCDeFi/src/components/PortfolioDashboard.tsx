@@ -1,11 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Coins, Gift, Image as ImageIcon, Landmark, Layers, Lock, PieChart as PieIcon, RefreshCw, Wallet } from 'lucide-react';
+import { Coins, Gift, Image as ImageIcon, Landmark, Lock, PieChart as PieIcon, RefreshCw, Wallet } from 'lucide-react';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { formatEther } from 'ethers';
 import { useWallet } from '../Context/WalletContext';
 import { getBalanceOf } from '../Services/token';
 import { getProvider } from '../Services/wallet';
-import { getStakingInfo } from '../Services/staking';
 import { getV2WalletSummary } from '../Services/lendingV2';
 import { getNftEcosystemSnapshot } from '../Services/nftEcosystem';
 import { getVestingSchedule } from '../Services/vesting';
@@ -14,13 +13,13 @@ import { getReferralSnapshot } from '../Services/referral';
 type PortfolioValue = string | null;
 
 interface PortfolioMetrics {
-  abcd: PortfolioValue; eth: PortfolioValue; staked: PortfolioValue; pendingStakingRewards: PortfolioValue;
+  abcd: PortfolioValue; eth: PortfolioValue;
   debt: PortfolioValue; collateral: PortfolioValue; healthFactor: string | null; nftCount: string | null;
   vested: PortfolioValue; releasable: PortfolioValue; referralRewards: PortfolioValue; referralCount: string | null;
 }
 
 const emptyMetrics: PortfolioMetrics = {
-  abcd: null, eth: null, staked: null, pendingStakingRewards: null, debt: null, collateral: null,
+  abcd: null, eth: null, debt: null, collateral: null,
   healthFactor: null, nftCount: null, vested: null, releasable: null, referralRewards: null, referralCount: null,
 };
 
@@ -46,21 +45,19 @@ export const PortfolioDashboard: React.FC = () => {
     const results = await Promise.allSettled([
       getBalanceOf(address),
       getProvider().then((provider) => provider.getBalance(address).then((balance) => formatEther(balance))),
-      getStakingInfo(address), getV2WalletSummary(address), getNftEcosystemSnapshot(address),
+      getV2WalletSummary(address), getNftEcosystemSnapshot(address),
       getVestingSchedule(address), getReferralSnapshot(address),
     ]);
     const value = <T,>(index: number): T | null => results[index].status === 'fulfilled'
       ? (results[index] as PromiseFulfilledResult<T>).value : null;
-    const staking = value<Awaited<ReturnType<typeof getStakingInfo>>>(2);
-    const lending = value<Awaited<ReturnType<typeof getV2WalletSummary>>>(3);
-    const nfts = value<Awaited<ReturnType<typeof getNftEcosystemSnapshot>>>(4);
-    const vesting = value<Awaited<ReturnType<typeof getVestingSchedule>>>(5);
-    const referral = value<Awaited<ReturnType<typeof getReferralSnapshot>>>(6);
+    const lending = value<Awaited<ReturnType<typeof getV2WalletSummary>>>(2);
+    const nfts = value<Awaited<ReturnType<typeof getNftEcosystemSnapshot>>>(3);
+    const vesting = value<Awaited<ReturnType<typeof getVestingSchedule>>>(4);
+    const referral = value<Awaited<ReturnType<typeof getReferralSnapshot>>>(5);
 
     if (requestId !== requestIdRef.current) return;
     setMetrics({
-      abcd: value<string>(0), eth: value<string>(1), staked: staking?.stakedAmount ?? null,
-      pendingStakingRewards: staking?.rewards ?? null, debt: lending?.outstanding ?? null,
+      abcd: value<string>(0), eth: value<string>(1), debt: lending?.outstanding ?? null,
       collateral: lending?.availableToBorrow ?? null,
       healthFactor: lending?.outstanding === '0.0' || lending?.outstanding === '0' ? 'No active debt' : lending?.healthFactor ?? null,
       nftCount: nfts && lending ? (BigInt(nfts.participantBalance) + BigInt(nfts.guruBalance) + BigInt(lending.completionCertificateCount) + (nfts.reputation ? 1n : 0n)).toString() : null,
@@ -79,7 +76,6 @@ export const PortfolioDashboard: React.FC = () => {
   }, [refresh]);
   const chartData = useMemo(() => [
     { name: 'Liquid ABCD', value: toChartValue(metrics.abcd), color: '#f59e0b' },
-    { name: 'Staked ABCD', value: toChartValue(metrics.staked), color: '#10b981' },
     { name: 'Vested ABCD', value: toChartValue(metrics.vested), color: '#8b5cf6' },
     { name: 'Referral rewards', value: toChartValue(metrics.referralRewards), color: '#06b6d4' },
   ].filter((entry) => entry.value > 0), [metrics]);
@@ -98,7 +94,6 @@ export const PortfolioDashboard: React.FC = () => {
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       <Metric title="ABCD Balance" value={display(metrics.abcd, ' ABCD')} detail="ABCDToken.balanceOf(current wallet)" icon={<Coins className="w-4 h-4 text-amber-400" />} />
       <Metric title="ETH Balance" value={display(metrics.eth, ' ETH')} detail="provider.getBalance(current wallet)" icon={<Wallet className="w-4 h-4 text-sky-400" />} />
-      <Metric title="Staked ABCD" value={display(metrics.staked, ' ABCD')} detail={`Pending rewards: ${display(metrics.pendingStakingRewards, ' ABCD')}`} icon={<Layers className="w-4 h-4 text-emerald-400" />} />
       <Metric title="Lending V2 Position" value={display(metrics.debt, ' ABCD debt')} detail={`Active deposit capacity: ${display(metrics.collateral, ' ABCD')}`} icon={<Landmark className="w-4 h-4 text-purple-400" />} />
       <Metric title="Health Factor" value={metrics.healthFactor ?? 'Unavailable'} detail="Canonical Lending V2 read (when debt exists)" icon={<Landmark className="w-4 h-4 text-purple-400" />} />
       <Metric title="NFTs Owned" value={display(metrics.nftCount, ' NFTs')} detail="Participant + Guru + Reputation + completion LoanNFTV2" icon={<ImageIcon className="w-4 h-4 text-rose-400" />} />

@@ -189,7 +189,7 @@ export const EcosystemIntegration: React.FC = () => {
                 Ecosystem Integration Hub & Interface Contract Rules
               </h2>
               <p className="text-xs text-[#8B949E] mt-1 max-w-3xl leading-relaxed">
-                Other ABCDeFi contracts (ICO, VestingVault, Referral, LendingPool, Staking) depend strictly on <code className="text-indigo-300 bg-[#0D1117] border border-[#30363D] px-1 py-0.5 rounded font-mono">IABCDToken.sol</code>.
+                Other ABCDeFi contracts (ICO, VestingVault, Referral, and LendingPool) depend strictly on <code className="text-indigo-300 bg-[#0D1117] border border-[#30363D] px-1 py-0.5 rounded font-mono">IABCDToken.sol</code>.
               </p>
             </div>
           </div>

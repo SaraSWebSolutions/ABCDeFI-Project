@@ -22,6 +22,7 @@ const {
 } = require("./developmentLoginOtpDiagnostics.cjs");
 
 const AUTH_DATABASE_TIMEOUT_MS = 10_000;
+const LOCAL_MONGODB_URI = /^mongodb:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?(?:\/|$)/i;
 const PROFILE_SECRET_FIELDS = [
     "password", "otp", "otpExpires", "otpLastSent",
     "loginOtp", "loginOtpExpires", "loginOtpPurpose",
@@ -88,9 +89,111 @@ const generateTokens = async (user) => {
     return { accessToken, refreshToken };
 };
 
+/**
+ * Local dashboard convenience only. This deliberately creates the same
+ * server-issued JWT/refresh-token session as a completed login, but only for
+ * an explicitly named existing account on a local development database.
+ * It is not registered or reachable in production mode.
+ */
+exports.developmentDashboardSession = async (req, res, next) => {
+    try {
+        if (!config.development_auth_enabled || !LOCAL_MONGODB_URI.test(String(config.url || ""))) {
+            return res.status(404).json({ success: false, message: "Not found." });
+        }
+
+        const email = String(process.env.DEV_DASHBOARD_SESSION_EMAIL || process.env.DEV_ADMIN_EMAIL || "")
+            .trim()
+            .toLowerCase();
+        if (!/^\S+@\S+\.\S+$/.test(email)) {
+            return res.status(503).json({
+                success: false,
+                message: "Local development dashboard session is not configured. Set DEV_DASHBOARD_SESSION_EMAIL to an existing local account.",
+            });
+        }
+        if (authenticationDatabaseUnavailable(res)) return;
+
+        const user = await withinAuthenticationDatabaseTimeout(UserAccount.findOne({ email }));
+        if (!user) {
+            return res.status(404).json({ success: false, message: "Configured local development dashboard account was not found." });
+        }
+        if (!user.status || user.isSuspended) {
+            return res.status(403).json({ success: false, message: "Configured local development dashboard account is not active." });
+        }
+
+        const { accessToken, refreshToken } = await generateTokens(user);
+        return res.status(200).json({
+            success: true,
+            data: safeProfile(user),
+            token: accessToken,
+            refreshToken,
+            developmentSession: true,
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
 function developmentOtpLoggingEnabled() {
     return developmentDiagnosticsEnabled(config);
 }
+
+function isLoopbackAddress(address) {
+    const normalized = String(address || "").replace(/^::ffff:/i, "");
+    return normalized === "127.0.0.1" || normalized === "::1";
+}
+
+// This diagnostic is deliberately narrower than the ordinary development
+// logging switch: the API process must use a local MongoDB and the request
+// must arrive through the loopback socket. It is unavailable to production
+// deployments even if a development environment value leaks.
+function localDevelopmentOtpAutomationEnabled(req) {
+    return developmentOtpLoggingEnabled()
+        && LOCAL_MONGODB_URI.test(String(config.url || ""))
+        && isLoopbackAddress(req.socket?.remoteAddress);
+}
+
+/**
+ * Loopback-only local-development bridge for the existing short-lived OTP
+ * diagnostic map. MongoDB remains hash-only; this never reads or derives an
+ * OTP from database state.
+ */
+exports.developmentLoginOtpForAutomation = async (req, res, next) => {
+    try {
+        if (!localDevelopmentOtpAutomationEnabled(req)) {
+            return res.status(404).json({ success: false, message: "Not found." });
+        }
+
+        const userId = String(req.params.userId || "").trim();
+        if (!userId) {
+            return res.status(400).json({ success: false, message: "User ID is required." });
+        }
+
+        const runtimeOtp = getDevelopmentLoginOtp(userId, { config });
+        if (!runtimeOtp) {
+            return res.status(404).json({ success: false, message: "No active local development login OTP was found." });
+        }
+
+        // Confirm the runtime-only value still corresponds to the active,
+        // hash-only challenge before returning it to the local automation UI.
+        const user = await withinAuthenticationDatabaseTimeout(UserAccount.findById(userId));
+        const expectedHash = crypto.createHash("sha256").update(runtimeOtp.otp).digest("hex");
+        if (!user || user.loginOtp !== expectedHash || !user.loginOtpExpires
+            || new Date(user.loginOtpExpires).getTime() <= Date.now()) {
+            clearDevelopmentLoginOtp(userId);
+            return res.status(404).json({ success: false, message: "No active local development login OTP was found." });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: { otp: runtimeOtp.otp, expiresAt: runtimeOtp.expiresAt.toISOString() },
+        });
+    } catch (err) {
+        if (err?.code === "AUTH_DATABASE_TIMEOUT") {
+            return res.status(503).json({ success: false, message: "Authentication database is unavailable." });
+        }
+        return next(err);
+    }
+};
 
 /**
  * Login 2FA delivery remains an out-of-band email in production. Local
@@ -109,6 +212,20 @@ async function deliverLoginOtp(user, otp, isResend = false) {
     const subject = "🔐 Your ABCDeFi 2FA Login Verification Code";
     const html = `<p>Your ABCDeFi login verification code is <strong>${otp}</strong>. It expires in 10 minutes.</p>`;
     await sendMail({ to: user.email, subject, html });
+}
+
+// Development email delivery is intentionally suppressed by the shared
+// mailer.  Keep the same secure OTP storage but make the real, short-lived
+// verification code visible only in the local backend terminal.
+async function deliverEmailVerificationOtp(user, otp, { subject, html, isResend = false } = {}) {
+    if (developmentOtpLoggingEnabled()) {
+        const resendLabel = isResend ? " RESEND" : "";
+        console.info(`LOCAL DEVELOPMENT EMAIL VERIFICATION OTP${resendLabel} userId=${user._id} type=EMAIL_VERIFICATION expiresInMinutes=10 code=${otp}`);
+        return { developmentTerminal: true };
+    }
+
+    await sendMail({ to: user.email, subject, html });
+    return { developmentTerminal: false };
 }
 
 exports.registerUser = async (req, res, next) => {
@@ -221,9 +338,9 @@ exports.registerUser = async (req, res, next) => {
         </div>
         `;
 
+        let verificationDelivery;
         try {
-            await sendMail({
-                to: cleanEmail,
+            verificationDelivery = await deliverEmailVerificationOtp(userData, otp, {
                 subject: "🔐 Verify Your ABCDeFi Email",
                 html
             });
@@ -247,7 +364,9 @@ exports.registerUser = async (req, res, next) => {
 
         res.status(201).json({
             success: true,
-            message: "Account created successfully! Please verify your email via the OTP sent.",
+            message: verificationDelivery.developmentTerminal
+                ? "Account created successfully! Enter the verification OTP printed in the local backend terminal."
+                : "Account created successfully! Please verify your email via the OTP sent.",
             userId: userData._id,
             email: cleanEmail
         });
@@ -406,19 +525,30 @@ exports.resendOtp = async (req, res, next) => {
           </div>
         </div>
         `;
+        let verificationDelivery;
         try {
-            await sendMail({
-                to: user.email,
+            verificationDelivery = await deliverEmailVerificationOtp(user, newOtp, {
                 subject: "🔐 Resent Email Verification OTP",
-                html
+                html,
+                isResend: true
             });
         } catch (mailErr) {
             logger.error("Failed to resend registration email: %s", mailErr.message);
+            user.otp = undefined;
+            user.otpExpires = undefined;
+            user.otpLastSent = undefined;
+            await user.save();
+            return res.status(503).json({
+                success: false,
+                message: "We could not send the verification email. Please try again later."
+            });
         }
 
         res.status(200).json({
             success: true,
-            message: "OTP resent successfully"
+            message: verificationDelivery.developmentTerminal
+                ? "A new verification OTP was printed in the local backend terminal."
+                : "OTP resent successfully"
         });
 
     } catch (err) {
@@ -462,9 +592,9 @@ exports.userLogin = async (req, res, next) => {
             user.otpLastSent = new Date();
             await user.save();
 
+            let verificationDelivery;
             try {
-                await sendMail({
-                    to: user.email,
+                verificationDelivery = await deliverEmailVerificationOtp(user, newOtp, {
                     subject: "🔐 Verify Your ABCDeFi Email",
                     html: `<p>Your ABCDeFi verification code is <strong>${newOtp}</strong>. It expires in 10 minutes.</p>`
                 });
@@ -478,7 +608,9 @@ exports.userLogin = async (req, res, next) => {
                 requireEmailVerify: true,
                 userId: user._id,
                 email: user.email,
-                message: "Account not verified. A new verification OTP was sent to your email."
+                message: verificationDelivery.developmentTerminal
+                    ? "Account not verified. A new verification OTP was printed in the local backend terminal."
+                    : "Account not verified. A new verification OTP was sent to your email."
             });
         }
         if (!user.password) {

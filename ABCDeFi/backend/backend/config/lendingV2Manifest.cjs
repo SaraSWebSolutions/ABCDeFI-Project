@@ -6,7 +6,7 @@ const REQUIRED = Object.freeze([
   'OracleAdapterV2', 'CollateralVaultV2', 'LoanManagerV2', 'LendingPoolV2',
   'LiquidationV2', 'InsuranceReserveV2', 'LoanMarketplaceV2', 'EMIManagerV2', 'LoanNFTV2',
 ]);
-const OPTIONAL = Object.freeze(['LendingReferralManagerV2']);
+const OPTIONAL = Object.freeze(['LendingReferralManagerV2', 'LiquidationSaleAdapterV2']);
 
 function manifestPath() {
   return process.env.LENDING_V2_MANIFEST_PATH

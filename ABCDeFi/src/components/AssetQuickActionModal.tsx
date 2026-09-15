@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowUpRight, ArrowDownLeft, RefreshCw, Lock, CheckCircle2 } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
 
 export interface AssetQuickActionModalProps {
   isOpen: boolean;
@@ -14,7 +14,7 @@ export const AssetQuickActionModal: React.FC<AssetQuickActionModalProps> = ({
   asset,
   onActionComplete,
 }) => {
-  const [tab, setTab] = useState<'deposit' | 'stake' | 'swap' | 'withdraw'>('deposit');
+  const [tab, setTab] = useState<'deposit' | 'swap' | 'withdraw'>('deposit');
   const [amount, setAmount] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -56,8 +56,8 @@ export const AssetQuickActionModal: React.FC<AssetQuickActionModalProps> = ({
         </div>
 
         {/* Tab Buttons */}
-        <div className="grid grid-cols-4 gap-1 bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs">
-          {(['deposit', 'stake', 'swap', 'withdraw'] as const).map((t) => (
+        <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-2xl border border-slate-800 text-xs">
+          {(['deposit', 'swap', 'withdraw'] as const).map((t) => (
             <button
               key={t}
               onClick={() => { setTab(t); setSuccessMsg(null); }}
@@ -91,10 +91,6 @@ export const AssetQuickActionModal: React.FC<AssetQuickActionModalProps> = ({
             </div>
 
             <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1 text-xs text-slate-400">
-              <div className="flex justify-between">
-                <span>Estimated APY Yield:</span>
-                <span className="text-emerald-400 font-bold">12.5% APY</span>
-              </div>
               <div className="flex justify-between">
                 <span>Gas Fee Estimate:</span>
                 <span className="text-slate-300 font-bold">~0.0012 ETH ($2.10)</span>

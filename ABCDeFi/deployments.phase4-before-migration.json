@@ -28,11 +28,6 @@
       "deploymentTransactionHash": "0x4129c57595b7971a3b29d9c26e65260de5edd3817284008fae6218969db6eb5b",
       "deploymentBlock": 4
     },
-    "StakingPool": {
-      "address": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-      "deploymentTransactionHash": "0x8a1cd2c24e556dd89bbef6a78d56bf6f2ee3f6b6e3c56204f44153f0e7e13770",
-      "deploymentBlock": 5
-    },
     "LendingPool": {
       "address": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
       "deploymentTransactionHash": "0xc11c9bd8b88eafe1efde48ca2052ab3f12c290091064ff977adcfe8b787e01fc",

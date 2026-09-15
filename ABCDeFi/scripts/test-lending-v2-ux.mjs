@@ -32,9 +32,9 @@ const other = '0x2222222222222222222222222222222222222222';
 const poolAddress = '0x3333333333333333333333333333333333333333';
 const vaultAddress = '0x4444444444444444444444444444444444444444';
 // Fixtures below are confined to tests; production never imports them.
-const deposit = { depositId: '27', collateralETH: '0.1', collateralUSD: '200', maxBorrowable: '100', borrower, active: true };
-const input = { deposit, depositId: '27', address: borrower, connected: true, correctNetwork: true, loading: false, error: null, principal: '100', term: '30' };
-const baseLoan = { state: 0, borrower, outstanding: '100', collateralETH: '0.1', liquidatable: false };
+const deposit = { depositId: '27', collateralETH: '0.1', collateralUSD: '200', maxBorrowable: '70', borrower, active: true };
+const input = { deposit, depositId: '27', address: borrower, connected: true, correctNetwork: true, loading: false, error: null, principal: '70', term: '30' };
+const baseLoan = { state: 0, borrower, outstanding: '70', collateralETH: '0.1', liquidatable: false };
 const stage = overrides => flow.directStage({ loan: null, deposit: null, capacityLoading: false, operation: null, depositConfirmed: false, ...overrides });
 const component = load('src/components/LendingV2.tsx', {
   '../Services/lendingV2': {},
@@ -62,11 +62,50 @@ test('terminal repayment selects the completion path even when equivalent decima
   assert.match(source, /payV2OutstandingEmi\(p2pLoanId, p2pPayment, prepareCompletionMetadata, progress\)/);
 });
 
+test('Direct Lending UI and service do not expose a removed crypto late-fee charge', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /Direct late fee|Late fee|including fees/);
+  assert.doesNotMatch(service, /previewLateFee|LATE_FEE_BPS|lateFeeBps|lateFee/);
+});
+
+test('terminal zero-debt V2 reads do not show a contract risk sentinel as an active LTV', () => {
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(service, /if \(outstanding !== 0n\) \{/);
+  assert.match(service, /risk = \{ ltvBps: ltvBps\.toString\(\)/);
+});
+
+test('Lending referral controls use only the canonical V2 manager and aggregate payout method', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingReferralV2.ts', import.meta.url), 'utf8');
+  assert.match(source, /Lending referral relationship/);
+  assert.match(source, /createLendingReferralCode/);
+  assert.match(source, /bindLendingReferrer/);
+  assert.match(source, /claimLendingAccruedReward/);
+  assert.match(service, /LendingReferralManagerV2/);
+  assert.match(service, /claimAccruedReward/);
+  assert.doesNotMatch(service, /claimMonthlyReward/);
+  assert.doesNotMatch(service, /ReferralManager\.sol/);
+});
+
+test('top-level dashboard referrals render the canonical Lending V2 referral experience, not the legacy presale referral UI', () => {
+  const dashboard = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+  const referralDashboard = fs.readFileSync(new URL('../src/components/LendingReferralDashboard.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingReferralV2.ts', import.meta.url), 'utf8');
+  assert.match(dashboard, /import \{ LendingReferralDashboard \} from '\.\/LendingReferralDashboard';/);
+  assert.match(dashboard, /activeTab === 'referral' && <LendingReferralDashboard \/>/);
+  assert.doesNotMatch(dashboard, /import \{ ReferralSystem \} from '\.\/ReferralSystem';/);
+  assert.match(referralDashboard, /LendingReferralPanel/);
+  assert.match(referralDashboard, /Indexed lending referral projection/);
+  assert.match(service, /\/api\/lending-v2\/referrals\//);
+  assert.doesNotMatch(referralDashboard, /contracts\/ico\/ReferralManager/);
+});
+
 test('V2 borrow controls stay rendered during loading and empty states', () => {
   for (const blocker of [null, 'Reading capacity', 'Connect wallet']) {
-    const html = renderToStaticMarkup(React.createElement(component.V2BorrowForm, { deposit, principal: '50', setPrincipal() {}, term: '90', setTerm() {}, blocker, busy: false, onBorrow() {}, apr: '1200', ltv: '5000' }));
+    const html = renderToStaticMarkup(React.createElement(component.V2BorrowForm, { deposit, principal: '50', setPrincipal() {}, term: '90', setTerm() {}, blocker, busy: false, onBorrow() {}, apr: '925', ltv: '3500' }));
     assert.match(html, /ABCD principal/); assert.match(html, /30 days/); assert.match(html, /90 days/); assert.match(html, /180 days/);
-    assert.match(html, /Borrow 50 ABCD/); assert.match(html, /100 ABCD/);
+    assert.match(html, /Borrow 50 ABCD/); assert.match(html, /70 ABCD/);
     assert.equal(/disabled=""/.test(html), !!blocker);
   }
 });
@@ -130,22 +169,48 @@ function serviceHarness() {
   const provider = {
     getNetwork: async () => ({ chainId: 31337n }), getCode: async () => '0x6000',
     getBlock: async () => ({ timestamp: 1_000 }),
+    getTransactionCount: async (address, blockTag) => { assert.equal(address, borrower); assert.equal(blockTag, 'pending'); return 5; },
     getLogs: async () => [createLog(27, borrower, ethers.parseEther('0.1'), 4), createLog(28, other, ethers.parseEther('1'), 5), createLog(29, borrower, ethers.parseEther('1'), 6)],
   };
   const pool = {
     pendingCollateral: async id => records.get(String(id)),
-    maxBorrowable: async amount => { assert.equal(amount, ethers.parseEther('0.1')); return ethers.parseEther('100'); },
+    maxBorrowable: async amount => { assert.equal(amount, ethers.parseEther('0.1')); return ethers.parseEther('70'); },
     collateralValueUSD: async amount => { assert.equal(amount, ethers.parseEther('0.1')); return ethers.parseEther('200'); },
   };
   const vault = { directDepositCollateral: async id => records.get(String(id)).amount };
+  let walletCacheInvalidations = 0;
   const service = load('src/Services/lendingV2.ts', {
     ethers: { ...ethers, Contract: function(address) { return address === poolAddress ? pool : vault; } },
     '../Config/contracts': { DEPLOYMENT_CHAIN_ID: 31337n, CONTRACTS: {}, LENDING_V2_CONTRACTS: { pool: poolAddress, vault: vaultAddress }, getLendingV2DeploymentBlock: () => 1 },
     './contractProvider': { provider },
-    './wallet': { getProvider: async () => provider },
-  }, '\nexport { depositReceipt, confirmedTransaction, v2EmiSchedule, repayAllApprovalAmount };');
-  return { service, createLog, records };
+    './wallet': { getProvider: async () => provider, clearWalletCache: () => { walletCacheInvalidations += 1; } },
+  }, '\nexport { depositReceipt, confirmedTransaction, walletTransactionOverrides, v2EmiSchedule, repayAllApprovalAmount };');
+  return { service, createLog, records, walletCacheInvalidations: () => walletCacheInvalidations };
 }
+test('V2 confirmed wallet transactions invalidate a cached signer before a follow-up write', async () => {
+  const { service, walletCacheInvalidations } = serviceHarness();
+  await service.confirmedTransaction('approval', async () => ({
+    hash: '0xconfirmed',
+    wait: async () => ({ status: 1, blockNumber: 7 }),
+  }));
+  assert.equal(walletCacheInvalidations(), 1);
+  await assert.rejects(service.confirmedTransaction('reverted', async () => ({
+    hash: '0xreverted',
+    wait: async () => ({ status: 0, blockNumber: 8 }),
+  })));
+  assert.equal(walletCacheInvalidations(), 1);
+});
+test('V2 wallet writes use the canonical pending nonce rather than a stale injected-wallet nonce', async () => {
+  const { service } = serviceHarness();
+  assert.deepEqual(
+    await service.walletTransactionOverrides({ getAddress: async () => borrower }, 123n),
+    { gasLimit: 123n, nonce: 5 },
+  );
+  assert.deepEqual(
+    await service.walletTransactionOverrides({ getAddress: async () => borrower }, 456n, 789n),
+    { gasLimit: 456n, nonce: 5, value: 789n },
+  );
+});
 test('V2 receipt parsing propagates the real event ID and rejects wrong pool/wallet/amount', async () => {
   const { service, createLog } = serviceHarness();
   const good = createLog(27, borrower, ethers.parseEther('0.1'), 4);
@@ -160,7 +225,7 @@ test('V2 remount recovery selects actual owned active logs instead of highest ID
   const { service } = serviceHarness();
   const recovered = await service.getV2LatestPendingDepositForWallet(borrower);
   assert.equal(recovered.depositId, '27'); assert.equal(recovered.collateralETH, '0.1');
-  assert.equal(recovered.maxBorrowable, '100.0'); assert.equal(recovered.collateralUSD, '200.0');
+  assert.equal(recovered.maxBorrowable, '70.0'); assert.equal(recovered.collateralUSD, '200.0');
 });
 test('V2 transaction progress only confirms after a successful receipt', async () => {
   const { service } = serviceHarness();
@@ -179,15 +244,44 @@ test('V2 transaction progress only confirms after a successful receipt', async (
 test('repay-all approval covers a bounded stale-local-block interval before the approval transaction mines', () => {
   const { service } = serviceHarness();
   const outstanding = ethers.parseEther('100');
-  const loan = { principalOutstanding: outstanding, aprBps: 1200n };
+  const loan = { principalOutstanding: outstanding, aprBps: 925n };
   const denominator = 10_000n * 365n * 86_400n;
   const current = service.repayAllApprovalAmount(outstanding, loan, 1_000n, 1_000n);
   const stale = service.repayAllApprovalAmount(outstanding, loan, 1_000n, 2_000n);
-  assert.equal(current, outstanding + outstanding * 1200n * 600n / denominator + 1n);
-  assert.equal(stale, outstanding + outstanding * 1200n * 1_600n / denominator + 1n);
+  assert.equal(current, outstanding + outstanding * 925n * 600n / denominator + 1n);
+  assert.equal(stale, outstanding + outstanding * 925n * 1_600n / denominator + 1n);
   assert.ok(stale > current);
   const capped = service.repayAllApprovalAmount(outstanding, loan, 0n, 1_000_000n);
-  assert.equal(capped, outstanding + outstanding * 1200n * 86_400n / denominator + 1n);
+  assert.equal(capped, outstanding + outstanding * 925n * 86_400n / denominator + 1n);
+});
+test('repay-all refreshes its bounded allowance after completion metadata and after a mined approval', () => {
+  const source = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(source, /async function currentRepayAllApprovalAmount\(loanId: string, manager: Contract\)/);
+  assert.match(source, /const completion = completionMetadataArgument\(await prepareCompletionMetadata\(loanId\)\);/);
+  assert.match(source, /const initialApproval = await approveIfNeeded\(v2Contracts\(\)\.pool, await currentRepayAllApprovalAmount\(loanId, manager\), progress\);/);
+  assert.match(source, /const refreshedApproval = await approveIfNeeded\(v2Contracts\(\)\.pool, await currentRepayAllApprovalAmount\(loanId, manager\), progress\);/);
+  assert.match(source, /approvalHashes/);
+});
+test('scheduled P2P EMI uses bounded accrued-interest allowance guards and Direct liquidation submits only to configured on-chain execution', () => {
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(service, /async function accruingLoanApprovalAmount\(loanId: string, amount: bigint, manager: Contract\)/);
+  assert.match(service, /const approvalAmount = await accruingLoanApprovalAmount\(loanId, installment\.amount, manager\);/);
+  assert.match(service, /The next P2P EMI is not due until canonical block time/);
+  assert.match(service, /async function liquidateV2\(loanId: string, progress\?: V2ProgressListener\): Promise<V2Tx>/);
+  assert.match(service, /liquidation\.liquidate\.estimateGas\(loanId\)/);
+  assert.doesNotMatch(service, /previewLiquidation\(loanId\)/);
+});
+test('Direct installment controls read the canonical schedule and call the Direct pool path', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(source, /Next Direct installment/);
+  assert.match(source, /Installments paid/);
+  assert.match(source, /Approve ABCD & pay next installment/);
+  assert.match(source, /payV2DirectInstallment\(loanId, prepareCompletionMetadata, progress\)/);
+  assert.match(service, /emiRead\.previewDirectInstallment\(loanId\)/);
+  assert.match(service, /pool\.payDirectInstallmentWithCompletionMetadata\.estimateGas/);
+  assert.match(service, /pool\.payDirectInstallment\.estimateGas/);
+  assert.doesNotMatch(service, /payV2DirectInstallment[\s\S]{0,1000}emi\.payInstallment/);
 });
 test('V2 confirmed receipt remains visible when an indexer refresh fails', () => {
   const html = renderToStaticMarkup(React.createElement(present.V2TransactionStatus, { state: { action: 'Borrow', result: { hash: 'test-receipt-hash', blockNumber: '55', loanId: '31', depositId: null, requestId: null, approvalHashes: [] }, refreshWarning: 'Indexer unavailable' } }));
@@ -201,9 +295,10 @@ test('direct Loan #1-style reads never index an empty canonical EMI result', () 
     if (property === '0') throw new RangeError('out of result range');
     return Reflect.get(target, property, receiver);
   } });
-  assert.equal(service.v2EmiSchedule(emptySchedule, 0n), null);
-  const p2pSchedule = service.v2EmiSchedule([{ amount: ethers.parseEther('50'), dueAt: 1234n }], 0n);
-  assert.deepEqual(p2pSchedule, { installmentAmount: '50.0', installmentCount: '1', paidInstallments: '0', nextDueAt: '1234', completed: false });
+  assert.equal(service.v2EmiSchedule(emptySchedule, 0n, 0n), null);
+  const p2pSchedule = service.v2EmiSchedule([{ amount: ethers.parseEther('50'), dueAt: 1234n }], 0n, 1200n);
+  assert.deepEqual(p2pSchedule, { installmentAmount: '50.0', installmentCount: '1', paidInstallments: '0', nextDueAt: '1234', chainTimestamp: '1200', due: false, completed: false });
+  assert.equal(service.v2EmiSchedule([{ amount: ethers.parseEther('50'), dueAt: 1234n }], 0n, 1234n)?.due, true);
 });
 
 test('fresh Loan #1 recovery uses canonical DirectLoanOpened evidence without waiting for the indexer', async () => {
@@ -245,8 +340,19 @@ test('full settlement prepares verified role-specific public-IPFS metadata witho
   assert.match(source, /prepareLoanCompletionMetadata\(\{ loanId: selectedLoanId, borrower: wallet \}\)/);
   assert.match(source, /repayAllV2\(loanId, prepareCompletionMetadata, progress\)/);
   assert.match(source, /payV2Emi\(p2pLoanId, prepareCompletionMetadata, progress\)/);
+  assert.match(source, /!p2pLoan\.schedule\.due/);
   assert.match(publisher, /\/api\/lending-v2\/metadata\/completion/);
   assert.doesNotMatch(publisher, /signMessage|FormData/);
+});
+
+test('completion-metadata preparation refreshes an existing session once after an expired access token', () => {
+  const publisher = fs.readFileSync(new URL('../src/Services/lendingV2Metadata.ts', import.meta.url), 'utf8');
+  assert.match(publisher, /const REFRESH_TOKEN_KEY = 'abcdefi_auth_refresh';/);
+  assert.match(publisher, /fetch\('\/api\/user\/refresh-token'/);
+  assert.match(publisher, /if \(response\.status === 401\)/);
+  assert.match(publisher, /const refreshed = await refreshStoredAccessToken\(\);/);
+  assert.match(publisher, /response = await requestCompletionMetadata\(input\.loanId, token\);/);
+  assert.match(publisher, /window\.dispatchEvent\(new Event\('abcdefi-auth-session-changed'\)\)/);
 });
 
 test('P2P request capacity is read from LoanMarketplaceV2 and blocks an over-cap UI request', async () => {
@@ -270,4 +376,40 @@ test('P2P request capacity is read from LoanMarketplaceV2 and blocks an over-cap
   assert.match(source, /P2P initial LTV/);
   assert.match(source, /Maximum P2P principal/);
   assert.match(source, /!p2pWithinCapacity/);
+});
+
+test('P2P overdue settlement is visibly blocked until the whitepaper-undefined policy is approved', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(source, /P2P overdue collateral seizure, partial liquidation, and default settlement are unavailable/);
+  assert.doesNotMatch(source, /Approve ABCD & execute overdue EMI/);
+  assert.match(service, /P2P overdue collateral settlement is blocked/);
+  assert.match(service, /P2P overdue collateral settlement is blocked/);
+  assert.match(service, /P2P default settlement is blocked/);
+  assert.doesNotMatch(service, /Math\.random\(\)|mock.*overdue|fake.*overdue/i);
+});
+
+test('Direct partial-liquidation UI reports eligibility and exposes only a configured canonical execution path', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  assert.match(source, /Partial liquidation required/);
+  assert.match(source, /partialLiquidationExecution === 'CONFIGURED'/);
+  assert.match(source, /Execute configured partial liquidation/);
+  assert.match(source, /liquidateV2\(loanId, progress\)/);
+  assert.doesNotMatch(source, /Direct liquidation bonus/);
+});
+
+test('the local Phase 1 harness has no environment-gated legacy P2P liquidation path', () => {
+  const harness = fs.readFileSync(new URL('./run-phase1-local-application-e2e.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(harness, /PHASE1_RESUME_LIQUIDATION/);
+  assert.doesNotMatch(harness, /resumed P2P partial liquidation/);
+  assert.doesNotMatch(harness, /previewP2PPartialLiquidation\(/);
+});
+
+test('a P2P borrower can cure a margin call through the canonical loan-scoped collateral top-up path', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  assert.match(source, /P2P Margin Call Active/);
+  assert.match(source, /Additional P2P ETH collateral/);
+  assert.match(source, /addV2LoanCollateral\(p2pLoanId, p2pTopUp, progress\)/);
+  assert.match(source, /P2P risk-state synchronization/);
+  assert.doesNotMatch(source, /P2P.*Math\.random|fake.*P2P/i);
 });

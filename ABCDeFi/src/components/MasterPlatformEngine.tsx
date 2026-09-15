@@ -20,7 +20,7 @@ export const MasterPlatformEngine: React.FC = () => {
   const [portalRole, setPortalRole] = useState<'user' | 'franchise' | 'admin'>('user');
   const [mobileFlowStep, setMobileFlowStep] = useState<'splash' | 'auth' | 'wallet' | 'kyc' | 'app'>('app');
   const [mobileTab, setMobileTab] = useState<'home' | 'finance' | 'nft' | 'portfolio' | 'profile'>('home');
-  const [financeScreen, setFinanceScreen] = useState<'menu' | 'borrow' | 'lending' | 'marketplace' | 'deposit' | 'withdraw' | 'stake' | 'farming' | 'ico' | 'vesting' | 'history'>('menu');
+  const [financeScreen, setFinanceScreen] = useState<'menu' | 'borrow' | 'lending' | 'marketplace' | 'deposit' | 'withdraw' | 'ico' | 'vesting' | 'history'>('menu');
 
   // Custom interactive states
   const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(true);

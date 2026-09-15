@@ -55,15 +55,6 @@ const presaleState = {
   userPurchases: new Map<string, { totalTokens: number; bonusTokens: number; spentUsd: number; claimed: boolean }>(),
 };
 
-// In-memory staking state
-const stakingPools = [
-  { id: 'pool-30', durationDays: 30, apy: 5, totalStaked: 1250000, lockPeriodMonths: 1 },
-  { id: 'pool-90', durationDays: 90, apy: 12, totalStaked: 4800000, lockPeriodMonths: 3 },
-  { id: 'pool-180', durationDays: 180, apy: 25, totalStaked: 12400000, lockPeriodMonths: 6 },
-  { id: 'pool-365', durationDays: 365, apy: 40, totalStaked: 28900000, lockPeriodMonths: 12 },
-];
-const userStakes = new Map<string, Array<{ id: string; poolId: string; amount: number; stakedAt: string; lockedUntil: string; rewardsClaimed: number }>>();
-
 // In-memory NFT marketplace state
 const nftMarketplaceListings = [
   {
@@ -281,45 +272,6 @@ app.post('/api/presale/buy', (req, res) => {
   });
 });
 
-// Staking Pools
-app.get('/api/staking/pools', (req, res) => {
-  const wallet = (req.query.wallet as string) || '';
-  const userStakesList = userStakes.get(wallet.toLowerCase()) || [];
-  res.json({ success: true, pools: stakingPools, userStakes: userStakesList });
-});
-
-app.post('/api/staking/stake', (req, res) => {
-  const { wallet, poolId, amount } = req.body;
-  if (!wallet || !poolId || !amount || Number(amount) <= 0) {
-    return res.status(400).json({ error: 'Invalid staking parameters' });
-  }
-
-  const pool = stakingPools.find((p) => p.id === poolId);
-  if (!pool) return res.status(400).json({ error: 'Staking pool not found' });
-
-  const numAmount = Number(amount);
-  pool.totalStaked += numAmount;
-
-  const now = new Date();
-  const lockUntil = new Date(now.getTime() + pool.durationDays * 24 * 60 * 60 * 1000);
-
-  const stakeEntry = {
-    id: `stake-${Date.now()}`,
-    poolId,
-    amount: numAmount,
-    stakedAt: now.toISOString(),
-    lockedUntil: lockUntil.toISOString(),
-    rewardsClaimed: 0,
-  };
-
-  const userKey = wallet.toLowerCase();
-  const list = userStakes.get(userKey) || [];
-  list.push(stakeEntry);
-  userStakes.set(userKey, list);
-
-  res.json({ success: true, stake: stakeEntry });
-});
-
 // NFT Module Routes
 app.use('/api/nfts', (NFTRouter as any).default || NFTRouter);
 app.use('/api/marketplace', (MarketplaceRouter as any).default || MarketplaceRouter);
@@ -350,7 +302,7 @@ app.post('/api/ai/copilot', async (req, res) => {
 User prompt: "${prompt}"
 Context: User Portfolio = ${JSON.stringify(userPortfolio || {})}
 
-Provide a clear, structured, actionable response formatted in Markdown. Focus on lending, borrowing LTV ratios, staking APYs, credit scores, and token ICO guidance. Keep tone professional and encouraging.`,
+Provide a clear, structured, actionable response formatted in Markdown. Focus on lending, borrowing LTV ratios, credit scores, and token ICO guidance. Keep tone professional and encouraging.`,
         });
 
         if (geminiRes.text) {

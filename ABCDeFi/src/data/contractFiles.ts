@@ -307,7 +307,7 @@ contract ABCDToken is
     name: 'IABCDToken.sol',
     path: 'contracts/interfaces/IABCDToken.sol',
     language: 'solidity',
-    description: 'External interface for other ecosystem contracts (ICO, VestingVault, LendingPool, Staking) to integrate with ABCDToken.',
+    description: 'External interface for other ecosystem contracts (ICO, VestingVault, and LendingPool) to integrate with ABCDToken.',
     content: `// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 

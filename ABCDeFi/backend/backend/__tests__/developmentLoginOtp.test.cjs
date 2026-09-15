@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const config = require('../config/default');
 const { resolveAuthMode } = require('../config/authMode.cjs');
 const UserAccount = require('../modules/user/userAccount/userAccount.model');
+const Notification = require('../modules/user/notification/notification.model');
 const mailerPath = require.resolve('../utils/mailer');
 const originalMailer = require(mailerPath);
 const smsPath = require.resolve('../utils/sendSms');
@@ -288,6 +289,123 @@ test('login rejects an unknown email and invalid password without generating a l
     config.development_auth_enabled = original.developmentEnabled;
     UserAccount.findOne = original.findOne;
     UserAccount.db.readyState = original.dbReadyState;
+  }
+});
+
+test('loopback local development automation can read only the active runtime OTP and production cannot', async () => {
+  const original = {
+    nodeEnv: config.node_env,
+    developmentEnabled: config.development_auth_enabled,
+    url: config.url,
+    findById: UserAccount.findById,
+  };
+  const otp = '123456';
+  const user = {
+    _id: 'automation-user',
+    loginOtp: crypto.createHash('sha256').update(otp).digest('hex'),
+    loginOtpExpires: new Date(Date.now() + 10 * 60 * 1000),
+  };
+  const diagnostics = require('../modules/user/userAccount/developmentLoginOtpDiagnostics.cjs');
+
+  try {
+    config.node_env = 'development';
+    config.development_auth_enabled = true;
+    config.url = 'mongodb://127.0.0.1:27017/abcdefi';
+    UserAccount.findById = async (id) => (id === user._id ? user : null);
+    diagnostics.recordDevelopmentLoginOtp({ userId: user._id, otp, expiresAt: user.loginOtpExpires, config });
+
+    const localResponse = response();
+    await controller.developmentLoginOtpForAutomation(
+      { params: { userId: user._id }, socket: { remoteAddress: '127.0.0.1' } },
+      localResponse,
+      (error) => { throw error; },
+    );
+    assert.equal(localResponse.statusCode, 200);
+    assert.equal(localResponse.body.data.otp, otp);
+    assert.equal(JSON.stringify(localResponse.body).includes(user.loginOtp), false);
+
+    const remoteResponse = response();
+    await controller.developmentLoginOtpForAutomation(
+      { params: { userId: user._id }, socket: { remoteAddress: '203.0.113.9' } },
+      remoteResponse,
+      (error) => { throw error; },
+    );
+    assert.equal(remoteResponse.statusCode, 404);
+
+    config.node_env = 'production';
+    config.development_auth_enabled = false;
+    const productionResponse = response();
+    await controller.developmentLoginOtpForAutomation(
+      { params: { userId: user._id }, socket: { remoteAddress: '127.0.0.1' } },
+      productionResponse,
+      (error) => { throw error; },
+    );
+    assert.equal(productionResponse.statusCode, 404);
+  } finally {
+    diagnostics.resetDevelopmentLoginOtpDiagnosticsForTests();
+    config.node_env = original.nodeEnv;
+    config.development_auth_enabled = original.developmentEnabled;
+    config.url = original.url;
+    UserAccount.findById = original.findById;
+  }
+});
+
+test('development registration logs a random hashed-only verification OTP without returning it from the API', async () => {
+  const original = {
+    nodeEnv: config.node_env,
+    developmentEnabled: config.development_auth_enabled,
+    findOne: UserAccount.findOne,
+    create: UserAccount.create,
+    notificationCreate: Notification.create,
+    consoleInfo: console.info,
+  };
+  const logEntries = [];
+  let createdPayload;
+
+  try {
+    config.node_env = 'development';
+    config.development_auth_enabled = true;
+    UserAccount.findOne = async () => null;
+    UserAccount.create = async (payload) => {
+      createdPayload = payload;
+      return { ...payload, _id: 'development-registration-user' };
+    };
+    Notification.create = async () => ({});
+    console.info = (...args) => logEntries.push(args);
+    smtpCalls = 0;
+
+    const registrationResponse = response();
+    await controller.registerUser(
+      {
+        body: {
+          name: 'Development Registration User',
+          email: 'registration@example.test',
+          password: 'StrongPass1!',
+          privacyData: true,
+        },
+      },
+      registrationResponse,
+      (error) => { throw error; },
+    );
+
+    assert.equal(registrationResponse.statusCode, 201);
+    assert.equal(registrationResponse.body.success, true);
+    assert.match(registrationResponse.body.message, /local backend terminal/i);
+    assert.equal(Object.hasOwn(registrationResponse.body, 'otp'), false);
+    assert.equal(smtpCalls, 0);
+    const logLine = String(logEntries.find(([message]) => String(message).includes('LOCAL DEVELOPMENT EMAIL VERIFICATION OTP'))?.[0]);
+    assert.match(logLine, /^LOCAL DEVELOPMENT EMAIL VERIFICATION OTP userId=development-registration-user type=EMAIL_VERIFICATION expiresInMinutes=10 code=\d{6}$/);
+    const otp = logLine.match(/code=(\d{6})/)[1];
+    assert.equal(createdPayload.otp, crypto.createHash('sha256').update(otp).digest('hex'));
+    assert.notEqual(createdPayload.otp, otp);
+    assert.equal(await bcrypt.compare('StrongPass1!', createdPayload.password), true);
+  } finally {
+    config.node_env = original.nodeEnv;
+    config.development_auth_enabled = original.developmentEnabled;
+    UserAccount.findOne = original.findOne;
+    UserAccount.create = original.create;
+    Notification.create = original.notificationCreate;
+    console.info = original.consoleInfo;
   }
 });
 

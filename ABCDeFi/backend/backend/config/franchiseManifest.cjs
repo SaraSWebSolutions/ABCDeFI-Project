@@ -8,15 +8,24 @@ function loadFranchiseManifest() {
     : path.resolve(__dirname, '../../..', 'deployments.json');
   if (!fs.existsSync(manifestPath)) throw new Error(`Canonical deployment manifest is missing: ${manifestPath}`);
   const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  const contract = raw?.contracts?.FranchiseNFT;
-  if (!contract || !isAddress(contract.address)) throw new Error('Canonical deployments.json has no valid FranchiseNFT address.');
+  const nft = raw?.contracts?.FranchiseNFT;
+  const registry = raw?.contracts?.FranchiseRegistry;
+  if (!nft || !isAddress(nft.address) || !registry || !isAddress(registry.address)) {
+    throw new Error('Canonical deployments.json must contain valid FranchiseNFT and FranchiseRegistry addresses.');
+  }
   if (!Number.isInteger(Number(raw.chainId)) || Number(raw.chainId) !== 31337) throw new Error('Canonical FranchiseNFT deployment must target Hardhat Local (31337).');
   if (typeof raw.rpcUrl !== 'string' || !/^http:\/\/127\.0\.0\.1:8545\/?$/.test(raw.rpcUrl)) throw new Error('Canonical FranchiseNFT RPC must be localhost:8545.');
-  if (!Number.isInteger(Number(contract.deploymentBlock)) || Number(contract.deploymentBlock) < 0) throw new Error('Canonical FranchiseNFT deployment block is invalid.');
+  if (!Number.isInteger(Number(nft.deploymentBlock)) || Number(nft.deploymentBlock) < 0 || !Number.isInteger(Number(registry.deploymentBlock)) || Number(registry.deploymentBlock) < 0) {
+    throw new Error('Canonical Franchise foundation deployment blocks are invalid.');
+  }
   return Object.freeze({
     manifestPath, chainId: Number(raw.chainId), network: raw.network, rpcUrl: raw.rpcUrl,
-    deploymentVersion: raw.deploymentVersion, deploymentBlock: Number(contract.deploymentBlock),
-    contractAddress: contract.address.toLowerCase(),
+    deploymentVersion: raw.deploymentVersion,
+    deploymentBlock: Math.min(Number(nft.deploymentBlock), Number(registry.deploymentBlock)),
+    // Registry constructor events are canonical provenance. Keep the recorded
+    // Registry deployment block explicit for the Registry-only indexer.
+    registryDeploymentBlock: Number(registry.deploymentBlock),
+    nftAddress: nft.address.toLowerCase(), registryAddress: registry.address.toLowerCase(),
   });
 }
 

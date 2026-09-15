@@ -31,15 +31,21 @@ function completionCertificateMetadata(loanId, loan, requestId, platform, role, 
   const principal = BigInt(loan.principal);
   const agreedInterest = principal * BigInt(loan.aprBps) * (BigInt(loan.maturity) - BigInt(loan.start)) / (10_000n * 365n * 86_400n);
   const totalScheduled = principal + agreedInterest;
-  const certificateValue = totalScheduled / 100n;
+  const isP2P = BigInt(requestId) !== 0n;
+  // The whitepaper's 1% completion value is USD-denominated but does not
+  // define a valuation timestamp or oracle methodology. It must not be
+  // represented by a derived ABCD amount for either lending path.
   return {
     name: `ABCDeFi ${role} Loan Completion Certificate V2 — Loan #${loanId}`,
-    description: 'A soulbound ABCDeFi Lending V2 completion certificate. Its recorded 1% valuation is non-redeemable provenance/accounting metadata, not a claim on loan proceeds.',
+    description: `An ABCDeFi Lending V2${isP2P ? ' P2P' : ''} completion certificate. USD-denominated 1% valuation is intentionally not recorded until its whitepaper-undefined valuation policy is approved.`,
     external_url: process.env.FRONTEND_URL || 'http://localhost:5173',
     attributes: [
       { trait_type: 'Protocol', value: 'ABCDeFi Lending V2' },
       { trait_type: 'Certificate role', value: role },
-      { trait_type: 'Certificate state', value: 'Pending on-chain completion settlement' },
+      // This document is prepared before the terminal transaction, but it is
+      // only referenced by an ERC-721 after that transaction succeeds. Do not
+      // permanently label a completed certificate as pending.
+      { trait_type: 'Certificate lifecycle', value: 'Minted only after successful on-chain settlement' },
       { trait_type: 'Chain ID', value: String(chainId) },
       { trait_type: 'Loan ID', value: loanId },
       { trait_type: 'Request ID', value: requestId ? String(requestId) : 'Direct lending' },
@@ -51,9 +57,7 @@ function completionCertificateMetadata(loanId, loan, requestId, platform, role, 
       { trait_type: 'Total scheduled repayment wei', value: totalScheduled.toString() },
       { trait_type: 'Loan term seconds', value: (BigInt(loan.maturity) - BigInt(loan.start)).toString() },
       { trait_type: 'Original collateral wei', value: String(loan.collateralETH) },
-      { trait_type: 'Certificate valuation BPS', value: '100' },
-      { trait_type: 'Certificate valuation ABCD wei', value: certificateValue.toString() },
-      { trait_type: 'Valuation basis', value: '1% of principal plus agreed interest; non-redeemable accounting metadata' },
+      { trait_type: 'USD valuation status', value: 'Blocked: valuation timestamp/oracle policy requires approval' },
     ],
   };
 }

@@ -7,44 +7,17 @@ export interface AIMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
-  category?: 'staking' | 'borrowing' | 'portfolio' | 'loan' | 'general';
+  category?: 'borrowing' | 'portfolio' | 'loan' | 'general';
 }
 
 export interface AISuggestion {
   label: string;
   query: string;
-  category: 'staking' | 'borrowing' | 'portfolio' | 'loan';
+  category: 'borrowing' | 'portfolio' | 'loan';
   icon: string;
 }
 
 const KB: Record<string, { keywords: string[]; category: AIMessage['category']; answer: string }> = {
-  'how-to-stake': {
-    keywords: ['stake', 'staking', 'how to stake', 'stake abcd', 'earn yield'],
-    category: 'staking',
-    answer: `## 🥩 How to Stake on ABCDeFi
-
-**Staking** lets you lock ABCD tokens into our protocol to earn passive yield rewards.
-
-### Step-by-Step Guide:
-1. **Connect Your Wallet** — Use MetaMask or any WalletConnect-compatible wallet on Sepolia.
-2. **Navigate to the Staking tab** — Click "Staking" in the top navigation bar.
-3. **Choose a Staking Pool:**
-   - 🥩 **Pool 1 (Standard)** — 12% APY, 30-day lock, minimum 100 ABCD
-   - 🔥 **Pool 2 (Premium)** — 18% APY, 90-day lock, minimum 500 ABCD
-   - 💎 **Pool 3 (VIP)** — 25% APY, 180-day lock, minimum 2,000 ABCD
-4. **Enter Amount** — Type the ABCD amount you wish to stake.
-5. **Approve & Stake** — Confirm the approval transaction, then the stake transaction in MetaMask.
-6. **Earn Rewards** — Rewards accrue every block and can be claimed anytime.
-
-### Key Facts:
-- 📅 Lock Period: Tokens are locked for the pool duration.
-- 💰 Rewards: Claimable anytime, no lock on reward tokens.
-- 🛡️ Security: Staking is governed by the audited StakingPool.sol contract.
-- 🎓 Credit Score Boost: Staking increases your wallet activity score.
-
-> **Tip:** Stake in Pool 3 for the highest APY (25%) and faster Reputation NFT Level upgrades!`,
-  },
-
   'how-to-borrow': {
     keywords: ['borrow', 'borrowing', 'how to borrow', 'take loan', 'get loan', 'borrow abcd'],
     category: 'borrowing',
@@ -87,26 +60,21 @@ Your **portfolio** is a unified view of all your positions and balances across t
 ### Portfolio Components:
 
 #### 1. 💰 Token Holdings
-- **ABCD Balance** — Your liquid ABCD token balance, spendable for staking, lending, or NFT purchases.
+- **ABCD Balance** — Your liquid ABCD token balance, spendable for lending or NFT purchases.
 - **ETH Balance** — Your native Sepolia ETH balance used as collateral or gas.
 
-#### 2. 🥩 Staking Positions
-- Active stakes across Pool 1, 2, and 3.
-- Accrued but unclaimed staking rewards.
-- Lock expiry dates and early withdrawal penalties.
-
-#### 3. 🏦 Lending Positions
+#### 2. 🏦 Lending Positions
 - ETH collateral currently locked in the LendingPool.sol contract.
 - Outstanding ABCD borrow balance.
 - Health Factor (HF) — Must stay above 1.0 to avoid liquidation.
 - Monthly EMI schedule and next payment due date.
 
-#### 4. 🎨 NFT Assets
+#### 3. 🎨 NFT Assets
 - Loan NFTs (Borrower & Lender certificates).
 - Reputation Soulbound NFT (Bronze / Silver / Gold / Platinum).
 - Marketplace NFTs and collectibles.
 
-#### 5. 🏆 Credit Score (300–850)
+#### 4. 🏆 Credit Score (300–850)
 Calculated from:
 - ✅ Loans Repaid (+25 pts each)
 - ⚠️ Late Payments (−30 pts each)
@@ -176,7 +144,7 @@ Earn ABCD rewards by inviting friends to the platform!
 ### How Referrals Work:
 1. Get your unique referral link from the **Referral** tab.
 2. Share with friends.
-3. When they stake or borrow, you earn **10% of their transaction as ABCD reward**.
+3. Referral treatment follows the approved lending referral rules.
 4. Each successful referral also adds **+15 Credit Score points** to your profile.
 
 > Referral rewards are claimable any time from the Dashboard.`,
@@ -255,7 +223,6 @@ function findBestAnswer(query: string): { answer: string; category: AIMessage['c
 
 I can help you with the following topics:
 
-- 🥩 **"How to stake"** — Earn yield on your ABCD tokens
 - 💳 **"How to borrow"** — Take ABCD loans using ETH collateral
 - 📊 **"Explain my portfolio"** — Understand your positions and balances
 - 🏦 **"Explain loans"** — How the ABCDeFi loan system works
@@ -274,7 +241,6 @@ export async function getAIResponse(query: string): Promise<{ answer: string; ca
 }
 
 export const AI_SUGGESTIONS: AISuggestion[] = [
-  { label: 'How to Stake?', query: 'How do I stake my ABCD tokens and earn yield?', category: 'staking', icon: '🥩' },
   { label: 'How to Borrow?', query: 'How do I borrow ABCD tokens using ETH collateral?', category: 'borrowing', icon: '💳' },
   { label: 'Explain My Portfolio', query: 'Explain my portfolio and all my positions', category: 'portfolio', icon: '📊' },
   { label: 'How Do Loans Work?', query: 'Explain how loans work on ABCDeFi', category: 'loan', icon: '🏦' },

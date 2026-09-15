@@ -6,6 +6,7 @@ let hh: any;
 beforeEach(async () => { hh = await network.connect(); });
 
 const DAY = 24 * 60 * 60;
+const DIRECT_ETH_APR_BPS = 925;
 const ROLE = (name: string) => ethers.keccak256(ethers.toUtf8Bytes(name));
 
 describe("LendingReferralManagerV2", () => {
@@ -13,7 +14,7 @@ describe("LendingReferralManagerV2", () => {
   let token: any, manager: any, referral: any;
 
   async function createLoan(term = 90 * DAY) {
-    return manager.create(borrower.address, lender.address, ethers.parseEther("1"), ethers.parseEther("100"), 1200, term);
+    return manager.create(borrower.address, lender.address, ethers.parseEther("1"), ethers.parseEther("100"), DIRECT_ETH_APR_BPS, term);
   }
 
   beforeEach(async () => {
@@ -42,7 +43,7 @@ describe("LendingReferralManagerV2", () => {
     await expect(referral.connect(borrower).bindReferrer("VALID-REF")).to.be.revertedWith("referrer exists");
   });
 
-  it("registers borrower and lender referrals only after an originated loan and pays one real monthly reward at a time", async () => {
+  it("accrues monthly referral periods but pays their full accrued amount only after successful completion", async () => {
     await bindBoth();
     await createLoan();
     await expect(referral.registerLoan(1, 0, false)).to.emit(referral, "LendingReferralRegistered");
@@ -51,28 +52,57 @@ describe("LendingReferralManagerV2", () => {
     expect(borrowerTrack.referrer).eq(borrowerReferrer.address);
     expect(lenderTrack.referrer).eq(lenderReferrer.address);
     expect(borrowerTrack.monthlyReward).eq(ethers.parseEther("0.05"));
-    await expect(referral.connect(borrowerReferrer).claimMonthlyReward(1, borrower.address)).to.be.revertedWith("no reward due");
+    await expect(referral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.be.revertedWith("no reward due");
     await hh.provider.send("evm_increaseTime", [30 * DAY]); await hh.provider.send("evm_mine", []);
+    await expect(referral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.be.revertedWith("payout not due");
+    const accrued = await referral.getLoanReferral(1, borrower.address);
+    expect(accrued.paidPeriods).eq(0);
+
+    // The completed-loan test fixture settles a bounded amount and records the
+    // authoritative close before a single referral transfer is allowed.
+    await manager.repay(1, borrower.address, ethers.parseEther("101"));
+    await manager.close(1);
+    await referral.recordLoanCompletion(1);
     const before = await token.balanceOf(borrowerReferrer.address);
-    await expect(referral.connect(borrowerReferrer).claimMonthlyReward(1, borrower.address)).to.emit(referral, "LendingReferralRewardPaid");
+    await expect(referral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.emit(referral, "LendingReferralRewardPaid");
     expect((await token.balanceOf(borrowerReferrer.address)) - before).eq(ethers.parseEther("0.05"));
-    await expect(referral.connect(borrowerReferrer).claimMonthlyReward(1, borrower.address)).to.be.revertedWith("no reward due");
-    await expect(referral.connect(borrower).claimMonthlyReward(1, borrower.address)).to.be.revertedWith("not referral owner");
+    await expect(referral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.be.revertedWith("no reward due");
+    await expect(referral.connect(borrower).claimAccruedReward(1, borrower.address)).to.be.revertedWith("not referral owner");
   });
 
-  it("stops rewards on default and never pays beyond the loan term or one-year cap", async () => {
+  it("pays the accumulated capped amount once at the one-year boundary without requiring loan completion", async () => {
+    const Fixture = await hh.ethers.getContractFactory("ReferralLoanManagerFixture");
+    const fixture = await Fixture.deploy();
+    const Referral = await hh.ethers.getContractFactory("LendingReferralManagerV2");
+    const annualReferral = await Referral.deploy(admin.address, await token.getAddress(), await fixture.getAddress(), admin.address);
+    await token.approve(await annualReferral.getAddress(), ethers.MaxUint256);
+    await annualReferral.connect(borrowerReferrer).createReferralCode("YEAR-REF");
+    await annualReferral.connect(borrower).bindReferrer("YEAR-REF");
+    const start = (await hh.ethers.provider.getBlock("latest"))!.timestamp;
+    await fixture.setLoan(1, {
+      borrower: borrower.address, lender: lender.address, collateralETH: ethers.parseEther("1"), principal: ethers.parseEther("100"),
+      principalOutstanding: ethers.parseEther("100"), accruedInterest: 0, fees: 0, aprBps: DIRECT_ETH_APR_BPS,
+      start, lastAccrual: start, maturity: start + 400 * DAY, graceEnd: start + 407 * DAY, marginCallAt: 0,
+      marginCallCureEnd: 0, state: 0, lateFeeAssessed: false, reserveContribution: 0, badDebt: 0, totalRepaid: 0, isP2P: false,
+    });
+    await annualReferral.registerLoan(1, 0, false);
+    await hh.provider.send("evm_increaseTime", [365 * DAY]); await hh.provider.send("evm_mine", []);
+    const before = await token.balanceOf(borrowerReferrer.address);
+    await expect(annualReferral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.emit(annualReferral, "LendingReferralRewardPaid");
+    expect((await token.balanceOf(borrowerReferrer.address)) - before).eq(ethers.parseEther("0.6"));
+    const record = await annualReferral.getLoanReferral(1, borrower.address);
+    expect(record.paidPeriods).eq(12);
+    await expect(annualReferral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.be.revertedWith("no reward due");
+  });
+
+  it("stops rewards on default and never fabricates an unfunded payout", async () => {
     await referral.connect(borrowerReferrer).createReferralCode("DEFAULT-REF");
     await referral.connect(borrower).bindReferrer("DEFAULT-REF");
     await createLoan(30 * DAY); await referral.registerLoan(1, 0, false);
     await hh.provider.send("evm_increaseTime", [37 * DAY + 1]); await hh.provider.send("evm_mine", []);
     await manager.sync(1);
     expect((await manager.getLoan(1)).state).eq(3);
-    await expect(referral.connect(borrowerReferrer).claimMonthlyReward(1, borrower.address)).to.be.revertedWith("rewards stopped");
-
-    await createLoan(30 * DAY); await referral.registerLoan(2, 0, false);
-    await hh.provider.send("evm_increaseTime", [400 * DAY]); await hh.provider.send("evm_mine", []);
-    await referral.connect(borrowerReferrer).claimMonthlyReward(2, borrower.address);
-    await expect(referral.connect(borrowerReferrer).claimMonthlyReward(2, borrower.address)).to.be.revertedWith("no reward due");
+    await expect(referral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.be.revertedWith("rewards stopped");
   });
 
   it("does not accrue a reward when the approved marketing allocation is insufficient", async () => {
@@ -80,12 +110,12 @@ describe("LendingReferralManagerV2", () => {
     await referral.connect(borrower).bindReferrer("FUNDS-REF");
     await createLoan(); await referral.registerLoan(1, 0, false);
     await token.approve(await referral.getAddress(), 0);
-    await hh.provider.send("evm_increaseTime", [30 * DAY]); await hh.provider.send("evm_mine", []);
-    await expect(referral.connect(borrowerReferrer).claimMonthlyReward(1, borrower.address)).to.be.revert(ethers);
+    await manager.repay(1, borrower.address, ethers.parseEther("101")); await manager.close(1); await referral.recordLoanCompletion(1);
+    await expect(referral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.be.revert(ethers);
     expect((await referral.getLoanReferral(1, borrower.address)).paidPeriods).eq(0);
   });
 
-  it("mints a non-transferable 0.5% accounting referral certificate only after successful close", async () => {
+  it("mints a non-transferable 0.5% referral certificate from originated principal only after successful close", async () => {
     await referral.connect(borrowerReferrer).createReferralCode("CERT-REF");
     await referral.connect(borrower).bindReferrer("CERT-REF");
     await createLoan(30 * DAY); await referral.registerLoan(1, 0, false);
@@ -97,7 +127,9 @@ describe("LendingReferralManagerV2", () => {
     await expect(referral.connect(borrowerReferrer).mintReferralCertificate(1, borrower.address, uri, ethers.keccak256(ethers.toUtf8Bytes(uri))))
       .to.emit(referral, "LendingReferralCertificateMinted");
     const certificate = await referral.getReferralCertificate(1);
-    expect(certificate.value).eq((ethers.parseEther("100") + ethers.parseEther("100") * 1200n * BigInt(30 * DAY) / (10_000n * BigInt(365 * DAY))) * 50n / 10_000n);
+    // Whitepaper page 27: 0.5% of the amount lent/borrowed. Interest is not
+    // part of the originated amount and must not increase this accounting value.
+    expect(certificate.value).eq(ethers.parseEther("100") * 50n / 10_000n);
     expect(await referral.ownerOf(1)).eq(borrowerReferrer.address);
     await expect(referral.connect(borrowerReferrer).transferFrom(borrowerReferrer.address, lender.address, 1)).to.be.revertedWith("non-transferable");
   });

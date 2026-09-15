@@ -5,7 +5,7 @@ import * as path from "path";
 
 async function main() {
   console.log("==================================================");
-  console.log("  ABCDeFi Ecosystem — Full Multi-Contract Deploy  ");
+  console.log("  ABCDeFi Legacy Ecosystem — Multi-Contract Deploy  ");
   console.log("==================================================");
 
   const signers = await ethers.getSigners();
@@ -25,7 +25,7 @@ async function main() {
   const contingencyWallet = process.env.CONTINGENCY_WALLET || signers[7]?.address || deployer.address;
 
   // 1. Deploy ABCDToken
-  console.log("\n[1/10] Deploying ABCDToken...");
+  console.log("\n[1/9] Deploying ABCDToken...");
   const ABCDTokenFactory = await ethers.getContractFactory("ABCDToken");
   const token = await ABCDTokenFactory.deploy(
     founderWallet,
@@ -41,7 +41,7 @@ async function main() {
   console.log(`✅ ABCDToken deployed at: ${tokenAddress}`);
 
   // 2. Deploy Treasury
-  console.log("\n[2/10] Deploying Treasury...");
+  console.log("\n[2/9] Deploying Treasury...");
   const TreasuryFactory = await ethers.getContractFactory("Treasury");
   const treasury = await TreasuryFactory.deploy(deployer.address);
   await treasury.waitForDeployment();
@@ -49,7 +49,7 @@ async function main() {
   console.log(`✅ Treasury deployed at: ${treasuryAddress}`);
 
   // 3. Deploy TokenVesting
-  console.log("\n[3/10] Deploying TokenVesting...");
+  console.log("\n[3/9] Deploying TokenVesting...");
   const VestingFactory = await ethers.getContractFactory("TokenVesting");
   const vesting = await VestingFactory.deploy(tokenAddress, deployer.address);
   await vesting.waitForDeployment();
@@ -57,7 +57,7 @@ async function main() {
   console.log(`✅ TokenVesting deployed at: ${vestingAddress}`);
 
   // 4. Deploy Presale (ICO)
-  console.log("\n[4/10] Deploying Presale (ICO)...");
+  console.log("\n[4/9] Deploying Presale (ICO)...");
   const rate = ethers.parseUnits("1000", 18);
   const softCap = ethers.parseEther("10");
   const hardCap = ethers.parseEther("100");
@@ -79,16 +79,8 @@ async function main() {
   const presaleAddress = await presale.getAddress();
   console.log(`✅ Presale deployed at: ${presaleAddress}`);
 
-  // 5. Deploy StakingPool
-  console.log("\n[5/10] Deploying StakingPool...");
-  const StakingFactory = await ethers.getContractFactory("StakingPool");
-  const staking = await StakingFactory.deploy(tokenAddress, deployer.address);
-  await staking.waitForDeployment();
-  const stakingAddress = await staking.getAddress();
-  console.log(`✅ StakingPool deployed at: ${stakingAddress}`);
-
-  // 6. Deploy LendingPool
-  console.log("\n[6/10] Deploying LendingPool...");
+  // 5. Deploy LendingPool
+  console.log("\n[5/9] Deploying LendingPool...");
   const LendingFactory = await ethers.getContractFactory("LendingPool");
   const tokenRatePerETH = ethers.parseUnits("1000", 18);
   const lending = await LendingFactory.deploy(tokenAddress, tokenRatePerETH, deployer.address);
@@ -96,32 +88,32 @@ async function main() {
   const lendingAddress = await lending.getAddress();
   console.log(`✅ LendingPool deployed at: ${lendingAddress}`);
 
-  // 7. Deploy CollateralVault
-  console.log("\n[7/10] Deploying CollateralVault...");
+  // 6. Deploy CollateralVault
+  console.log("\n[6/9] Deploying CollateralVault...");
   const VaultFactory = await ethers.getContractFactory("CollateralVault");
   const vault = await VaultFactory.deploy(deployer.address);
   await vault.waitForDeployment();
   const vaultAddress = await vault.getAddress();
   console.log(`✅ CollateralVault deployed at: ${vaultAddress}`);
 
-  // 8. Deploy NFTMarketplace
-  console.log("\n[8/10] Deploying NFTMarketplace...");
+  // 7. Deploy NFTMarketplace
+  console.log("\n[7/9] Deploying NFTMarketplace...");
   const MarketplaceFactory = await ethers.getContractFactory("NFTMarketplace");
   const marketplace = await MarketplaceFactory.deploy(treasuryAddress, deployer.address);
   await marketplace.waitForDeployment();
   const marketplaceAddress = await marketplace.getAddress();
   console.log(`✅ NFTMarketplace deployed at: ${marketplaceAddress}`);
 
-  // 9. Deploy ParticipantNFT
-  console.log("\n[9/10] Deploying ParticipantNFT...");
+  // 8. Deploy ParticipantNFT
+  console.log("\n[8/9] Deploying ParticipantNFT...");
   const ParticipantNFTFactory = await ethers.getContractFactory("ParticipantNFT");
   const participantNFT = await ParticipantNFTFactory.deploy(deployer.address);
   await participantNFT.waitForDeployment();
   const participantNFTAddress = await participantNFT.getAddress();
   console.log(`✅ ParticipantNFT deployed at: ${participantNFTAddress}`);
 
-  // 10. Deploy BonusManager
-  console.log("\n[10/10] Deploying BonusManager...");
+  // 9. Deploy BonusManager
+  console.log("\n[9/9] Deploying BonusManager...");
   const BonusFactory = await ethers.getContractFactory("BonusManager");
   const bonus = await BonusFactory.deploy(deployer.address);
   await bonus.waitForDeployment();
@@ -145,7 +137,6 @@ async function main() {
       Treasury: treasuryAddress,
       TokenVesting: vestingAddress,
       Presale: presaleAddress,
-      StakingPool: stakingAddress,
       LendingPool: lendingAddress,
       CollateralVault: vaultAddress,
       NFTMarketplace: marketplaceAddress,
@@ -164,7 +155,6 @@ export const CONTRACTS = {
   token: "${tokenAddress}",
   presale: "${presaleAddress}",
   treasury: "${treasuryAddress}",
-  staking: "${stakingAddress}",
   lending: "${lendingAddress}",
   vesting: "${vestingAddress}",
   referral: "${bonusAddress}",

@@ -35,6 +35,7 @@ type Manifest = {
       loanNftDirectCompletionOperator: string;
       loanNftP2pCompletionOperator: string;
       reserveOperator: string;
+      liquidationRecoveryOperator?: string;
       p2pOperator: string;
       platformRecipient: string;
       lendingReferralOperators: string[];
@@ -56,6 +57,10 @@ const EXPECTED_V2_CONTRACTS = [
   "LoanMarketplaceV2",
   "EMIManagerV2",
   "LendingReferralManagerV2",
+  "MockWETHV2",
+  "MockPancakeSwapRouterV2",
+  "ChainlinkLiquidationPriceValidatorV2",
+  "LiquidationSaleAdapterV2",
 ] as const;
 
 function sameAddress(actual: string, expected: string, label: string) {
@@ -112,8 +117,16 @@ async function main() {
   const marketplace = await hh.getContractAt("LoanMarketplaceV2", address("LoanMarketplaceV2"));
   const emi = await hh.getContractAt("EMIManagerV2", address("EMIManagerV2"));
   const referral = await hh.getContractAt("LendingReferralManagerV2", address("LendingReferralManagerV2"));
+  const liquidationValidator = await hh.getContractAt("ChainlinkLiquidationPriceValidatorV2", address("ChainlinkLiquidationPriceValidatorV2"));
+  const saleAdapter = await hh.getContractAt("LiquidationSaleAdapterV2", address("LiquidationSaleAdapterV2"));
   const ethFeed = await hh.getContractAt("MockAggregatorV3V2", address("MockAggregatorV3V2_ETH_USD"));
   const abcdFeed = await hh.getContractAt("MockAggregatorV3V2", address("MockAggregatorV3V2_ABCD_USD"));
+
+  // Other local verification scripts may advance time. Refresh only the
+  // disposable local mock rounds before asserting the canonical 35% capacity;
+  // this verifier never treats the feeds as production oracle evidence.
+  await (await ethFeed.setAnswer(2_000n * 10n ** 8n)).wait();
+  await (await abcdFeed.setAnswer(1n * 10n ** 8n)).wait();
 
   assert.notEqual((await pool.getAddress()).toLowerCase(), manifest.contracts.LendingPool.address.toLowerCase(), "V1 LendingPool cannot be used as LendingPoolV2");
 
@@ -123,6 +136,7 @@ async function main() {
   sameAddress(await pool.oracle(), await oracle.getAddress(), "LendingPoolV2 OracleAdapter");
   sameAddress(await pool.loanNFT(), await loanNFT.getAddress(), "LendingPoolV2 LoanNFT");
   sameAddress(await pool.lendingReferralManager(), await referral.getAddress(), "LendingPoolV2 referral manager");
+  sameAddress(await pool.emiManager(), await emi.getAddress(), "LendingPoolV2 EMI manager");
   sameAddress(await loanNFT.loanManager(), await manager.getAddress(), "LoanNFTV2 LoanManager");
   sameAddress(await loanNFT.platformRecipient(), manifest.contracts.Treasury.address, "LoanNFTV2 platform recipient");
   sameAddress(await reserve.asset(), tokenAddress, "InsuranceReserveV2 asset");
@@ -134,6 +148,10 @@ async function main() {
   sameAddress(await liquidation.reserve(), await reserve.getAddress(), "LiquidationV2 reserve");
   sameAddress(await liquidation.loanNFT(), await loanNFT.getAddress(), "LiquidationV2 LoanNFT");
   sameAddress(await liquidation.settlementPool(), await pool.getAddress(), "LiquidationV2 settlement pool");
+  sameAddress(await liquidation.saleAdapter(), await saleAdapter.getAddress(), "LiquidationV2 sale adapter");
+  assert.equal(await saleAdapter.configured(), true, "Local test-only sale adapter is not configured");
+  sameAddress(await reserve.liquidationEngine(), await liquidation.getAddress(), "InsuranceReserveV2 liquidation engine");
+  assert.equal(await liquidationValidator.SLIPPAGE_BPS(), 100n, "Local validator must retain owner-approved 1% slippage");
   sameAddress(await marketplace.abcd(), tokenAddress, "LoanMarketplaceV2 ABCD token");
   sameAddress(await marketplace.loanManager(), await manager.getAddress(), "LoanMarketplaceV2 LoanManager");
   sameAddress(await marketplace.collateralVault(), await vault.getAddress(), "LoanMarketplaceV2 CollateralVault");
@@ -146,18 +164,21 @@ async function main() {
   sameAddress(await emi.collateralVault(), await vault.getAddress(), "EMIManagerV2 CollateralVault");
   sameAddress(await emi.loanNFT(), await loanNFT.getAddress(), "EMIManagerV2 LoanNFT");
   sameAddress(await emi.lendingReferralManager(), await referral.getAddress(), "EMIManagerV2 referral manager");
+  sameAddress(await emi.lendingPool(), await pool.getAddress(), "EMIManagerV2 LendingPool");
 
-  assert.equal(await pool.MAX_INITIAL_LTV_BPS(), 5_000n);
+  assert.equal(await pool.MAX_INITIAL_LTV_BPS(), 3_500n);
   assert.equal(await marketplace.P2P_INITIAL_LTV_BPS(), 3_500n);
   assert.equal(await marketplace.previewMaxP2PPrincipal(ethers.parseEther("0.1")), ethers.parseEther("70"));
   assert.equal(v2.configuration.p2pInitialLtvBps, 3500);
-  assert.equal(await manager.newLoanAprBps(), 1_200n);
-  assert.equal(await manager.LATE_FEE_BPS(), 200n);
+  assert.equal(await manager.newLoanAprBps(), 925n);
   assert.equal(await manager.MARGIN_CALL_CURE_PERIOD(), 259_200n);
   assert.equal(await liquidation.MARGIN_CALL_THRESHOLD_BPS(), 7_000n);
   assert.equal(await liquidation.LIQUIDATION_THRESHOLD_BPS(), 8_000n);
-  assert.equal(await liquidation.CLOSE_FACTOR_BPS(), 10_000n);
-  assert.equal(await liquidation.LIQUIDATION_BONUS_BPS(), 500n);
+  assert.equal(await liquidation.P2P_PARTIAL_TARGET_LTV_BPS(), 7_000n);
+  assert.equal(v2.configuration.partialLiquidationTargetLtvBps, 7000);
+  assert.equal(v2.configuration.partialLiquidationExecution, 'LOCAL_TEST_ONLY_CONFIGURED');
+  assert.equal(v2.configuration.liquidationSlippageBps, 100);
+  assert.equal(v2.configuration.liquidationSaleRounding, 'CEILING');
   assert.deepEqual(v2.configuration.supportedTermSeconds, [2_592_000, 7_776_000, 15_552_000]);
   assert.equal(v2.configuration.maturityGracePeriodSeconds, 604_800);
 
@@ -170,6 +191,7 @@ async function main() {
   assert.equal(abcdFeedConfig.heartbeat, 86_400n);
   assert.equal(ethFeedConfig.enabled, true);
   assert.equal(abcdFeedConfig.enabled, true);
+  assert.equal(await pool.hasRole(ROLE("LIQUIDATION_RECOVERY_ROLE"), await liquidation.getAddress()), true);
   assert.equal(await ethFeed.decimals(), 8n);
   assert.equal(await abcdFeed.decimals(), 8n);
   assert.equal(await oracle.priceUSD(ethAsset), 2_000n * 10n ** 18n);

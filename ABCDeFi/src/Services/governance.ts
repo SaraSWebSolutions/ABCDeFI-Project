@@ -18,18 +18,6 @@ export interface DAOProposal {
 
 export const COMMUNITY_PROPOSALS: DAOProposal[] = [
   {
-    id: 'PROP-101',
-    proposer: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-    title: 'VIP Staking Yield Boost (+2% APY for Pool 3)',
-    category: 'Protocol Upgrade',
-    description: 'Increase Pool 3 (VIP) APY from 25% to 27% for 180-day stakers to reward long-term token holders.',
-    forVotes: 1250000,
-    againstVotes: 120000,
-    status: 'Active',
-    endTime: '2026-08-05',
-    voted: true,
-  },
-  {
     id: 'PROP-102',
     proposer: '0x3C44CdD66a900fa2b585dd299e03d12FA4293BC',
     title: 'Reduce Loan Origination Fee to 1.0%',

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { DEVELOPMENT_AUTH_ENABLED } from '../Config/auth';
 
 export interface AuthUser {
   id?: string;
@@ -64,6 +65,15 @@ const STORAGE_KEY_TOKEN = 'abcdefi_jwt';
 const STORAGE_KEY_REFRESH = 'abcdefi_auth_refresh';
 const STORAGE_KEY_METHOD = 'abcdefi_auth_method';
 const STORAGE_KEY_PENDING_AUTH = 'abcdefi_pending_auth';
+const STORAGE_KEY_DEVELOPMENT_DASHBOARD_LOGOUT = 'abcdefi_development_dashboard_logout';
+
+function developmentDashboardSessionWasDismissed(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_KEY_DEVELOPMENT_DASHBOARD_LOGOUT) === '1';
+  } catch {
+    return true;
+  }
+}
 
 const PENDING_AUTH_STEPS = new Set<NonNullable<PendingAuthState['step']>>([
   'LOGIN_2FA',
@@ -143,9 +153,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // React state updates do not synchronously disable two submit events. This
   // ref is the authoritative browser-side in-flight lock for password login.
   const loginRequestRef = useRef<Promise<LoginStepResult> | null>(null);
+  const developmentSessionBootstrapRef = useRef(false);
   // Saved browser data is not sufficient to grant application-admin access on
   // a reload.  The authenticated backend profile must confirm the session.
-  const [sessionVerified, setSessionVerified] = useState(() => !localStorage.getItem(STORAGE_KEY_TOKEN));
+  const [sessionVerified, setSessionVerified] = useState(() => {
+    const hasToken = Boolean(localStorage.getItem(STORAGE_KEY_TOKEN));
+    return hasToken || !DEVELOPMENT_AUTH_ENABLED || developmentDashboardSessionWasDismissed();
+  });
 
   const [pendingAuth, setPendingAuthState] = useState<PendingAuthState | null>(readPendingAuth);
 
@@ -294,7 +308,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     userData: AuthUser,
     accessToken: string,
     refToken?: string,
-    method: 'password' | 'wallet' = 'password',
+    method: 'password' | 'wallet' | 'development' = 'password',
     verified = true,
   ) => {
     setUser(userData);
@@ -309,11 +323,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem(STORAGE_KEY_REFRESH);
     }
     localStorage.setItem(STORAGE_KEY_METHOD, method);
+    if (DEVELOPMENT_AUTH_ENABLED) {
+      localStorage.removeItem(STORAGE_KEY_DEVELOPMENT_DASHBOARD_LOGOUT);
+    }
     window.dispatchEvent(new Event('abcdefi-auth-session-changed'));
     // Login and OTP endpoints only return this session after backend
     // authentication succeeds, so the returned role is safe for this session.
     setSessionVerified(verified);
   };
+
+  useEffect(() => {
+    if (!DEVELOPMENT_AUTH_ENABLED || token || developmentDashboardSessionWasDismissed() || developmentSessionBootstrapRef.current) return;
+    developmentSessionBootstrapRef.current = true;
+    let cancelled = false;
+    setSessionVerified(false);
+
+    void fetch('/api/user/development-dashboard-session', { method: 'POST' })
+      .then(async (response) => ({ response, data: await response.json().catch(() => ({})) }))
+      .then(({ response, data }) => {
+        if (cancelled) return;
+        if (response.ok && data.success && data.developmentSession === true && data.data && data.token) {
+          saveAuthSession(data.data, data.token, data.refreshToken, 'development');
+          return;
+        }
+        setSessionVerified(true);
+        authDiagnostic('development dashboard session unavailable', { status: response.status, success: Boolean(data.success) });
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setSessionVerified(true);
+        authDiagnostic('development dashboard session failed', { message: error instanceof Error ? error.message : 'unknown error' });
+      });
+
+    return () => { cancelled = true; };
+  }, [token]);
 
   // WalletContext owns MetaMask interaction. AuthContext owns the app session;
   // the event is emitted only after the backend verifies the signed challenge.
@@ -782,6 +825,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    if (DEVELOPMENT_AUTH_ENABLED) {
+      localStorage.setItem(STORAGE_KEY_DEVELOPMENT_DASHBOARD_LOGOUT, '1');
+    }
     if (token) {
       fetch('/api/user/logout', {
         method: 'POST',

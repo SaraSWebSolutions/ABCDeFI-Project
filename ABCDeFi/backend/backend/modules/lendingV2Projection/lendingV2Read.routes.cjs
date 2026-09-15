@@ -8,6 +8,7 @@ const router = express.Router();
 router.get('/status', controller.status);
 router.get('/reserve', controller.reserve);
 router.get('/requests/open', controller.openRequests);
+router.get('/referrals/:address', controller.referral);
 router.get('/requests/:requestId', controller.request);
 router.get('/wallet/:address', controller.wallet);
 router.get('/loans/:loanId', controller.loan);

@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface InsuranceReserveV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "RESERVE_FUNDER_ROLE" | "RESERVE_OPERATOR_ROLE" | "asset" | "availableBalance" | "cover" | "fund" | "getRoleAdmin" | "grantRole" | "hasRole" | "loanManager" | "pause" | "paused" | "renounceRole" | "reserveSettlementProcessed" | "reserveUsedByLoan" | "revokeRole" | "supportsInterface" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "RESERVE_FUNDER_ROLE" | "RESERVE_OPERATOR_ROLE" | "asset" | "availableBalance" | "cover" | "fund" | "getRoleAdmin" | "grantRole" | "hasRole" | "liquidationEngine" | "loanManager" | "pause" | "paused" | "renounceRole" | "reserveSettlementProcessed" | "reserveUsedByLoan" | "revokeRole" | "setLiquidationEngine" | "supportsInterface" | "unpause"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "Paused" | "ReserveBalanceUpdated" | "ReserveFunded" | "ReserveUsed" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "LiquidationEngineConfigured" | "Paused" | "ReserveBalanceUpdated" | "ReserveFunded" | "ReserveUsed" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'RESERVE_FUNDER_ROLE', values?: undefined): string;
@@ -20,6 +20,7 @@ encodeFunctionData(functionFragment: 'fund', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'liquidationEngine', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
@@ -27,6 +28,7 @@ encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, Address
 encodeFunctionData(functionFragment: 'reserveSettlementProcessed', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'reserveUsedByLoan', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'setLiquidationEngine', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 
@@ -40,6 +42,7 @@ decodeFunctionResult(functionFragment: 'fund', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'liquidationEngine', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
@@ -47,11 +50,24 @@ decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'reserveSettlementProcessed', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'reserveUsedByLoan', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setLiquidationEngine', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   }
 
   
+    export namespace LiquidationEngineConfiguredEvent {
+      export type InputTuple = [liquidationEngine: AddressLike];
+      export type OutputTuple = [liquidationEngine: string];
+      export interface OutputObject {liquidationEngine: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace PausedEvent {
       export type InputTuple = [account: AddressLike];
       export type OutputTuple = [account: string];
@@ -262,6 +278,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    liquidationEngine: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     loanManager: TypedContractMethod<
       [],
       [string],
@@ -312,6 +336,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
     revokeRole: TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    setLiquidationEngine: TypedContractMethod<
+      [liquidationEngine_: AddressLike, ],
       [void],
       'nonpayable'
     >
@@ -386,6 +418,11 @@ getFunction(nameOrSignature: 'hasRole'): TypedContractMethod<
       [boolean],
       'view'
     >;
+getFunction(nameOrSignature: 'liquidationEngine'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'loanManager'): TypedContractMethod<
       [],
       [string],
@@ -421,6 +458,11 @@ getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'setLiquidationEngine'): TypedContractMethod<
+      [liquidationEngine_: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod<
       [interfaceId: BytesLike, ],
       [boolean],
@@ -432,7 +474,8 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
       'nonpayable'
     >;
 
-    getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+    getEvent(key: 'LiquidationEngineConfigured'): TypedContractEvent<LiquidationEngineConfiguredEvent.InputTuple, LiquidationEngineConfiguredEvent.OutputTuple, LiquidationEngineConfiguredEvent.OutputObject>;
+getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
 getEvent(key: 'ReserveBalanceUpdated'): TypedContractEvent<ReserveBalanceUpdatedEvent.InputTuple, ReserveBalanceUpdatedEvent.OutputTuple, ReserveBalanceUpdatedEvent.OutputObject>;
 getEvent(key: 'ReserveFunded'): TypedContractEvent<ReserveFundedEvent.InputTuple, ReserveFundedEvent.OutputTuple, ReserveFundedEvent.OutputObject>;
 getEvent(key: 'ReserveUsed'): TypedContractEvent<ReserveUsedEvent.InputTuple, ReserveUsedEvent.OutputTuple, ReserveUsedEvent.OutputObject>;
@@ -443,6 +486,10 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
     filters: {
       
+      'LiquidationEngineConfigured(address)': TypedContractEvent<LiquidationEngineConfiguredEvent.InputTuple, LiquidationEngineConfiguredEvent.OutputTuple, LiquidationEngineConfiguredEvent.OutputObject>;
+      LiquidationEngineConfigured: TypedContractEvent<LiquidationEngineConfiguredEvent.InputTuple, LiquidationEngineConfiguredEvent.OutputTuple, LiquidationEngineConfiguredEvent.OutputObject>;
+    
+
       'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
       Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
     

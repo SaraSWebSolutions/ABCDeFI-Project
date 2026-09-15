@@ -47,7 +47,6 @@ function MarkdownRenderer({ content }: { content: string }) {
 
 const categoryColor = (cat?: AIMessage['category']) => {
   switch (cat) {
-    case 'staking':    return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30';
     case 'borrowing':  return 'text-amber-400 bg-amber-500/10 border-amber-500/30';
     case 'portfolio':  return 'text-indigo-400 bg-indigo-500/10 border-indigo-500/30';
     case 'loan':       return 'text-purple-400 bg-purple-500/10 border-purple-500/30';
@@ -57,7 +56,6 @@ const categoryColor = (cat?: AIMessage['category']) => {
 
 const suggestionIcon = (category: AISuggestion['category']) => {
   switch (category) {
-    case 'staking':   return <Coins className="w-4 h-4 text-emerald-400" />;
     case 'borrowing': return <CreditCard className="w-4 h-4 text-amber-400" />;
     case 'portfolio': return <BarChart2 className="w-4 h-4 text-indigo-400" />;
     case 'loan':      return <Landmark className="w-4 h-4 text-purple-400" />;
@@ -72,7 +70,6 @@ const WELCOME: AIMessage = {
 I'm your intelligent on-chain financial guide, powered by the ABCDeFi knowledge base.
 
 I can answer detailed questions about:
-- 🥩 **Staking** — How to earn yield on ABCD tokens
 - 💳 **Borrowing** — How to take ETH-collateralized loans
 - 📊 **Portfolio** — Understanding your on-chain positions
 - 🏦 **Loans** — EMI schedules, margin calls, Loan NFTs, and more
@@ -158,7 +155,7 @@ export const AIFinancialAssistant: React.FC = () => {
             ABCDeFi AI Financial Assistant
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Ask me anything about staking, borrowing, your portfolio, or loans.
+            Ask me anything about borrowing, your portfolio, or loans.
           </p>
         </div>
 
@@ -259,7 +256,7 @@ export const AIFinancialAssistant: React.FC = () => {
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder="Ask me about staking, borrowing, loans, or your portfolio..."
+          placeholder="Ask me about borrowing, loans, or your portfolio..."
           className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition"
         />
         <button

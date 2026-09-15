@@ -1,0 +1,26 @@
+const { Contract, Interface } = require('ethers');
+const EVENTS = ['CollectionConfigured', 'ListingCreated', 'ListingCancelled', 'ListingPurchased', 'Paused', 'Unpaused'];
+const lower = (value) => typeof value === 'string' ? value.toLowerCase() : value;
+const stringify = (value) => typeof value === 'bigint' ? value.toString() : value;
+const argsOf = (parsed) => Object.fromEntries(parsed.fragment.inputs.map((input, index) => [input.name || String(index), stringify(parsed.args[index])]));
+const evidence = (log, name) => ({ transactionHash: lower(log.transactionHash), blockNumber: String(log.blockNumber), logIndex: Number(log.index ?? log.logIndex), blockHash: lower(log.blockHash), eventName: name });
+class ABCDMarketplaceIndexer {
+  constructor({ manifest, artifact, provider, models, confirmations = 0, logger = console }) { this.manifest = manifest; this.provider = provider; this.models = models; this.confirmations = confirmations; this.logger = logger; this.iface = new Interface(artifact.abi); this.market = new Contract(manifest.marketplaceAddress, artifact.abi, provider); this.topics = EVENTS.map((event) => this.iface.getEvent(event).topicHash); }
+  identity() { return { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, marketplaceAddress: this.manifest.marketplaceAddress }; }
+  async assertDeployment() { const [network, marketCode, token] = await Promise.all([this.provider.getNetwork(), this.provider.getCode(this.manifest.marketplaceAddress), this.market.abcdToken()]); if (Number(network.chainId) !== this.manifest.chainId) throw new Error('Marketplace RPC chain does not match manifest.'); if (marketCode === '0x' || lower(token) !== this.manifest.abcdAddress) throw new Error('Canonical marketplace bytecode or ABCD binding is invalid.'); }
+  async process(log) {
+    const parsed = this.iface.parseLog({ topics: log.topics, data: log.data }); if (!parsed || !EVENTS.includes(parsed.name)) return;
+    const immutable = { ...this.identity(), transactionHash: lower(log.transactionHash), blockNumber: String(log.blockNumber), logIndex: Number(log.index ?? log.logIndex), blockHash: lower(log.blockHash), eventName: parsed.name, args: argsOf(parsed) };
+    const result = await this.models.MarketplaceEvent.updateOne({ ...this.identity(), transactionHash: immutable.transactionHash, logIndex: immutable.logIndex }, { $setOnInsert: immutable, $set: { removed: Boolean(log.removed), indexedAt: new Date() } }, { upsert: true });
+    if (!result.upsertedCount || log.removed) return;
+    const ev = evidence(log, parsed.name); const args = immutable.args;
+    if (parsed.name === 'CollectionConfigured') await this.models.MarketplaceCollection.updateOne({ ...this.identity(), collection: lower(args.collection) }, { $set: { ...this.identity(), collection: lower(args.collection), supported: args.supported, latestEvidence: ev, indexedAt: new Date() } }, { upsert: true });
+    if (parsed.name === 'ListingCreated') await this.models.MarketplaceListing.updateOne({ ...this.identity(), listingId: args.listingId }, { $set: { ...this.identity(), listingId: args.listingId, collection: lower(args.collection), tokenId: args.tokenId, seller: lower(args.seller), buyer: null, price: args.price, status: 'ACTIVE', createdEvidence: ev, latestEvidence: ev, indexedAt: new Date() } }, { upsert: true });
+    if (parsed.name === 'ListingCancelled') await this.models.MarketplaceListing.updateOne({ ...this.identity(), listingId: args.listingId }, { $set: { status: 'CANCELLED', latestEvidence: ev, indexedAt: new Date() } });
+    if (parsed.name === 'ListingPurchased') await this.models.MarketplaceListing.updateOne({ ...this.identity(), listingId: args.listingId }, { $set: { status: 'SOLD', buyer: lower(args.buyer), latestEvidence: ev, indexedAt: new Date() } });
+  }
+  async syncOnce() { await this.assertDeployment(); let checkpoint = await this.models.MarketplaceCheckpoint.findOne(this.identity()).lean(); if (checkpoint?.lastProcessedBlock) { const block = await this.provider.getBlock(Number(checkpoint.lastProcessedBlock)); if (!block || lower(block.hash) !== lower(checkpoint.lastProcessedBlockHash)) throw new Error('Marketplace checkpoint does not match active chain.'); }
+    const latest = await this.provider.getBlockNumber(); const target = latest - this.confirmations; let from = checkpoint?.lastProcessedBlock ? Number(checkpoint.lastProcessedBlock) + 1 : this.manifest.deploymentBlock; if (target < from) return { checkpoint: checkpoint?.lastProcessedBlock || null, processed: 0 };
+    const logs = await this.provider.getLogs({ address: this.manifest.marketplaceAddress, topics: [this.topics], fromBlock: from, toBlock: target }); logs.sort((a,b) => Number(a.blockNumber)-Number(b.blockNumber) || Number(a.index ?? a.logIndex)-Number(b.index ?? b.logIndex)); for (const log of logs) await this.process(log); const block = await this.provider.getBlock(target); await this.models.MarketplaceCheckpoint.updateOne(this.identity(), { $set: { ...this.identity(), lastProcessedBlock: String(target), lastProcessedBlockHash: lower(block.hash), indexedAt: new Date() } }, { upsert: true }); return { checkpoint: String(target), processed: logs.length }; }
+}
+module.exports = { ABCDMarketplaceIndexer, EVENTS };

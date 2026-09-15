@@ -104,15 +104,7 @@ export async function runAIFinancialAssistant(prompt, userPortfolio = {}) {
 
   let responseText = '';
 
-  if (query.includes('yield') || query.includes('stake') || query.includes('apy')) {
-    responseText =
-      '💡 **ABCDeFi Staking Strategy Recommendation**:\n\n' +
-      '• **30-Day Lock**: 5% APY — Best for short-term liquidity maintenance.\n' +
-      '• **90-Day Lock**: 12% APY — Ideal balance between flexibility and yield.\n' +
-      '• **180-Day Lock**: 25% APY — Recommended for strong token holders.\n' +
-      '• **365-Day Lock**: 40% APY — Maximum yield tier for long-term compound gains.\n\n' +
-      '👉 *Pro Tip*: Stake 60% of your ABCD holdings in the 180-day tier and keep 40% in the 30-day pool for dynamic liquidity.';
-  } else if (query.includes('borrow') || query.includes('loan') || query.includes('collateral')) {
+  if (query.includes('borrow') || query.includes('loan') || query.includes('collateral')) {
     responseText =
       '🏦 **Lending & Borrowing Advice**:\n\n' +
       '• You can deposit ETH as collateral into `LendingPool.sol` and borrow up to **75% LTV** in ABCD tokens.\n' +
@@ -130,8 +122,7 @@ export async function runAIFinancialAssistant(prompt, userPortfolio = {}) {
       `🤖 **ABCDeFi AI Copilot**: I analyzed your request: "${prompt}".\n\n` +
       'I can assist you with:\n' +
       '1. **Credit Score & Borrowing Limits**: Check your AI credit rating.\n' +
-      '2. **Staking & APY Yield Optimization**: Find the highest yield tiers.\n' +
-      '3. **Presale & Bonus Rules**: Learn how to maximize ICO allocations.';
+      '2. **Presale & Bonus Rules**: Learn how to maximize ICO allocations.';
   }
 
   return {

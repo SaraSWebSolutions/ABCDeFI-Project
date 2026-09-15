@@ -1,7 +1,7 @@
-import { Contract, Interface, formatEther, getAddress, id, isAddress, parseEther } from 'ethers';
+import { Contract, Interface, ZeroAddress, formatEther, getAddress, id, isAddress, parseEther } from 'ethers';
 import { DEPLOYMENT_CHAIN_ID, LENDING_V2_CONTRACTS, CONTRACTS, getLendingV2Configuration, getLendingV2DeploymentBlock } from '../Config/contracts';
 import { provider as canonicalProvider } from './contractProvider';
-import { getProvider, getSigner } from './wallet';
+import { clearWalletCache, getProvider, getSigner } from './wallet';
 import PoolArtifact from '../../artifacts/contracts/lending/v2/LendingPoolV2.sol/LendingPoolV2.json';
 import VaultArtifact from '../../artifacts/contracts/lending/v2/CollateralVaultV2.sol/CollateralVaultV2.json';
 import ManagerArtifact from '../../artifacts/contracts/lending/v2/LoanManagerV2.sol/LoanManagerV2.json';
@@ -53,6 +53,34 @@ export function repayAllApprovalAmount(
   return outstanding + (loan.principalOutstanding * BigInt(loan.aprBps) * boundedBuffer / APR_DENOMINATOR) + 1n;
 }
 
+/**
+ * An EMI preflight is a read, while ERC-20 approval and settlement are later
+ * mined blocks. For a capped installment that currently equals live debt,
+ * per-second accrual can otherwise leave the exact preview allowance one or a
+ * few wei short. Reuse the bounded allowance calculation already used by the
+ * direct repay-all path; this never changes the contract's authoritative EMI
+ * amount or permits a transfer beyond the token allowance the user approved.
+ */
+async function accruingLoanApprovalAmount(loanId: string, amount: bigint, manager: Contract): Promise<bigint> {
+  const [loan, latestBlock] = await Promise.all([manager.getLoan(loanId), canonicalProvider.getBlock('latest')]);
+  if (!latestBlock) throw new Error('Unable to read the latest canonical block before EMI approval.');
+  return repayAllApprovalAmount(amount, loan, BigInt(latestBlock.timestamp));
+}
+
+/**
+ * A completion-metadata request and a wallet approval can both take long
+ * enough for per-second interest to accrue. Read the canonical debt at the
+ * point an approval is about to be requested, rather than carrying forward a
+ * preview made before either user-facing step.
+ */
+async function currentRepayAllApprovalAmount(loanId: string, manager: Contract): Promise<bigint> {
+  const [outstanding, loan, latestBlock] = await Promise.all([
+    manager.previewOutstanding(loanId), manager.getLoan(loanId), canonicalProvider.getBlock('latest'),
+  ]);
+  if (!latestBlock) throw new Error('Unable to read the latest canonical block before repayment.');
+  return repayAllApprovalAmount(outstanding, loan, BigInt(latestBlock.timestamp));
+}
+
 async function confirmedTransaction(action: string, send: () => Promise<any>, progress?: V2ProgressListener) {
   progress?.({ stage: 'wallet', action });
   const tx = await send();
@@ -60,6 +88,10 @@ async function confirmedTransaction(action: string, send: () => Promise<any>, pr
   progress?.({ stage: 'confirming', action, hash: tx.hash });
   const mined = await tx.wait();
   if (!mined || mined.status !== 1) throw new Error(`${action} was not confirmed successfully.`);
+  // MetaMask can retain the just-mined nonce on a cached BrowserProvider for
+  // one request. A follow-up approval/repayment must use a fresh signer so it
+  // cannot submit the already-consumed nonce.
+  clearWalletCache();
   progress?.({ stage: 'confirmed', action, hash: tx.hash, blockNumber: String(mined.blockNumber) });
   return { tx, mined };
 }
@@ -67,10 +99,10 @@ async function confirmedTransaction(action: string, send: () => Promise<any>, pr
 export type V2Tx = { hash: string; blockNumber: string; loanId: string | null; requestId: string | null; depositId: string | null; approvalHashes: string[] };
 export type V2Read = {
   loan: Record<string, unknown>; aprBps: string; start: string; isDirect: boolean; principal: string; collateralETH: string; borrower: string; lender: string; maturity: string; marginCallAt: string; marginCallCureEnd: string;
-  accruedInterest: string; outstanding: string; lateFee: string; totalRepayment: string; state: number; ltvBps: string | null; healthFactor: string | null; liquidatable: boolean | null; riskError: string | null;
+  accruedInterest: string; outstanding: string; totalRepayment: string; state: number; ltvBps: string | null; healthFactor: string | null; liquidatable: boolean | null; riskError: string | null;
   metadata: { tokenId: string; owner: string; uri: string; hash: string; loanId: string } | null;
-  certificates: Array<{ tokenId: string; role: 'Lender' | 'Borrower' | 'Platform'; owner: string; uri: string; hash: string; loanId: string; valuation: string }>;
-  schedule: { installmentAmount: string; installmentCount: string; paidInstallments: string; nextDueAt: string; completed: boolean } | null;
+  certificates: Array<{ tokenId: string; role: 'Lender' | 'Borrower' | 'Platform'; owner: string; uri: string; hash: string; loanId: string; valuation: string; completedAt: string; completionBlock: string }>;
+  schedule: { installmentAmount: string; installmentCount: string; paidInstallments: string; nextDueAt: string; chainTimestamp: string; due: boolean; completed: boolean } | null;
 };
 export type V2PendingDeposit = { depositId: string; borrower: string; collateralETH: string; maxBorrowable: string; collateralUSD: string; active: boolean };
 export type V2Request = { requestId: string; borrower: string; lender: string; principal: string; collateralETH: string; termSeconds: string; state: number; loanId: string; initialLtvBps: string };
@@ -88,30 +120,28 @@ export type V2WalletSummary = {
 };
 export type V2ProtocolState = {
   poolLiquidity: string; poolTokenBalance: string; reserveBalance: string;
-  initialLtvBps: string; marginCallThresholdBps: string; marginCallCureSeconds: string; aprBps: string; lateFeeBps: string;
-  liquidationThresholdBps: string; closeFactorBps: string; liquidationBonusBps: string;
+  initialLtvBps: string; p2pInitialLtvBps: string; marginCallThresholdBps: string; marginCallCureSeconds: string; aprBps: string; p2pAprBps: string;
+  liquidationThresholdBps: string; partialLiquidationTargetLtvBps: string; partialLiquidationExecution: 'CONFIGURED' | 'NOT_CONFIGURED';
   ethUsd: string; abcdUsd: string; supportedTermsDays: string[] | null; gracePeriodDays: string | null;
 };
 
 type V2Installment = { amount: bigint; dueAt: bigint };
 
-/**
- * Direct loans have no EMI schedule. Ethers returns that empty Solidity array
- * as a Result proxy, which throws "out of result range" if index 0 is read.
- * Check the authoritative returned length before indexing it.
- */
-export function v2EmiSchedule(installments: ArrayLike<V2Installment>, nextInstallment: bigint): V2Read['schedule'] {
+/** Converts the canonical on-chain schedule without indexing an empty Result. */
+export function v2EmiSchedule(installments: ArrayLike<V2Installment>, nextInstallment: bigint, chainTimestamp: bigint, settled = false): V2Read['schedule'] {
   const installmentCount = Number(installments.length);
   if (!Number.isSafeInteger(installmentCount) || installmentCount === 0) return null;
   const nextIndex = Number(nextInstallment);
   if (!Number.isSafeInteger(nextIndex) || nextIndex < 0) throw new Error('Canonical EMI schedule returned an invalid next-installment index.');
-  const currentInstallment = nextIndex < installmentCount ? installments[nextIndex] : null;
+  const currentInstallment = !settled && nextIndex < installmentCount ? installments[nextIndex] : null;
   return {
     installmentAmount: currentInstallment ? formatEther(currentInstallment.amount) : '0.0',
     installmentCount: String(installmentCount),
     paidInstallments: nextInstallment.toString(),
     nextDueAt: currentInstallment ? currentInstallment.dueAt.toString() : '0',
-    completed: nextIndex >= installmentCount,
+    chainTimestamp: chainTimestamp.toString(),
+    due: Boolean(currentInstallment && chainTimestamp >= currentInstallment.dueAt),
+    completed: settled || nextIndex >= installmentCount,
   };
 }
 
@@ -143,7 +173,7 @@ function completionMetadataArgument(metadata: CompletionCertificateMetadata) {
     platform: { uri: metadata.platform.metadataUri.trim(), hash: metadata.platform.metadataHash },
   };
 }
-function stateLabel(state: number) { return ['Active', 'Repaid', 'Grace period', 'Defaulted', 'Liquidated', 'Closed', 'Margin call'][state] || `Unknown (${state})`; }
+function stateLabel(state: number) { return ['Active', 'Repaid', 'Grace period', 'Defaulted', 'Liquidated', 'Closed', 'Margin call', 'Residual debt'][state] || `Unknown (${state})`; }
 function v2Contracts() {
   if (!LENDING_V2_CONTRACTS) throw new Error('Lending V2 is not available on the current canonical deployment. Deploy the isolated lendingV2 namespace before using this feature.');
   return LENDING_V2_CONTRACTS;
@@ -165,6 +195,18 @@ async function assertGasBalance(signer: Awaited<ReturnType<typeof getSigner>>, g
   const [feeData, balance] = await Promise.all([signer.provider!.getFeeData(), signer.provider!.getBalance(await signer.getAddress())]);
   const gasPrice = feeData.maxFeePerGas || feeData.gasPrice || 0n;
   if (balance < value + gasLimit * gasPrice) throw new Error('Insufficient ETH for the transaction value and estimated network gas.');
+}
+
+/**
+ * MetaMask may return a stale account nonce through an injected BrowserProvider
+ * immediately after an approval has mined. The canonical RPC is already the
+ * source of truth for this V2 deployment, so read its pending nonce at the
+ * last possible moment and pass it explicitly to the wallet request. This is
+ * transaction plumbing only; it does not alter any protocol accounting.
+ */
+async function walletTransactionOverrides(signer: Awaited<ReturnType<typeof getSigner>>, gasLimit: bigint, value?: bigint) {
+  const nonce = await canonicalProvider.getTransactionCount(await signer.getAddress(), 'pending');
+  return value === undefined ? { gasLimit, nonce } : { gasLimit, nonce, value };
 }
 async function receipt(action: string, send: () => Promise<any>, iface: Interface, approvalHashes: string[] = [], progress?: V2ProgressListener): Promise<V2Tx> {
   await assertV2Write();
@@ -242,29 +284,32 @@ export async function getV2Loan(loanId: string): Promise<V2Read> {
   const liquid = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, canonicalProvider);
   const emi = new Contract(v2Contracts().emi, EMIArtifact.abi, canonicalProvider);
   const nft = new Contract(v2Contracts().loanNFT, LoanNftArtifact.abi, canonicalProvider);
-  const [loan, accruedInterest, outstanding, lateFee, totalRepayment, state, certificatesByRole, installments, nextInstallment] = await Promise.all([
-    manager.getLoan(loanId), manager.previewAccruedInterest(loanId), manager.previewOutstanding(loanId), manager.previewLateFee(loanId), manager.previewTotalRepayment(loanId), manager.previewLoanStatus(loanId), Promise.all([0, 1, 2].map(role => nft.loanCertificates(loanId, role))), emi.getSchedule(loanId), emi.nextInstallment(loanId),
+  const [loan, accruedInterest, outstanding, totalRepayment, state, certificatesByRole, installments, nextInstallment, latestBlock] = await Promise.all([
+    manager.getLoan(loanId), manager.previewAccruedInterest(loanId), manager.previewOutstanding(loanId), manager.previewTotalRepayment(loanId), manager.previewLoanStatus(loanId), Promise.all([0, 1, 2].map(role => nft.loanCertificates(loanId, role))), emi.getSchedule(loanId), emi.nextInstallment(loanId), canonicalProvider.getBlock('latest'),
   ]);
   // Risk/oracle failure must not hide a real settled loan or its vault balance.
   let risk: { ltvBps: string; healthFactor: string; liquidatable: boolean } | null = null;
   let riskError: string | null = null;
-  try {
-    const [ltvBps, healthFactor, liquidatable] = await Promise.all([liquid.currentLtvBps(loanId), liquid.healthFactor(loanId), liquid.isLiquidatable(loanId)]);
-    risk = { ltvBps: ltvBps.toString(), healthFactor: healthFactor.toString(), liquidatable: Boolean(liquidatable) };
-  } catch (error) { riskError = errorMessage(error); }
+  if (outstanding !== 0n) {
+    try {
+      const [ltvBps, healthFactor, liquidatable] = await Promise.all([liquid.currentLtvBps(loanId), liquid.healthFactor(loanId), liquid.isLiquidatable(loanId)]);
+      risk = { ltvBps: ltvBps.toString(), healthFactor: healthFactor.toString(), liquidatable: Boolean(liquidatable) };
+    } catch (error) { riskError = errorMessage(error); }
+  }
   const certificateRoles = ['Lender', 'Borrower', 'Platform'] as const;
   const certificates = (await Promise.all(certificatesByRole.map(async (certificate: bigint, index: number) => {
     if (certificate === 0n) return null;
     const [owner, uri, info] = await Promise.all([nft.ownerOf(certificate), nft.tokenURI(certificate), nft.getCertificate(certificate)]);
-    return { tokenId: certificate.toString(), role: certificateRoles[index], owner, uri, hash: info.metadataHash, loanId, valuation: formatEther(info.certificateValue) };
+    return { tokenId: certificate.toString(), role: certificateRoles[index], owner, uri, hash: info.metadataHash, loanId, valuation: formatEther(info.certificateValue), completedAt: info.completedAt.toString(), completionBlock: info.completionBlock.toString() };
   }))).filter((certificate): certificate is NonNullable<typeof certificate> => certificate !== null);
   const metadata = certificates.find(certificate => certificate.role === 'Borrower') ?? null;
   const vault = new Contract(v2Contracts().vault, VaultArtifact.abi, canonicalProvider);
   const liveCollateral = await vault.loanCollateral(loanId);
-  const p2pSchedule = v2EmiSchedule(installments, nextInstallment);
+  if (!latestBlock) throw new Error('Unable to read the latest canonical block for EMI due-state verification.');
+  const schedule = v2EmiSchedule(installments, nextInstallment, BigInt(latestBlock.timestamp), Number(state) === 1 || Number(state) === 5);
   return {
     loan, aprBps: loan.aprBps.toString(), start: loan.start.toString(), isDirect: loan.lender.toLowerCase() === v2Contracts().pool.toLowerCase(), principal: formatEther(loan.principal), collateralETH: formatEther(liveCollateral), borrower: loan.borrower, lender: loan.lender, maturity: loan.maturity.toString(), marginCallAt: loan.marginCallAt.toString(), marginCallCureEnd: loan.marginCallCureEnd.toString(),
-    accruedInterest: formatEther(accruedInterest), outstanding: formatEther(outstanding), lateFee: formatEther(lateFee), totalRepayment: formatEther(totalRepayment), state: Number(state), ltvBps: risk?.ltvBps ?? null, healthFactor: risk?.healthFactor ?? null, liquidatable: risk?.liquidatable ?? null, riskError, metadata, certificates, schedule: p2pSchedule,
+    accruedInterest: formatEther(accruedInterest), outstanding: formatEther(outstanding), totalRepayment: formatEther(totalRepayment), state: Number(state), ltvBps: risk?.ltvBps ?? null, healthFactor: risk?.healthFactor ?? null, liquidatable: risk?.liquidatable ?? null, riskError, metadata, certificates, schedule,
   };
 }
 
@@ -424,26 +469,30 @@ export async function getV2ProtocolState(): Promise<V2ProtocolState> {
     readProtocol({ contract: 'LendingPoolV2', address: contracts.pool, functionName: 'ETH_ASSET' }, () => pool.ETH_ASSET()),
     readProtocol({ contract: 'LendingPoolV2', address: contracts.pool, functionName: 'abcd' }, () => pool.abcd()),
   ]);
-  const [poolLiquidity, poolTokenBalance, reserveBalance, initialLtvBps, marginCallThresholdBps, marginCallCureSeconds, aprBps, lateFeeBps, liquidationThresholdBps, closeFactorBps, liquidationBonusBps, ethUsd, abcdUsd] = await Promise.all([
+  const market = new Contract(contracts.marketplace, MarketplaceArtifact.abi, canonicalProvider);
+  const [poolLiquidity, poolTokenBalance, reserveBalance, initialLtvBps, p2pInitialLtvBps, marginCallThresholdBps, marginCallCureSeconds, aprBps, p2pAprBps, liquidationThresholdBps, partialLiquidationTargetLtvBps, ethUsd, abcdUsd, saleAdapter] = await Promise.all([
     readProtocol({ contract: 'LendingPoolV2', address: contracts.pool, functionName: 'liquidity' }, () => pool.liquidity()),
     readProtocol({ contract: 'ABCDToken', address: abcdAsset, functionName: 'balanceOf(LendingPoolV2)' }, () => token.balanceOf(contracts.pool)),
     readProtocol({ contract: 'InsuranceReserveV2', address: contracts.reserve, functionName: 'availableBalance' }, () => reserve.availableBalance()),
     readProtocol({ contract: 'LendingPoolV2', address: contracts.pool, functionName: 'MAX_INITIAL_LTV_BPS' }, () => pool.MAX_INITIAL_LTV_BPS()),
+    readProtocol({ contract: 'LoanMarketplaceV2', address: contracts.marketplace, functionName: 'P2P_INITIAL_LTV_BPS' }, () => market.P2P_INITIAL_LTV_BPS()),
     readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'MARGIN_CALL_THRESHOLD_BPS' }, () => liquid.MARGIN_CALL_THRESHOLD_BPS()),
     readProtocol({ contract: 'LoanManagerV2', address: contracts.manager, functionName: 'MARGIN_CALL_CURE_PERIOD' }, () => manager.MARGIN_CALL_CURE_PERIOD()),
     readProtocol({ contract: 'LoanManagerV2', address: contracts.manager, functionName: 'newLoanAprBps' }, () => manager.newLoanAprBps()),
-    readProtocol({ contract: 'LoanManagerV2', address: contracts.manager, functionName: 'LATE_FEE_BPS' }, () => manager.LATE_FEE_BPS()),
+    readProtocol({ contract: 'LoanManagerV2', address: contracts.manager, functionName: 'P2P_ETH_APR_BPS' }, () => manager.P2P_ETH_APR_BPS()),
     readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'LIQUIDATION_THRESHOLD_BPS' }, () => liquid.LIQUIDATION_THRESHOLD_BPS()),
-    readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'CLOSE_FACTOR_BPS' }, () => liquid.CLOSE_FACTOR_BPS()),
-    readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'LIQUIDATION_BONUS_BPS' }, () => liquid.LIQUIDATION_BONUS_BPS()),
+    readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'P2P_PARTIAL_TARGET_LTV_BPS' }, () => liquid.P2P_PARTIAL_TARGET_LTV_BPS()),
     readProtocol({ contract: 'OracleAdapterV2', address: contracts.oracle, functionName: 'priceUSD(ETH_ASSET)' }, () => oracle.priceUSD(ethAsset)),
     readProtocol({ contract: 'OracleAdapterV2', address: contracts.oracle, functionName: 'priceUSD(ABCD)' }, () => oracle.priceUSD(abcdAsset)),
+    readProtocol({ contract: 'LiquidationV2', address: contracts.liquidation, functionName: 'saleAdapter' }, () => liquid.saleAdapter()),
   ]);
+  const partialLiquidationExecution = saleAdapter === ZeroAddress ? 'NOT_CONFIGURED' : await new Contract(saleAdapter, ['function configured() view returns (bool)'], canonicalProvider).configured() ? 'CONFIGURED' : 'NOT_CONFIGURED';
   const config = getLendingV2Configuration();
   return {
     poolLiquidity: formatEther(poolLiquidity), poolTokenBalance: formatEther(poolTokenBalance), reserveBalance: formatEther(reserveBalance),
-    initialLtvBps: initialLtvBps.toString(), marginCallThresholdBps: marginCallThresholdBps.toString(), marginCallCureSeconds: marginCallCureSeconds.toString(), aprBps: aprBps.toString(), lateFeeBps: lateFeeBps.toString(),
-    liquidationThresholdBps: liquidationThresholdBps.toString(), closeFactorBps: closeFactorBps.toString(), liquidationBonusBps: liquidationBonusBps.toString(),
+    initialLtvBps: initialLtvBps.toString(), p2pInitialLtvBps: p2pInitialLtvBps.toString(), marginCallThresholdBps: marginCallThresholdBps.toString(), marginCallCureSeconds: marginCallCureSeconds.toString(), aprBps: aprBps.toString(), p2pAprBps: p2pAprBps.toString(),
+    liquidationThresholdBps: liquidationThresholdBps.toString(), partialLiquidationTargetLtvBps: partialLiquidationTargetLtvBps.toString(),
+    partialLiquidationExecution,
     ethUsd: formatEther(ethUsd), abcdUsd: formatEther(abcdUsd),
     supportedTermsDays: config?.supportedTermSeconds?.map((seconds) => String(seconds / 86_400)) ?? null,
     gracePeriodDays: config?.maturityGracePeriodSeconds === undefined ? null : String(config.maturityGracePeriodSeconds / 86_400),
@@ -455,7 +504,7 @@ export async function depositV2Collateral(amount: string, progress?: V2ProgressL
   const value = requireAmount(amount); await assertV2Write();
   const signer = await getSigner(); const borrower = await signer.getAddress(); const contracts = v2Contracts(); const pool = new Contract(contracts.pool, PoolArtifact.abi, signer);
   const gas = await pool.depositCollateral.estimateGas({ value }); await assertGasBalance(signer, gas, value);
-  return depositReceipt(() => pool.depositCollateral({ value, gasLimit: gas }), contracts.pool, borrower, value, progress);
+  return depositReceipt(async () => pool.depositCollateral(await walletTransactionOverrides(signer, gas, value)), contracts.pool, borrower, value, progress);
 }
 export async function borrowV2(depositId: string, principal: string, termDays: number, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'borrowV2' });
@@ -463,50 +512,77 @@ export async function borrowV2(depositId: string, principal: string, termDays: n
   if (!terms.has(termDays * 86400)) throw new Error('Use a supported 30, 90, or 180 day term.'); await assertV2Write();
   const signer = await getSigner(); const pool = new Contract(v2Contracts().pool, PoolArtifact.abi, signer);
   const gas = await pool.borrowABCD.estimateGas(depositId, amount, termDays * 86400); await assertGasBalance(signer, gas);
-  return receipt('Borrow', () => pool.borrowABCD(depositId, amount, termDays * 86400, { gasLimit: gas }), new Interface(PoolArtifact.abi), [], progress);
+  return receipt('Borrow', async () => pool.borrowABCD(depositId, amount, termDays * 86400, await walletTransactionOverrides(signer, gas)), new Interface(PoolArtifact.abi), [], progress);
 }
 export async function repayV2(loanId: string, amount: string, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'repayV2' });
   const value = requireAmount(amount); requireId(loanId, 'Loan ID'); await assertV2Write();
   const approval = await approveIfNeeded(v2Contracts().pool, value, progress); const signer = await getSigner(); const pool = new Contract(v2Contracts().pool, PoolArtifact.abi, signer);
   const gas = await pool.repay.estimateGas(loanId, value); await assertGasBalance(signer, gas);
-  return receipt('Repayment', () => pool.repay(loanId, value, { gasLimit: gas }), new Interface(PoolArtifact.abi), approval ? [approval] : [], progress);
+  return receipt('Repayment', async () => pool.repay(loanId, value, await walletTransactionOverrides(signer, gas)), new Interface(PoolArtifact.abi), approval ? [approval] : [], progress);
+}
+export async function payV2DirectInstallment(loanId: string, prepareCompletionMetadata: CompletionMetadataPreparer, progress?: V2ProgressListener) {
+  progress?.({ stage: 'preparing', action: 'payV2DirectInstallment' });
+  requireId(loanId, 'Loan ID'); await assertV2Write();
+  const contracts = v2Contracts(); const emiRead = new Contract(contracts.emi, EMIArtifact.abi, canonicalProvider);
+  const manager = new Contract(contracts.manager, ManagerArtifact.abi, canonicalProvider);
+  const [, amount,, completionRequired] = await emiRead.previewDirectInstallment(loanId);
+  const completion = completionRequired ? completionMetadataArgument(await prepareCompletionMetadata(loanId)) : null;
+  const approval = await approveIfNeeded(contracts.pool, await accruingLoanApprovalAmount(loanId, amount, manager), progress);
+  const signer = await getSigner(); const pool = new Contract(contracts.pool, PoolArtifact.abi, signer);
+  const gas = completion
+    ? await pool.payDirectInstallmentWithCompletionMetadata.estimateGas(loanId, completion)
+    : await pool.payDirectInstallment.estimateGas(loanId);
+  await assertGasBalance(signer, gas);
+  return receipt('Direct installment payment', async () => completion
+    ? pool.payDirectInstallmentWithCompletionMetadata(loanId, completion, await walletTransactionOverrides(signer, gas))
+    : pool.payDirectInstallment(loanId, await walletTransactionOverrides(signer, gas)), new Interface(PoolArtifact.abi), approval ? [approval] : [], progress);
 }
 export async function repayAllV2(loanId: string, prepareCompletionMetadata: CompletionMetadataPreparer, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'repayAllV2' });
   requireId(loanId, 'Loan ID'); await assertV2Write(); const manager = new Contract(v2Contracts().manager, ManagerArtifact.abi, canonicalProvider);
-  const [outstanding, loan, latestBlock] = await Promise.all([manager.previewOutstanding(loanId), manager.getLoan(loanId), canonicalProvider.getBlock('latest')]);
-  if (!latestBlock) throw new Error('Unable to read the latest canonical block before repayment.');
   // Interest accrues every second. Approval and repayment are separate MetaMask
-  // transactions. On localhost, the next mined block can also advance a stale
-  // latest-block timestamp. Cover both cases with a capped buffer; the pool
-  // still transfers exactly the then-current obligation.
+  // transactions. Refresh after metadata preparation and again after any
+  // approval, so a real user delay cannot leave the next transaction using a
+  // stale preview. Each approval remains capped by repayAllApprovalAmount; the
+  // pool still transfers exactly the then-current obligation.
   progress?.({ stage: 'preparing', action: 'prepareCompletionMetadata' });
   const completion = completionMetadataArgument(await prepareCompletionMetadata(loanId));
-  const approvalAmount = repayAllApprovalAmount(outstanding, loan, BigInt(latestBlock.timestamp));
-  const approval = await approveIfNeeded(v2Contracts().pool, approvalAmount, progress); const signer = await getSigner(); const pool = new Contract(v2Contracts().pool, PoolArtifact.abi, signer);
+  const approvalHashes: string[] = [];
+  const initialApproval = await approveIfNeeded(v2Contracts().pool, await currentRepayAllApprovalAmount(loanId, manager), progress);
+  if (initialApproval) approvalHashes.push(initialApproval);
+  // A wallet approval itself is a separate mined block. Re-read authoritative
+  // debt/allowance once it confirms before estimating and opening the actual
+  // repayment confirmation. This is intentionally a bounded refresh, not a
+  // change to contractual interest or repayment accounting.
+  const refreshedApproval = await approveIfNeeded(v2Contracts().pool, await currentRepayAllApprovalAmount(loanId, manager), progress);
+  if (refreshedApproval) approvalHashes.push(refreshedApproval);
+  const signer = await getSigner(); const pool = new Contract(v2Contracts().pool, PoolArtifact.abi, signer);
   const gas = await pool.repayAllWithCompletionMetadata.estimateGas(loanId, completion); await assertGasBalance(signer, gas);
-  return receipt('Full repayment', () => pool.repayAllWithCompletionMetadata(loanId, completion, { gasLimit: gas }), new Interface(PoolArtifact.abi), approval ? [approval] : [], progress);
+  return receipt('Full repayment', async () => pool.repayAllWithCompletionMetadata(loanId, completion, await walletTransactionOverrides(signer, gas)), new Interface(PoolArtifact.abi), approvalHashes, progress);
 }
 export async function withdrawV2Collateral(loanId: string, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'withdrawV2Collateral' });
   requireId(loanId, 'Loan ID'); await assertV2Write(); const signer = await getSigner(); const pool = new Contract(v2Contracts().pool, PoolArtifact.abi, signer);
-  const gas = await pool.withdrawSettledCollateral.estimateGas(loanId); await assertGasBalance(signer, gas);
-  return receipt('Collateral withdrawal', () => pool.withdrawSettledCollateral(loanId, { gasLimit: gas }), new Interface(PoolArtifact.abi), [], progress);
+  const manager = new Contract(v2Contracts().manager, ManagerArtifact.abi, canonicalProvider);
+  const loan = await manager.getLoan(loanId);
+  const residualSettlement = Number(loan.state) === 4;
+  const gas = residualSettlement ? await pool.withdrawResidualLiquidationCollateral.estimateGas(loanId) : await pool.withdrawSettledCollateral.estimateGas(loanId); await assertGasBalance(signer, gas);
+  return receipt('Collateral withdrawal', async () => residualSettlement ? pool.withdrawResidualLiquidationCollateral(loanId, await walletTransactionOverrides(signer, gas)) : pool.withdrawSettledCollateral(loanId, await walletTransactionOverrides(signer, gas)), new Interface(PoolArtifact.abi), [], progress);
 }
 export async function addV2LoanCollateral(loanId: string, amount: string, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'addV2LoanCollateral' });
   requireId(loanId, 'Loan ID'); const value = requireAmount(amount); await assertV2Write();
   const signer = await getSigner(); const pool = new Contract(v2Contracts().pool, PoolArtifact.abi, signer);
   const gas = await pool.addCollateralToLoan.estimateGas(loanId, { value }); await assertGasBalance(signer, gas, value);
-  return receipt('Loan collateral top-up', () => pool.addCollateralToLoan(loanId, { value, gasLimit: gas }), new Interface(PoolArtifact.abi), [], progress);
+  return receipt('Loan collateral top-up', async () => pool.addCollateralToLoan(loanId, await walletTransactionOverrides(signer, gas, value)), new Interface(PoolArtifact.abi), [], progress);
 }
 export async function syncV2LoanRisk(loanId: string, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'syncV2LoanRisk' });
   requireId(loanId, 'Loan ID'); await assertV2Write();
   const signer = await getSigner(); const liquidation = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, signer);
   const gas = await liquidation.syncRisk.estimateGas(loanId); await assertGasBalance(signer, gas);
-  return receipt('Risk-state synchronization', () => liquidation.syncRisk(loanId, { gasLimit: gas }), new Interface(LiquidationArtifact.abi), [], progress);
+  return receipt('Risk-state synchronization', async () => liquidation.syncRisk(loanId, await walletTransactionOverrides(signer, gas)), new Interface(LiquidationArtifact.abi), [], progress);
 }
 export async function createV2Request(principal: string, collateral: string, termDays: number, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'createV2Request' });
@@ -516,7 +592,7 @@ export async function createV2Request(principal: string, collateral: string, ter
   const maximum = await market.previewMaxP2PPrincipal(value);
   if (amount > maximum) throw new Error('Requested P2P principal exceeds the current on-chain 35% ETH LTV capacity.');
   const gas = await market.createRequest.estimateGas(amount, termDays * 86400, { value }); await assertGasBalance(signer, gas, value);
-  return receipt('P2P request', () => market.createRequest(amount, termDays * 86400, { value, gasLimit: gas }), new Interface(MarketplaceArtifact.abi), [], progress);
+  return receipt('P2P request', async () => market.createRequest(amount, termDays * 86400, await walletTransactionOverrides(signer, gas, value)), new Interface(MarketplaceArtifact.abi), [], progress);
 }
 export async function fundV2Request(requestId: string, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'fundV2Request' });
@@ -524,18 +600,36 @@ export async function fundV2Request(requestId: string, progress?: V2ProgressList
   if (request.state !== 0) throw new Error('This P2P request is not open for funding.');
   const approval = await approveIfNeeded(v2Contracts().marketplace, parseEther(request.principal), progress); const signer = await getSigner(); const market = new Contract(v2Contracts().marketplace, MarketplaceArtifact.abi, signer);
   const gas = await market.fundRequest.estimateGas(requestId); await assertGasBalance(signer, gas);
-  return receipt('P2P funding', () => market.fundRequest(requestId, { gasLimit: gas }), new Interface(MarketplaceArtifact.abi), approval ? [approval] : [], progress);
+  return receipt('P2P funding', async () => market.fundRequest(requestId, await walletTransactionOverrides(signer, gas)), new Interface(MarketplaceArtifact.abi), approval ? [approval] : [], progress);
 }
 export async function payV2Emi(loanId: string, prepareCompletionMetadata: CompletionMetadataPreparer, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'payV2Emi' });
   requireId(loanId, 'Loan ID'); await assertV2Write(); const emiRead = new Contract(v2Contracts().emi, EMIArtifact.abi, canonicalProvider);
-  const [schedule, nextInstallment] = await Promise.all([emiRead.getSchedule(loanId), emiRead.nextInstallment(loanId)]);
+  const [schedule, nextInstallment, latestBlock] = await Promise.all([emiRead.getSchedule(loanId), emiRead.nextInstallment(loanId), canonicalProvider.getBlock('latest')]);
   const installment = schedule[Number(nextInstallment)]; if (!installment) throw new Error('This EMI schedule is already settled.');
+  if (!latestBlock || BigInt(latestBlock.timestamp) < installment.dueAt) {
+    throw new Error(`The next P2P EMI is not due until canonical block time ${installment.dueAt.toString()}.`);
+  }
   const isTerminal = Number(nextInstallment) + 1 >= Number(schedule.length);
   const completion = isTerminal ? completionMetadataArgument(await prepareCompletionMetadata(loanId)) : null;
-  const approval = await approveIfNeeded(v2Contracts().emi, installment.amount, progress); const signer = await getSigner(); const emi = new Contract(v2Contracts().emi, EMIArtifact.abi, signer);
+  const manager = new Contract(v2Contracts().manager, ManagerArtifact.abi, canonicalProvider);
+  const approvalAmount = await accruingLoanApprovalAmount(loanId, installment.amount, manager);
+  const approval = await approveIfNeeded(v2Contracts().emi, approvalAmount, progress); const signer = await getSigner(); const emi = new Contract(v2Contracts().emi, EMIArtifact.abi, signer);
   const gas = completion ? await emi.payInstallmentWithCompletionMetadata.estimateGas(loanId, completion) : await emi.payInstallment.estimateGas(loanId); await assertGasBalance(signer, gas);
-  return receipt('EMI payment', () => completion ? emi.payInstallmentWithCompletionMetadata(loanId, completion, { gasLimit: gas }) : emi.payInstallment(loanId, { gasLimit: gas }), new Interface(EMIArtifact.abi), approval ? [approval] : [], progress);
+  return receipt('EMI payment', async () => completion ? emi.payInstallmentWithCompletionMetadata(loanId, completion, await walletTransactionOverrides(signer, gas)) : emi.payInstallment(loanId, await walletTransactionOverrides(signer, gas)), new Interface(EMIArtifact.abi), approval ? [approval] : [], progress);
+}
+/**
+ * Permissionless P2P overdue-installment execution. The contract—not React—
+ * reads the next due schedule item, rejects an early/duplicate call, routes
+ * the exact ABCD amount to the lender, and seizes only the live-oracle
+ * P2P overdue collateral deduction, sale, and settlement are not implementable
+ * until their whitepaper-undefined policy is explicitly approved. Keep this
+ * public helper fail-closed so a stale UI cannot imply that an on-chain action
+ * is available.
+ */
+export async function executeV2OverdueEmi(loanId: string, _prepareCompletionMetadata: CompletionMetadataPreparer, _progress?: V2ProgressListener): Promise<never> {
+  requireId(loanId, 'Loan ID');
+  throw new Error('P2P overdue collateral settlement is blocked until the whitepaper-undefined deduction, sale, and settlement policy is approved.');
 }
 export async function payV2OutstandingEmi(loanId: string, amount: string, prepareCompletionMetadata: CompletionMetadataPreparer, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'payV2OutstandingEmi' });
@@ -546,20 +640,19 @@ export async function payV2OutstandingEmi(loanId: string, amount: string, prepar
   const completion = terminal ? completionMetadataArgument(await prepareCompletionMetadata(loanId)) : null;
   const approval = await approveIfNeeded(v2Contracts().emi, value, progress); const signer = await getSigner(); const emi = new Contract(v2Contracts().emi, EMIArtifact.abi, signer);
   const gas = completion ? await emi.payOutstandingWithCompletionMetadata.estimateGas(loanId, value, completion) : await emi.payOutstanding.estimateGas(loanId, value); await assertGasBalance(signer, gas);
-  return receipt('Outstanding EMI repayment', () => completion ? emi.payOutstandingWithCompletionMetadata(loanId, value, completion, { gasLimit: gas }) : emi.payOutstanding(loanId, value, { gasLimit: gas }), new Interface(EMIArtifact.abi), approval ? [approval] : [], progress);
+  return receipt('Outstanding EMI repayment', async () => completion ? emi.payOutstandingWithCompletionMetadata(loanId, value, completion, await walletTransactionOverrides(signer, gas)) : emi.payOutstanding(loanId, value, await walletTransactionOverrides(signer, gas)), new Interface(EMIArtifact.abi), approval ? [approval] : [], progress);
 }
-export async function liquidateV2(loanId: string, progress?: V2ProgressListener) {
+export async function liquidateV2(loanId: string, progress?: V2ProgressListener): Promise<V2Tx> {
   progress?.({ stage: 'preparing', action: 'liquidateV2' });
-  requireId(loanId, 'Loan ID'); await assertV2Write(); const liquidRead = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, canonicalProvider);
-  const quote = await liquidRead.previewLiquidation(loanId); const approval = await approveIfNeeded(v2Contracts().liquidation, quote[1], progress); const signer = await getSigner(); const liquid = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, signer);
-  const gas = await liquid.liquidate.estimateGas(loanId); await assertGasBalance(signer, gas);
-  return receipt('Liquidation', () => liquid.liquidate(loanId, { gasLimit: gas }), new Interface(LiquidationArtifact.abi), approval ? [approval] : [], progress);
+  requireId(loanId, 'Loan ID'); await assertV2Write();
+  const signer = await getSigner(); const liquidation = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, signer);
+  const gas = await liquidation.liquidate.estimateGas(loanId); await assertGasBalance(signer, gas);
+  return receipt('Partial liquidation', async () => liquidation.liquidate(loanId, await walletTransactionOverrides(signer, gas)), new Interface(LiquidationArtifact.abi), [], progress);
 }
 export async function settleV2Default(requestId: string, progress?: V2ProgressListener) {
-  progress?.({ stage: 'preparing', action: 'settleV2Default' });
-  requireId(requestId, 'Request ID'); await assertV2Write(); const signer = await getSigner(); const market = new Contract(v2Contracts().marketplace, MarketplaceArtifact.abi, signer);
-  const gas = await market.settleDefault.estimateGas(requestId); await assertGasBalance(signer, gas);
-  return receipt('P2P default settlement', () => market.settleDefault(requestId, { gasLimit: gas }), new Interface(MarketplaceArtifact.abi), [], progress);
+  requireId(requestId, 'Request ID');
+  progress;
+  throw new Error('P2P default settlement is blocked until the whitepaper-undefined recovery and bad-debt policy is approved.');
 }
 export const metadataHashForUri = (uri: string) => id(uri.trim());
 export { stateLabel };

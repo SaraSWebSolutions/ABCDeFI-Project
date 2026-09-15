@@ -184,12 +184,10 @@ const LegacyAdminPortalEngine: React.FC = () => {
 
   const [supportTicketsList, setSupportTicketsList] = useState([
     { id: 'TCK-801', user: 'dinesh@abcdefi.com', subject: 'KYC Document Verification Delay', priority: 'High', assignee: 'Compliance Support', status: 'Open' },
-    { id: 'TCK-802', user: 'sarah@abcdefi.com', subject: 'Staking Reward Yield Auto-Compound Error', priority: 'Medium', assignee: 'Technical Support', status: 'In Progress' },
   ]);
 
   const [daoProposalsList, setDaoProposalsList] = useState([
     { id: 'PROP-106', title: 'Lower Minimum Collateral Ratio from 150% to 135%', proposer: 'dinesh.eth', votesFor: '84.2% (1.2M ABCD)', votesAgainst: '15.8% (225k ABCD)', status: 'Active', timelock: '24 Hours' },
-    { id: 'PROP-105', title: 'Add Arbitrum One Bridge Deployment & Staking Pool', proposer: 'alex.eth', votesFor: '98.1% (3.4M ABCD)', votesAgainst: '1.9% (65k ABCD)', status: 'Passed', timelock: 'Executed' },
   ]);
 
   const [contractsList, setContractsList] = useState([
@@ -200,7 +198,6 @@ const LegacyAdminPortalEngine: React.FC = () => {
 
   const [notificationsList, setNotificationsList] = useState([
     { id: 'NOTIF-101', title: 'System Security Patch Released', audience: 'Everyone', channel: 'In-App + Email', time: '1 Hour Ago', status: 'Delivered' },
-    { id: 'NOTIF-102', title: 'Arbitrum Staking Yield Bonus Live', audience: 'Verified Users', channel: 'Push Notification', time: '1 Day Ago', status: 'Delivered' },
   ]);
 
   const [auditLogsList, setAuditLogsList] = useState([
@@ -255,7 +252,6 @@ const LegacyAdminPortalEngine: React.FC = () => {
     { id: 'KB-001', title: 'ABCDeFi Protocol Overview',      category: 'Product Knowledge',   tokens: 1240, lastUpdated: '2026-07-30', status: 'Active ✅' },
     { id: 'KB-002', title: 'Loan Risk Scoring Rules',        category: 'Financial Rules',      tokens: 890,  lastUpdated: '2026-07-28', status: 'Active ✅' },
     { id: 'KB-003', title: 'DeFi Jargon & Definitions',     category: 'Financial Education',  tokens: 2100, lastUpdated: '2026-07-25', status: 'Active ✅' },
-    { id: 'KB-004', title: 'Staking Vault Strategy Guide',  category: 'Investment Advice',    tokens: 760,  lastUpdated: '2026-07-20', status: 'Draft 📝' },
   ]);
 
   // Loan Operations

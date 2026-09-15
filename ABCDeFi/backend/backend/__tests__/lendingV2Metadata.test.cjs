@@ -78,11 +78,14 @@ test('completion preparation rejects non-Pinata storage and a loan that is no lo
   }
 });
 
-test('completion certificate metadata records the canonical loan, its three roles, and non-redeemable one-percent accounting value', () => {
+test('completion certificate metadata records the canonical loan and explicitly blocks an undefined USD valuation', () => {
   const loan = { borrower, lender, principal: 100000000000000000000n, collateralETH: 100000000000000000n, aprBps: 1200n, start: 1000n, maturity: 1000n + 30n * 86_400n };
   const metadata = completionCertificateMetadata('7', loan, 0n, platform, 'Borrower');
   assert.match(metadata.name, /Borrower Loan Completion Certificate V2/);
   assert.ok(metadata.attributes.some(value => value.trait_type === 'Loan ID' && value.value === '7'));
-  assert.ok(metadata.attributes.some(value => value.trait_type === 'Certificate valuation BPS' && value.value === '100'));
-  assert.match(metadata.description, /non-redeemable/i);
+  const lifecycle = metadata.attributes.find(value => value.trait_type === 'Certificate lifecycle');
+  assert.equal(lifecycle?.value, 'Minted only after successful on-chain settlement');
+  assert.equal(metadata.attributes.some(value => value.trait_type === 'Certificate state' && /pending/i.test(value.value)), false);
+  assert.ok(metadata.attributes.some(value => value.trait_type === 'USD valuation status' && /requires approval/i.test(value.value)));
+  assert.match(metadata.description, /intentionally not recorded/i);
 });

@@ -1,7 +1,7 @@
 # ABCDToken
 
 Core ERC-20 token for the ABCDeFi ecosystem. This contract intentionally does
-**not** implement ICO, lending, staking, or referral logic — it only handles
+**not** implement ICO, lending, or referral logic — it only handles
 token mechanics (supply, minting, burning, pausing, treasury bookkeeping) and
 exposes `MINTER_ROLE` / `IABCDToken` so those other contracts can integrate
 with it independently.
@@ -13,7 +13,6 @@ with it independently.
 | **`ABCDToken`** | `0xcb536b12c7b08EfCd6eF634c044C76b546f29806` | `0xcb536b12c7b08EfCd6eF634c044C76b546f29806` | `0xcb536b12c7b08EfCd6eF634c044C76b546f29806` |
 | **`Treasury`** | `0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526` | `0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526` | `0x2514895c72f50D8bd4B4F9b1110F0D6bD2c97526` |
 | **`Presale (ICO)`** | `0x5741306c21795FdCBb9b265Ea0255F499DFe515C` | `0x5741306c21795FdCBb9b265Ea0255F499DFe515C` | `0x5741306c21795FdCBb9b265Ea0255F499DFe515C` |
-| **`StakingPool`** | `0x143db3CEEfbdfe5631aDD3E50f7614B6ba708BA7` | `0x143db3CEEfbdfe5631aDD3E50f7614B6ba708BA7` | `0x143db3CEEfbdfe5631aDD3E50f7614B6ba708BA7` |
 | **`LendingPool`** | `0x90c069C4538adAc136E051052E14c1cD799C41B7` | `0x90c069C4538adAc136E051052E14c1cD799C41B7` | `0x90c069C4538adAc136E051052E14c1cD799C41B7` |
 | **`Liquidation`** | `0xEca2605f0BCF2BA5966372C99837b1F182d3D620` | `0xEca2605f0BCF2BA5966372C99837b1F182d3D620` | `0xEca2605f0BCF2BA5966372C99837b1F182d3D620` |
 | **`ChainlinkOracle`** | `0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE` | `0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE` | `0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE` |
@@ -121,7 +120,7 @@ CONTINGENCY_WALLET=0x... npx hardhat run scripts/deploy.ts --network <network>
 
 ## Integrating other ecosystem contracts
 
-Other contracts (ICO, VestingVault, Referral, LendingPool, Staking) should
+Other contracts (ICO, VestingVault, Referral, LendingPool) should
 depend on `IABCDToken` rather than the concrete `ABCDToken` contract. Typical
 integration steps once each contract is deployed:
 

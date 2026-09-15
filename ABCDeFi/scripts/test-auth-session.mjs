@@ -64,3 +64,16 @@ test('login preserves distinct backend 401, 403, timeout, and HTTP failure messa
   assert.match(source, /Sign-in request timed out/);
   assert.match(loginPageSource, /setError\(result\.message \|\| 'Login failed/);
 });
+
+test('development dashboard bootstrap uses a local-only server session and logout returns to login', () => {
+  const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(source, /DEVELOPMENT_AUTH_ENABLED/);
+  assert.match(source, /\/api\/user\/development-dashboard-session/);
+  assert.match(source, /data\.developmentSession === true/);
+  assert.match(source, /STORAGE_KEY_DEVELOPMENT_DASHBOARD_LOGOUT/);
+  assert.match(source, /localStorage\.setItem\(STORAGE_KEY_DEVELOPMENT_DASHBOARD_LOGOUT, '1'\)/);
+  assert.match(appSource, /Preparing local development session/);
+  assert.match(appSource, /DEVELOPMENT_AUTH_ENABLED && !sessionVerified/);
+  assert.match(appSource, /DEVELOPMENT_AUTH_ENABLED && pathname === '\/'/);
+  assert.match(appSource, /navigateDashboard\('user', true\)/);
+});

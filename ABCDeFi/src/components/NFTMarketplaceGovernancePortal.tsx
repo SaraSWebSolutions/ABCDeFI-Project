@@ -98,9 +98,6 @@ export const NFTMarketplaceGovernancePortal: React.FC<NFTMarketplaceGovernancePo
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="px-3.5 py-1.5 rounded-2xl text-xs font-mono font-bold bg-pink-500/10 text-pink-300 border border-pink-500/30">
-              Protocol Fee Split: 80% Treasury / 20% Stakers
-            </span>
           </div>
         </div>
 

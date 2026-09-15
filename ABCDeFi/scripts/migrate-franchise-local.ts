@@ -2,101 +2,79 @@ import { network } from "hardhat";
 import fs from "node:fs";
 import path from "node:path";
 
-type DeploymentEntry = {
-  address: string;
-  deploymentTransactionHash: string;
-  deploymentBlock: number;
-};
+type Deployment = { address: string; deploymentTransactionHash: string; deploymentBlock: number };
+type Manifest = { network: string; chainId: string; rpcUrl: string; deployer: string; deploymentVersion?: string; contracts: Record<string, Deployment> };
 
-type Manifest = {
-  network: string;
-  chainId: string;
-  rpcUrl: string;
-  deployer: string;
-  contracts: Record<string, DeploymentEntry>;
-};
-
-const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 const LOCAL_CHAIN_ID = 31337n;
+const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 
-function readManifest(manifestPath: string): Manifest {
-  const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Manifest;
-  if (parsed.network !== "localhost" || parsed.chainId !== LOCAL_CHAIN_ID.toString() || parsed.rpcUrl !== "http://127.0.0.1:8545") {
-    throw new Error("Refusing FranchiseNFT migration: deployments.json is not the canonical localhost 31337 manifest.");
+function requireLocalManifest(manifestPath: string): Manifest {
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Manifest;
+  if (manifest.network !== "localhost" || manifest.chainId !== LOCAL_CHAIN_ID.toString() || manifest.rpcUrl !== "http://127.0.0.1:8545") {
+    throw new Error("Refusing Franchise foundation deployment: manifest is not canonical localhost/31337.");
   }
-  if (!ADDRESS.test(parsed.deployer)) throw new Error("Refusing FranchiseNFT migration: manifest deployer is invalid.");
-  if (parsed.contracts.FranchiseNFT) throw new Error(`FranchiseNFT is already present in deployments.json at ${parsed.contracts.FranchiseNFT.address}.`);
-  for (const [name, deployment] of Object.entries(parsed.contracts)) {
-    if (!ADDRESS.test(deployment.address)) throw new Error(`Refusing FranchiseNFT migration: ${name} has an invalid manifest address.`);
+  if (!ADDRESS.test(manifest.deployer)) throw new Error("Refusing Franchise foundation deployment: manifest deployer is invalid.");
+  if (manifest.contracts.FranchiseNFT || manifest.contracts.FranchiseRegistry) {
+    throw new Error("Refusing Franchise foundation deployment: manifest already contains a Franchise deployment.");
   }
-  return parsed;
+  return manifest;
+}
+
+function initializeIsolatedManifest(manifestPath: string) {
+  if (fs.existsSync(manifestPath)) return;
+  const basePath = path.resolve(process.env.FRANCHISE_BASE_MANIFEST_PATH || "deployments.json");
+  const base = JSON.parse(fs.readFileSync(basePath, "utf8")) as Manifest;
+  const { FranchiseNFT: _legacyNft, FranchiseRegistry: _legacyRegistry, ...contracts } = base.contracts;
+  fs.writeFileSync(manifestPath, `${JSON.stringify({ ...base, contracts }, null, 2)}\n`, "utf8");
 }
 
 function writeManifestAtomically(manifestPath: string, manifest: Manifest) {
-  const temporaryPath = `${manifestPath}.franchise-${process.pid}.tmp`;
-  fs.writeFileSync(temporaryPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-  fs.renameSync(temporaryPath, manifestPath);
+  const temporary = `${manifestPath}.franchise-${process.pid}.tmp`;
+  fs.writeFileSync(temporary, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  fs.renameSync(temporary, manifestPath);
+}
+
+async function deployed(factoryName: string, args: readonly string[]) {
+  const { ethers } = await network.connect();
+  const factory = await ethers.getContractFactory(factoryName);
+  const contract = await factory.deploy(...args);
+  await contract.waitForDeployment();
+  const transaction = contract.deploymentTransaction();
+  const receipt = await transaction?.wait();
+  if (!transaction || !receipt || receipt.status !== 1) throw new Error(`${factoryName} deployment was not confirmed.`);
+  const address = await contract.getAddress();
+  if (address === ethers.ZeroAddress || (await ethers.provider.getCode(address)) === "0x") throw new Error(`${factoryName} has no deployed bytecode.`);
+  return { contract, deployment: { address, deploymentTransactionHash: transaction.hash, deploymentBlock: receipt.blockNumber } };
 }
 
 async function main() {
-  const manifestPath = path.resolve("deployments.json");
-  const manifest = readManifest(manifestPath);
+  const manifestPath = path.resolve(process.env.FRANCHISE_MANIFEST_PATH || "deployments.json");
+  initializeIsolatedManifest(manifestPath);
+  const manifest = requireLocalManifest(manifestPath);
   const { ethers } = await network.connect();
-  const provider = ethers.provider;
-  const chain = await provider.getNetwork();
-  if (chain.chainId !== LOCAL_CHAIN_ID) throw new Error(`Refusing FranchiseNFT migration on chain ${chain.chainId}; localhost 31337 only.`);
-
-  for (const [name, deployment] of Object.entries(manifest.contracts)) {
-    const code = await provider.getCode(deployment.address);
-    if (code === "0x" || code === "0x0") throw new Error(`Refusing FranchiseNFT migration: ${name} has no bytecode at ${deployment.address}.`);
-  }
-
+  const chain = await ethers.provider.getNetwork();
+  if (chain.chainId !== LOCAL_CHAIN_ID) throw new Error(`Refusing Franchise foundation deployment on chain ${chain.chainId}.`);
   const [deployer] = await ethers.getSigners();
-  if (deployer.address.toLowerCase() !== manifest.deployer.toLowerCase()) {
-    throw new Error(`Refusing FranchiseNFT migration: signer ${deployer.address} does not match manifest deployer ${manifest.deployer}.`);
-  }
+  if (deployer.address.toLowerCase() !== manifest.deployer.toLowerCase()) throw new Error("Manifest deployer and local signer differ.");
 
-  const factory = await ethers.getContractFactory("FranchiseNFT");
-  const franchise = await factory.deploy(deployer.address, deployer.address);
-  await franchise.waitForDeployment();
-  const transaction = franchise.deploymentTransaction();
-  const receipt = await transaction?.wait();
-  if (!transaction || !receipt || receipt.status !== 1) throw new Error("FranchiseNFT deployment was not confirmed successfully.");
-
-  const address = await franchise.getAddress();
-  const code = await provider.getCode(address);
-  if (address === ethers.ZeroAddress || code === "0x" || code === "0x0") throw new Error("FranchiseNFT deployment verification failed: address or bytecode is invalid.");
-  const [name, symbol, defaultAdmin, minterRole, pauserRole, updaterRole] = await Promise.all([
-    franchise.name(), franchise.symbol(), franchise.DEFAULT_ADMIN_ROLE(), franchise.MINTER_ROLE(), franchise.PAUSER_ROLE(), franchise.UPDATER_ROLE(),
+  // A single local signer is permitted only for this isolated development deployment.
+  const nft = await deployed("FranchiseNFT", [deployer.address]);
+  const registry = await deployed("FranchiseRegistry", [
+    nft.deployment.address, deployer.address, deployer.address, deployer.address,
+    deployer.address, deployer.address, deployer.address,
   ]);
-  if (name !== "ABCDeFi Legion Franchise NFT" || symbol !== "ABCD-FRANCHISE") throw new Error("FranchiseNFT deployment verification failed: ERC-721 identity mismatch.");
-  for (const [roleName, role] of [["DEFAULT_ADMIN_ROLE", defaultAdmin], ["MINTER_ROLE", minterRole], ["PAUSER_ROLE", pauserRole], ["UPDATER_ROLE", updaterRole]] as const) {
-    if (!await franchise.hasRole(role, deployer.address)) throw new Error(`FranchiseNFT deployment verification failed: deployer lacks ${roleName}.`);
+  const bind = await nft.contract.setRegistry(registry.deployment.address);
+  const bindReceipt = await bind.wait();
+  if (!bindReceipt || bindReceipt.status !== 1 || (await nft.contract.registry()).toLowerCase() !== registry.deployment.address.toLowerCase()) {
+    throw new Error("FranchiseNFT Registry binding was not confirmed.");
   }
 
-  const nextManifest: Manifest = {
+  writeManifestAtomically(manifestPath, {
     ...manifest,
-    contracts: {
-      ...manifest.contracts,
-      FranchiseNFT: {
-        address,
-        deploymentTransactionHash: transaction.hash,
-        deploymentBlock: receipt.blockNumber,
-      },
-    },
-  };
-  writeManifestAtomically(manifestPath, nextManifest);
-
-  console.log("FranchiseNFT local migration complete");
-  console.log(`CHAIN: ${chain.chainId}`);
-  console.log(`FRANCHISE_NFT: ${address}`);
-  console.log(`DEPLOYMENT_BLOCK: ${receipt.blockNumber}`);
-  console.log(`DEPLOYMENT_TX: ${transaction.hash}`);
-  console.log("ROLES: DEFAULT_ADMIN_ROLE, MINTER_ROLE, PAUSER_ROLE, UPDATER_ROLE verified for manifest deployer");
-  console.log("MANIFEST: updated");
+    deploymentVersion: "franchise-foundation-local-v1",
+    contracts: { ...manifest.contracts, FranchiseNFT: nft.deployment, FranchiseRegistry: registry.deployment },
+  });
+  console.log(JSON.stringify({ chainId: chain.chainId.toString(), franchiseNFT: nft.deployment, franchiseRegistry: registry.deployment, registryBindingTransaction: bind.hash, manifestPath }, null, 2));
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+main().catch((error) => { console.error(error); process.exitCode = 1; });

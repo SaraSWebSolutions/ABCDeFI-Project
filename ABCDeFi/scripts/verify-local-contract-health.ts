@@ -11,7 +11,7 @@ type Deployment = {
 };
 
 const REQUIRED_CONTRACTS = [
-  "ABCDToken", "Treasury", "StakingPool", "LendingPool", "CollateralVault",
+  "ABCDToken", "Treasury", "LendingPool", "CollateralVault",
   "LoanManager", "LoanMarketplace", "EMIManager", "Liquidation", "NFTMarketplace",
   "ParticipantNFT", "ReputationNFT", "GuruNFT", "LoanNFT", "ReferralManager",
   "BonusEngine", "BonusManager",

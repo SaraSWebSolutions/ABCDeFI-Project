@@ -36,7 +36,7 @@ function removeLegacyFrontendDeploymentOverrides(): void {
   const frontendEnvPath = path.resolve(".env.local");
   if (!fs.existsSync(frontendEnvPath)) return;
 
-  const deploymentOverride = /^VITE_(?:CHAIN_ID|RPC_URL|(?:.*(?:ADDRESS|TOKEN|TREASURY|LENDING|PRESALE|STAKING|VAULT|MANAGER|NFT)))=/;
+  const deploymentOverride = /^VITE_(?:CHAIN_ID|RPC_URL|(?:.*(?:ADDRESS|TOKEN|TREASURY|LENDING|PRESALE|VAULT|MANAGER|NFT)))=/;
   const original = fs.readFileSync(frontendEnvPath, "utf8");
   const retained = original
     .split(/\r?\n/)
@@ -171,9 +171,6 @@ async function main() {
   ]);
   const presaleAddress = deployed.Presale.address;
 
-  const staking = await deploy("StakingPool", [tokenAddress, deployer.address]);
-  const stakingAddress = deployed.StakingPool.address;
-
   // Generic collateralized ABCD pool. ETH LTV is configured in LendingPool to 35%, matching the whitepaper.
   const tokenRatePerETH = ethers.parseUnits(process.env.TOKEN_RATE_PER_ETH || "1000", 18);
   const lending = await deploy("LendingPool", [tokenAddress, tokenRatePerETH, deployer.address]);
@@ -286,9 +283,7 @@ async function main() {
   // ICO configuration must explicitly designate and fund a sale reserve rather
   // than repurposing another allocation in this deployment path.
   const liquiditySigner = signers.find((s: any) => s.address.toLowerCase() === wallets.liquidity.toLowerCase());
-  const reserveSigner = signers.find((s: any) => s.address.toLowerCase() === wallets.reserve.toLowerCase());
   if (!liquiditySigner) throw new Error("Configured liquidity wallet is not an available deployment signer");
-  if (!reserveSigner) throw new Error("Configured reserve wallet is not an available deployment signer for staking rewards");
 
   // LendingPool tracks usable liquidity separately from its ERC-20 balance. A
   // direct transfer would strand tokens in the pool while liquidityPoolBalance
@@ -333,12 +328,6 @@ async function main() {
     `✓ LendingPool liquidity funded: ${ethers.formatUnits(initialLendingLiquidity, 18)} ABCD ` +
     `(approval ${approvalReceipt.hash}, funding ${fundingReceipt.hash})`
   );
-  const STAKING_ADMIN_ROLE = ethers.keccak256(ethers.toUtf8Bytes("STAKING_ADMIN_ROLE"));
-  await (await staking.grantRole(STAKING_ADMIN_ROLE, reserveSigner.address)).wait();
-  const rewardAmount = ethers.parseUnits(process.env.STAKING_REWARD_POOL || "5000000", 18);
-  await (await token.connect(reserveSigner).approve(stakingAddress, rewardAmount)).wait();
-  await (await staking.connect(reserveSigner).fundRewardPool(rewardAmount)).wait();
-
   const networkInfo = await hh.provider.getNetwork();
   const chainId = networkInfo.chainId.toString();
   const networkName = networkInfo.name || process.env.HARDHAT_NETWORK || "unknown";

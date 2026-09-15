@@ -30,12 +30,12 @@ const [ethAsset, abcdAsset] = await Promise.all([pool.ETH_ASSET(), pool.abcd()])
 assert.equal(abcdAsset.toLowerCase(), manifest.contracts.ABCDToken.address.toLowerCase(), 'LendingPoolV2 must use the canonical ABCDToken.');
 const token = new Contract(abcdAsset, tokenAbi, provider);
 const state = await Promise.all([
-  pool.liquidity(), token.balanceOf(v2.LendingPoolV2.address), reserve.availableBalance(), pool.MAX_INITIAL_LTV_BPS(), pool.FIXED_APR_BPS(), manager.LATE_FEE_BPS(),
-  liquidation.LIQUIDATION_THRESHOLD_BPS(), liquidation.CLOSE_FACTOR_BPS(), liquidation.LIQUIDATION_BONUS_BPS(), oracle.priceUSD(ethAsset), oracle.priceUSD(abcdAsset),
+  pool.liquidity(), token.balanceOf(v2.LendingPoolV2.address), reserve.availableBalance(), pool.MAX_INITIAL_LTV_BPS(), manager.newLoanAprBps(),
+  liquidation.LIQUIDATION_THRESHOLD_BPS(), liquidation.P2P_PARTIAL_TARGET_LTV_BPS(), oracle.priceUSD(ethAsset), oracle.priceUSD(abcdAsset),
 ]);
-const [liquidity, poolBalance, reserveBalance, ltv, apr, late, threshold, closeFactor, bonus, ethPrice, abcdPrice] = state;
-assert.equal(ltv, 5000n); assert.equal(apr, 1200n); assert.equal(late, 200n);
-assert.equal(threshold, 7500n); assert.equal(closeFactor, 10000n); assert.equal(bonus, 500n);
+const [liquidity, poolBalance, reserveBalance, ltv, apr, threshold, partialTarget, ethPrice, abcdPrice] = state;
+assert.equal(ltv, 3500n); assert.equal(apr, 925n);
+assert.equal(threshold, 8000n); assert.equal(partialTarget, 7000n);
 assert.ok(liquidity >= 0n && poolBalance >= 0n && reserveBalance >= 0n);
 assert.ok(ethPrice > 0n && abcdPrice > 0n);
 console.log(JSON.stringify({ status: 'PASS', source: 'canonical-lendingV2', poolLiquidity: formatEther(liquidity), poolBalance: formatEther(poolBalance), reserve: formatEther(reserveBalance), ethUsd: formatEther(ethPrice), abcdUsd: formatEther(abcdPrice) }));

@@ -44,8 +44,6 @@ exports.getDashboardSummary = async (req, res, next) => {
         interestEarned: sumUintStrings(userRepayments, 'amount'),
       },
       protocol: {
-        // Staking and presence telemetry are outside the indexed Phase 1 lending contracts.
-        totalStaked: '0',
         activeDebtVolume: sumUintStrings(activeLoans, 'principal'),
         onlineUsers: 0,
       },

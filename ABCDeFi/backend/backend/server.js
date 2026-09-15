@@ -45,6 +45,10 @@ const LendingV2ReadRouter = require("./modules/lendingV2Projection/lendingV2Read
 const LendingV2MetadataRouter = require("./modules/lendingV2Metadata/lendingV2Metadata.routes.cjs");
 const FranchiseReadRouter = require("./modules/franchiseProjection/franchiseRead.routes");
 const NftStorageRouter = require("./modules/nftStorage/nftStorage.routes");
+const IcoV2Router = require("./modules/icoV2/icoV2.routes.cjs");
+const LegionCredentialReadRouter = require("./modules/legionCredentialProjection/legionCredentialRead.routes.cjs");
+const LegionNFTV2ReadRouter = require("./modules/legionNFTV2Projection/legionNFTV2Read.routes.cjs");
+const ABCDMarketplaceReadRouter = require("./modules/abcdMarketplaceProjection/read.routes.cjs");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -74,6 +78,20 @@ app.use("/api/user", UserRouter);
 app.use("/api/auth", AuthSocialRouter);
 app.use("/api/splash-screen", SplashRouter);
 app.use("/api/ico", IcoRouter);
+// Phase 6 reads only canonical ICOManagerV2 on-chain state. The legacy
+// /api/ico routes remain isolated historical surfaces and are never used by
+// the canonical ICO dashboard.
+app.use("/api/ico-v2", IcoV2Router);
+// Canonical Legion reads are isolated from the legacy territorial LegionNFT
+// surfaces. Before an explicit LegionCredentialV2 manifest entry exists, the
+// route reports UNDEPLOYED rather than falling back to legacy/mock records.
+app.use("/api/legion-v2", LegionCredentialReadRouter);
+// Hierarchical Phase 8 LegionNFTV2 is an independent, fail-closed canonical
+// projection. It never falls back to legacy territorial/mock screens.
+app.use("/api/legion-nft-v2", LegionNFTV2ReadRouter);
+// Phase 10A is a manifest-bound, event-indexed ABCD sale read surface. It
+// never falls back to the legacy seeded /api/marketplace routes.
+app.use("/api/abcd-nft-marketplace-v2", ABCDMarketplaceReadRouter);
 app.use("/api/whitePaper", WhitePaperRouter);
 app.use("/api/privacyPolicy", privacyRouter);
 app.use("/api/reward", rewardRouter);

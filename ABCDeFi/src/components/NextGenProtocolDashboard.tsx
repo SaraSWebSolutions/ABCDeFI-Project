@@ -6,11 +6,9 @@ import {
   Zap,
   DollarSign,
   Coins,
-  Gift,
   CreditCard,
   Image as ImageIcon
 } from 'lucide-react';
-import { getStakingInfo } from '../Services/staking';
 import { getNftEcosystemSnapshot } from '../Services/nftEcosystem';
 import { getBalanceOf } from '../Services/token';
 import { getV2WalletSummary } from '../Services/lendingV2';
@@ -28,8 +26,6 @@ function formatAbcdWithUnit(value: string | null | undefined) {
 }
 
 interface OnChainDashboardData {
-  stakedAbcd: string | null;
-  pendingRewardsAbcd: string | null;
   supportedNftCount: string | null;
   treasuryAbcd: string | null;
   borrowedAbcd: string | null;
@@ -38,8 +34,6 @@ interface OnChainDashboardData {
 }
 
 const EMPTY_ON_CHAIN_DATA: OnChainDashboardData = {
-  stakedAbcd: null,
-  pendingRewardsAbcd: null,
   supportedNftCount: null,
   treasuryAbcd: null,
   borrowedAbcd: null,
@@ -81,15 +75,12 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
     setOnChainLoading(true);
     setOnChainError('');
     void Promise.allSettled([
-      getStakingInfo(wallet.address),
       getNftEcosystemSnapshot(wallet.address),
       getBalanceOf(CONTRACTS.treasury),
       getV2WalletSummary(wallet.address),
-    ]).then(([staking, nfts, treasury, lending]) => {
+    ]).then(([nfts, treasury, lending]) => {
       if (!active) return;
       setOnChainData({
-        stakedAbcd: staking.status === 'fulfilled' ? staking.value.stakedAmount : null,
-        pendingRewardsAbcd: staking.status === 'fulfilled' ? staking.value.rewards : null,
         supportedNftCount: nfts.status === 'fulfilled'
           && lending.status === 'fulfilled'
           ? (BigInt(nfts.value.participantBalance) + BigInt(nfts.value.guruBalance) + BigInt(lending.value.completionCertificateCount) + (nfts.value.reputation ? 1n : 0n)).toString()
@@ -99,7 +90,7 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
         availableToBorrowAbcd: lending.status === 'fulfilled' ? lending.value.availableToBorrow : null,
         healthFactor: lending.status === 'fulfilled' ? lending.value.healthFactor : null,
       });
-      if ([staking, nfts, treasury, lending].some((result) => result.status === 'rejected')) {
+      if ([nfts, treasury, lending].some((result) => result.status === 'rejected')) {
         setOnChainError('Some on-chain dashboard data is unavailable.');
       }
     }).catch(() => {
@@ -139,11 +130,7 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
         </div>
 
         {/* METRICS QUICK STRIP */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono">
-          <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
-            <div className="text-[10px] text-slate-400 uppercase font-bold">Your Staked ABCD</div>
-            <div className="text-sm font-black text-slate-300 mt-0.5">{onChainLoading ? 'Loading…' : onChainData.stakedAbcd === null ? 'Unavailable' : `${onChainData.stakedAbcd} ABCD`}</div>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 font-mono">
           <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
             <div className="text-[10px] text-slate-400 uppercase font-bold">Your ABCD debt</div>
             <div className="text-sm font-black text-emerald-400 mt-0.5">{onChainLoading ? 'Loading…' : formatAbcdWithUnit(onChainData.borrowedAbcd)}</div>
@@ -229,10 +216,6 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
                   {wallet.balanceABCD === null ? 'Unavailable' : `${wallet.balanceABCD} ABCD`}
                 </span>
               </div>
-            </div>
-            <div className="border-t border-slate-800/80 pt-2 flex justify-between items-center">
-              <span className="text-slate-400">Pending staking rewards</span>
-              <span className="font-bold text-violet-300">{onChainLoading ? 'Loading…' : onChainData.pendingRewardsAbcd === null ? 'Unavailable' : `${onChainData.pendingRewardsAbcd} ABCD`}</span>
             </div>
           </div>
         </div>
@@ -359,14 +342,6 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
           >
             <CreditCard className="w-5 h-5 text-cyan-400 mx-auto" />
             <div className="text-slate-200">Repay EMI</div>
-          </button>
-          <button
-            disabled
-            title="Use the main Staking page for real on-chain reward claims."
-            className="p-4 bg-slate-950 border border-slate-800/80 text-xs font-black rounded-2xl text-center space-y-1.5 opacity-60 cursor-not-allowed"
-          >
-            <Gift className="w-5 h-5 text-purple-400 mx-auto" />
-            <div className="text-slate-200">Rewards: Staking tab</div>
           </button>
         </div>
       </div>

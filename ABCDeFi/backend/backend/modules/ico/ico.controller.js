@@ -12,7 +12,7 @@ const icoState = {
     allocations: [
       { label: 'Presale & Public Sale', pct: 40 },
       { label: 'Collateral Liquidity Vault', pct: 25 },
-      { label: 'Ecosystem & Staking Rewards', pct: 15 },
+      { label: 'Ecosystem', pct: 15 },
       { label: 'Protocol Treasury & Reserves', pct: 10 },
       { label: 'Core Team & Advisors (2Y Vesting)', pct: 10 }
     ]

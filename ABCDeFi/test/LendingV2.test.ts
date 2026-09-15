@@ -10,7 +10,7 @@ const DAY = 24 * 60 * 60;
 
 describe("Lending V2", function () {
   let admin: any, borrower: any, liquidator: any, lender: any;
-  let token: any, ethFeed: any, abcdFeed: any, oracle: any, vault: any, manager: any, nft: any, referral: any, reserve: any, pool: any, liquidation: any, liquidationMarketplace: any;
+  let token: any, ethFeed: any, abcdFeed: any, oracle: any, vault: any, manager: any, nft: any, referral: any, reserve: any, pool: any, emi: any, liquidation: any, liquidationMarketplace: any;
 
   async function deployDirect() {
     [admin, borrower, liquidator, lender] = await hh.ethers.getSigners();
@@ -26,6 +26,8 @@ describe("Lending V2", function () {
     const NFT = await hh.ethers.getContractFactory("LoanNFTV2"); nft = await NFT.deploy(admin.address, await manager.getAddress(), admin.address);
     const Referral = await hh.ethers.getContractFactory("LendingReferralManagerV2"); referral = await Referral.deploy(admin.address, await token.getAddress(), await manager.getAddress(), admin.address);
     const Pool = await hh.ethers.getContractFactory("LendingPoolV2"); pool = await Pool.deploy(admin.address, await token.getAddress(), await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await nft.getAddress(), await referral.getAddress());
+    const EMI = await hh.ethers.getContractFactory("EMIManagerV2"); emi = await EMI.deploy(admin.address, await token.getAddress(), await manager.getAddress(), await vault.getAddress(), await nft.getAddress(), await referral.getAddress());
+    await pool.setEMIManager(await emi.getAddress()); await emi.setLendingPool(await pool.getAddress());
     const Reserve = await hh.ethers.getContractFactory("InsuranceReserveV2"); reserve = await Reserve.deploy(admin.address, await token.getAddress(), await manager.getAddress());
     const Market = await hh.ethers.getContractFactory("LoanMarketplaceV2"); liquidationMarketplace = await Market.deploy(admin.address, await token.getAddress(), await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await nft.getAddress(), await referral.getAddress());
     const Liquidation = await hh.ethers.getContractFactory("LiquidationV2"); liquidation = await Liquidation.deploy(admin.address, await token.getAddress(), await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await reserve.getAddress(), await nft.getAddress(), await pool.getAddress(), await liquidationMarketplace.getAddress());
@@ -38,8 +40,16 @@ describe("Lending V2", function () {
     await reserve.grantRole(ROLE("RESERVE_OPERATOR_ROLE"), await liquidation.getAddress());
     await token.transfer(lender.address, ethers.parseEther("10000")); await token.connect(lender).approve(await pool.getAddress(), ethers.parseEther("5000")); await pool.connect(admin).grantRole(ROLE("LIQUIDITY_MANAGER_ROLE"), lender.address); await pool.connect(lender).fundLiquidity(ethers.parseEther("5000"));
   }
-  async function open(principal = "1000", term = 30 * DAY) {
+  async function open(principal = "700", term = 30 * DAY) {
     return pool.connect(borrower).openLoan(ethers.parseEther(principal), term, { value: ethers.parseEther("1") });
+  }
+  async function completeMarginCallCure(loanId = 1, ethUsd = 800n * 10n ** 8n) {
+    const loan = await manager.getLoan(loanId);
+    expect(loan.state).eq(6);
+    await hh.provider.send("evm_setNextBlockTimestamp", [Number(loan.marginCallCureEnd)]);
+    // Refresh local test-only feeds at the cure boundary; this is never a
+    // production oracle configuration or caller-supplied liquidation price.
+    await ethFeed.setAnswer(ethUsd); await abcdFeed.setAnswer(1n * 10n ** 8n);
   }
   function completionMetadata(label = "completion") {
     const metadata = (role: string) => {
@@ -64,13 +74,79 @@ describe("Lending V2", function () {
   }
   beforeEach(deployDirect);
 
-  it("allows exactly 50% LTV without creating a completion certificate at origination", async () => {
+  it("allows exactly the whitepaper 35% ETH LTV without creating a completion certificate at origination", async () => {
     await expect(open()).to.emit(pool, "DirectLoanOpened");
-    const loan = await manager.getLoan(1); expect(loan.principal).eq(ethers.parseEther("1000")); expect(loan.aprBps).eq(1200);
+    const loan = await manager.getLoan(1); expect(loan.principal).eq(ethers.parseEther("700")); expect(loan.aprBps).eq(925);
     expect(await nft.loanCertificate(1)).eq(0);
   });
+  it("creates the approved Direct 30/90/180-day schedules with canonical due dates and final-remainder handling", async () => {
+    const terms = [30 * DAY, 90 * DAY, 180 * DAY];
+    for (const [index, term] of terms.entries()) {
+      await open("700", term);
+      const loan = await manager.getLoan(index + 1);
+      const schedule = await emi.getSchedule(index + 1);
+      expect(schedule.length).eq(term / (30 * DAY));
+      expect(await emi.totalScheduled(index + 1)).eq(await manager.previewTotalRepayment(index + 1));
+      expect(schedule.reduce((total: bigint, installment: any) => total + installment.amount, 0n)).eq(await emi.totalScheduled(index + 1));
+      for (const [installmentIndex, installment] of schedule.entries()) {
+        expect(installment.dueAt).eq(loan.start + BigInt((installmentIndex + 1) * 30 * DAY));
+        if (installmentIndex + 1 < schedule.length) expect(installment.amount).eq(schedule[0].amount);
+      }
+    }
+  });
+  it("enforces the Direct due timestamp on-chain and records the exact scheduled payment", async () => {
+    await open("700", 90 * DAY);
+    const loan = await manager.getLoan(1); const first = (await emi.getSchedule(1))[0];
+    await token.connect(admin).transfer(borrower.address, ethers.parseEther("1"));
+    await token.connect(borrower).approve(await pool.getAddress(), first.amount + ethers.parseEther("1"));
+    await expect(pool.connect(borrower).payDirectInstallment(1)).to.be.revertedWith("installment not due");
+    await hh.provider.send("evm_setNextBlockTimestamp", [Number(first.dueAt)]);
+    const poolBefore = await token.balanceOf(await pool.getAddress());
+    await expect(pool.connect(borrower).payDirectInstallment(1)).to.emit(pool, "DirectInstallmentPaid").withArgs(1, 1, borrower.address, first.amount);
+    expect((await emi.getSchedule(1))[0].paid).true; expect(await emi.nextInstallment(1)).eq(1);
+    expect(await token.balanceOf(await pool.getAddress())).eq(poolBefore + first.amount);
+    expect((await manager.getLoan(1)).state).eq(0); expect((await emi.getSchedule(1))[1].dueAt).eq(loan.start + BigInt(60 * DAY));
+  });
+  it("caps a terminal Direct installment at live debt after prepayment and completes only once with provenance", async () => {
+    await referral.connect(liquidator).createReferralCode("DIRECT-SCHEDULE-REF");
+    await referral.connect(borrower).bindReferrer("DIRECT-SCHEDULE-REF");
+    await open("700", 30 * DAY);
+    const scheduled = (await emi.getSchedule(1))[0].amount;
+    await token.connect(admin).transfer(borrower.address, ethers.parseEther("1"));
+    await token.connect(borrower).approve(await pool.getAddress(), ethers.parseEther("600"));
+    await pool.connect(borrower).repay(1, ethers.parseEther("600"));
+    const dueAt = (await emi.getSchedule(1))[0].dueAt;
+    await hh.provider.send("evm_setNextBlockTimestamp", [Number(dueAt)]);
+    const outstanding = await pool.outstanding(1); expect(outstanding).lt(scheduled);
+    await token.connect(admin).transfer(borrower.address, outstanding + ethers.parseEther("1"));
+    await token.connect(borrower).approve(await pool.getAddress(), outstanding + ethers.parseEther("1"));
+    const poolBefore = await token.balanceOf(await pool.getAddress());
+    const receipt = await (await pool.connect(borrower).payDirectInstallmentWithCompletionMetadata(1, completionMetadata("direct-schedule"))).wait();
+    const paid = (await token.balanceOf(await pool.getAddress())) - poolBefore;
+    expect(receipt!.logs.some((log: any) => { try { return pool.interface.parseLog(log)?.name === "DirectInstallmentPaid"; } catch { return false; } })).true;
+    expect(paid).gt(0); expect(paid).lte(scheduled);
+    expect((await manager.getLoan(1)).state).eq(1); expect(await emi.nextInstallment(1)).eq(1);
+    expect(await nft.loanCertificates(1, 0)).eq(1); expect(await nft.loanCertificates(1, 1)).eq(2); expect(await nft.loanCertificates(1, 2)).eq(3);
+    await expect(pool.connect(borrower).payDirectInstallmentWithCompletionMetadata(1, completionMetadata("duplicate-schedule"))).to.be.revertedWith("schedule complete");
+    await expect(pool.connect(borrower).withdrawSettledCollateral(1)).to.emit(pool, "SettledCollateralWithdrawn");
+    const referralCompletion = (await referral.getLoanReferral(1, borrower.address)).completedAt;
+    expect(referralCompletion).gt(0); await expect(pool.connect(borrower).withdrawSettledCollateral(1)).to.be.revertedWith("not settled");
+    expect((await referral.getLoanReferral(1, borrower.address)).completedAt).eq(referralCompletion);
+    expect((await manager.getLoan(1)).state).eq(5); expect(await vault.loanCollateral(1)).eq(0);
+  });
+  it("keeps Direct early full repayment available without prematurely advancing its schedule", async () => {
+    await open("700", 90 * DAY);
+    const due = await pool.outstanding(1);
+    await token.connect(admin).transfer(borrower.address, due);
+    await token.connect(borrower).approve(await pool.getAddress(), due + ethers.parseEther("1"));
+    await pool.connect(borrower).repayAllWithCompletionMetadata(1, completionMetadata("direct-early"));
+    expect((await manager.getLoan(1)).state).eq(1); expect(await emi.nextInstallment(1)).eq(0);
+    expect((await emi.getSchedule(1))[0].paid).false;
+    await pool.connect(borrower).withdrawSettledCollateral(1);
+    expect((await manager.getLoan(1)).state).eq(5);
+  });
   it("preserves the complete direct deposit, borrow, repayment, and settled-withdrawal lifecycle", async () => {
-    const collateral = ethers.parseEther("0.2"); const principal = ethers.parseEther("200");
+    const collateral = ethers.parseEther("0.2"); const principal = ethers.parseEther("140");
     await expect(pool.connect(borrower).depositCollateral({ value: collateral })).to.emit(pool, "CollateralDepositCreated");
     expect(await vault.directDepositCollateral(1)).eq(collateral); expect(await vault.requestCollateral(1)).eq(0);
     expect(await pool.maxBorrowable(collateral)).eq(principal);
@@ -85,26 +161,46 @@ describe("Lending V2", function () {
     const due = await pool.outstanding(1); const boundedBuffer = ethers.parseEther("1"); await token.connect(admin).transfer(borrower.address, due + boundedBuffer); await token.connect(borrower).approve(await pool.getAddress(), due + boundedBuffer);
     await expect(pool.connect(borrower).repayAllWithCompletionMetadata(1, completionMetadata("direct-regression"))).to.emit(pool, "DirectLoanRepaid"); expect((await manager.getLoan(1)).state).eq(1);
     expect(await nft.loanCertificate(1)).eq(2); expect(await nft.loanCertificates(1, 0)).eq(1); expect(await nft.loanCertificates(1, 1)).eq(2); expect(await nft.loanCertificates(1, 2)).eq(3);
-    expect((await nft.getCertificate(2)).certificateValue).eq((await nft.getCertificate(2)).totalScheduledRepayment / 100n);
-    await expect(nft.connect(borrower).transferFrom(borrower.address, lender.address, 2)).to.be.revertedWith("non-transferable");
+    expect((await nft.getCertificate(2)).certificateValue).eq(0);
+    await nft.connect(borrower).transferFrom(borrower.address, lender.address, 2);
+    expect(await nft.ownerOf(2)).eq(lender.address);
     await expect(pool.connect(borrower).withdrawSettledCollateral(1)).to.emit(pool, "SettledCollateralWithdrawn");
     expect(await vault.loanCollateral(1)).eq(0); expect((await manager.getLoan(1)).state).eq(5);
   });
-  it("creates exactly three immutable direct completion certificates with the authoritative owners and one-percent accounting value", async () => {
+  it("creates exactly three transferable direct completion certificates with authoritative owners and no fabricated USD valuation", async () => {
     await open();
     await expect(nft.mintCompletionCertificates(1, 0, false, completionMetadata("too-early"))).to.be.revertedWith("loan not completed");
     const due = await pool.outstanding(1);
     await token.connect(admin).transfer(borrower.address, due);
     await token.connect(borrower).approve(await pool.getAddress(), due + ethers.parseEther("1"));
-    await expect(pool.connect(borrower).repayAllWithCompletionMetadata(1, completionMetadata("direct-complete"))).to.emit(nft, "LoanCertificateCreated");
+    const settlement = await (await pool.connect(borrower).repayAllWithCompletionMetadata(1, completionMetadata("direct-complete"))).wait();
     const lenderId = await nft.loanCertificates(1, 0); const borrowerId = await nft.loanCertificates(1, 1); const platformId = await nft.loanCertificates(1, 2);
     expect(lenderId).eq(1); expect(borrowerId).eq(2); expect(platformId).eq(3); expect(await nft.loanCertificate(1)).eq(borrowerId);
     expect(await nft.ownerOf(lenderId)).eq(await pool.getAddress()); expect(await nft.ownerOf(borrowerId)).eq(borrower.address); expect(await nft.ownerOf(platformId)).eq(admin.address);
     const lenderCertificate = await nft.getCertificate(lenderId); const borrowerCertificate = await nft.getCertificate(borrowerId);
     expect(lenderCertificate.role).eq(0); expect(borrowerCertificate.role).eq(1); expect(lenderCertificate.status).eq(6); expect(lenderCertificate.actualRepayment).eq((await manager.getLoan(1)).totalRepaid);
-    expect(lenderCertificate.certificateValue).eq(lenderCertificate.totalScheduledRepayment / 100n);
+    expect(lenderCertificate.certificateValue).eq(0);
+    expect(lenderCertificate.completionBlock).eq(BigInt(settlement!.blockNumber)); expect(borrowerCertificate.completionBlock).eq(BigInt(settlement!.blockNumber));
     expect(await nft.tokenURI(lenderId)).eq("ipfs://direct-complete-lender"); expect(await nft.tokenURI(borrowerId)).eq("ipfs://direct-complete-borrower");
     await expect(nft.mintCompletionCertificates(1, 0, false, completionMetadata("duplicate"))).to.be.revertedWith("completion certificates exist");
+  });
+  it("keeps all completion-certificate statuses final after the role triple is created", async () => {
+    await open();
+    // Pre-completion synchronization remains a harmless no-op because no
+    // certificate exists yet.
+    await nft.setStatus(1, 3);
+    expect(await nft.loanCertificate(1)).eq(0);
+
+    const due = await pool.outstanding(1);
+    await token.connect(admin).transfer(borrower.address, due);
+    await token.connect(borrower).approve(await pool.getAddress(), due + ethers.parseEther("1"));
+    await pool.connect(borrower).repayAllWithCompletionMetadata(1, completionMetadata("status-finality"));
+
+    await expect(nft.setStatus(1, 3)).to.be.revertedWith("completion certificate final");
+    for (const role of [0, 1, 2]) {
+      const certificate = await nft.getCertificate(await nft.loanCertificates(1, role));
+      expect(certificate.status).eq(6);
+    }
   });
   it("rejects a terminal direct repayment without all three provenance records", async () => {
     await open(); const due = await pool.outstanding(1);
@@ -114,32 +210,31 @@ describe("Lending V2", function () {
     await expect(pool.connect(borrower).repayAllWithCompletionMetadata(1, invalid)).to.be.revertedWith("invalid platform provenance");
     expect((await manager.getLoan(1)).state).eq(0); expect(await nft.loanCertificate(1)).eq(0);
   });
-  it("rejects opening above the oracle-priced 50% LTV", async () => { await expect(open("1000.000000000000000001")).to.be.revertedWith("ltv exceeded"); });
-  it("governs the APR for future loans only and preserves an existing loan APR", async () => {
-    await open(); expect((await manager.getLoan(1)).aprBps).eq(1200);
+  it("rejects opening above the oracle-priced 35% ETH LTV", async () => { await expect(open("700.000000000000000001")).to.be.revertedWith("ltv exceeded"); });
+  it("keeps the approved 9.25% Direct ETH APR fixed for future loans", async () => {
+    await open(); expect((await manager.getLoan(1)).aprBps).eq(925);
     await expect(manager.connect(borrower).setNewLoanAprBps(900)).to.be.revertedWithCustomError(manager, "AccessControlUnauthorizedAccount");
-    await expect(manager.setNewLoanAprBps(900)).to.emit(manager, "NewLoanAprUpdated");
-    await open("900");
-    expect((await manager.getLoan(1)).aprBps).eq(1200);
-    expect((await manager.getLoan(2)).aprBps).eq(900);
-    await manager.setNewLoanAprBps(800); await open("800");
-    expect((await manager.getLoan(3)).aprBps).eq(800);
+    await expect(manager.setNewLoanAprBps(900)).to.be.revertedWith("direct ETH APR fixed");
+    await open("700");
+    expect((await manager.getLoan(1)).aprBps).eq(925);
+    expect((await manager.getLoan(2)).aprBps).eq(925);
   });
-  it("creates an on-chain 70% margin call, permits cure, and enforces the 72-hour cure deadline", async () => {
-    await open(); await ethFeed.setAnswer(1400n * 10n ** 8n); // 1,000 / 1,400 = 71.42%
+  it("creates an on-chain 70% margin call, permits cure, and never turns a lapsed cure into a terminal close", async () => {
+    await open(); await ethFeed.setAnswer(990n * 10n ** 8n); // 700 / 990 = 70.70%
     await expect(liquidation.connect(liquidator).syncRisk(1)).to.emit(manager, "MarginCallActivated");
     let loan = await manager.getLoan(1); expect(loan.state).eq(6); expect(loan.marginCallCureEnd - loan.marginCallAt).eq(72 * 60 * 60);
     await token.connect(borrower).approve(await pool.getAddress(), ethers.parseEther("30")); await pool.connect(borrower).repay(1, ethers.parseEther("30"));
     await expect(liquidation.syncRisk(1)).to.emit(manager, "MarginCallCured"); expect((await manager.getLoan(1)).state).eq(0);
-    await ethFeed.setAnswer(1300n * 10n ** 8n); await liquidation.syncRisk(1);
+    await ethFeed.setAnswer(900n * 10n ** 8n); await liquidation.syncRisk(1);
     await hh.provider.send("evm_increaseTime", [72 * 60 * 60 + 1]); await hh.provider.send("evm_mine", []);
-    await ethFeed.setAnswer(1300n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
-    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("2000")); await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("2000"));
-    await expect(liquidation.connect(liquidator).liquidate(1)).to.emit(liquidation, "LoanLiquidated");
-    expect((await manager.getLoan(1)).state).eq(4);
+    await ethFeed.setAnswer(900n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
+    expect(await liquidation.isLiquidatable(1)).false;
+    const before = await vault.loanCollateral(1);
+    await expect(liquidation.connect(liquidator).liquidate(1)).to.be.revertedWith("partial liquidation not required");
+    expect((await manager.getLoan(1)).state).eq(6); expect(await vault.loanCollateral(1)).eq(before);
   });
   it("lets only the borrower add ETH to the same loan-scoped position to cure a margin call", async () => {
-    await open(); await ethFeed.setAnswer(1400n * 10n ** 8n);
+    await open(); await ethFeed.setAnswer(990n * 10n ** 8n);
     await liquidation.syncRisk(1); expect((await manager.getLoan(1)).state).eq(6);
     await expect(pool.connect(lender).addCollateralToLoan(1, { value: ethers.parseEther("1") })).to.be.revertedWith("invalid collateral top up");
     const before = await vault.loanCollateral(1);
@@ -150,17 +245,18 @@ describe("Lending V2", function () {
   it("supports separate request-scoped collateral deposit followed by authorized borrowing", async () => {
     await pool.connect(borrower).depositCollateral({ value: ethers.parseEther("1") });
     expect((await pool.pendingCollateral(1)).borrower).eq(borrower.address); expect(await vault.directDepositCollateral(1)).eq(ethers.parseEther("1")); expect(await vault.requestCollateral(1)).eq(0);
-    await expect(pool.connect(lender).borrowABCD(1, ethers.parseEther("1000"), 30 * DAY)).to.be.revertedWith("not pending collateral owner");
-    await pool.connect(borrower).borrowABCD(1, ethers.parseEther("1000"), 30 * DAY);
+    await expect(pool.connect(lender).borrowABCD(1, ethers.parseEther("700"), 30 * DAY)).to.be.revertedWith("not pending collateral owner");
+    await pool.connect(borrower).borrowABCD(1, ethers.parseEther("700"), 30 * DAY);
     expect((await pool.pendingCollateral(1)).active).false; expect(await vault.directDepositCollateral(1)).eq(0); expect(await vault.loanCollateral(1)).eq(ethers.parseEther("1"));
     await expect(pool.connect(borrower).withdrawPendingCollateral(1)).to.be.revertedWith("not pending collateral owner");
   });
   it("calculates direct-deposit borrowing capacity from collateral wei, not the deposit ID", async () => {
-    // ETH/USD = $2,000, ABCD/USD = $1, and initial LTV = 50%.
-    // The view receives 18-decimal ETH collateral, so 0.1 ETH supports 100 ABCD.
-    expect(await pool.maxBorrowable(ethers.parseEther("0.1"))).eq(ethers.parseEther("100"));
+    // ETH/USD = $2,000, ABCD/USD = $1, and initial LTV = 35%.
+    // The view receives 18-decimal ETH collateral, so 0.1 ETH supports 70 ABCD.
+    expect(await pool.MAX_INITIAL_LTV_BPS()).eq(3_500);
+    expect(await pool.maxBorrowable(ethers.parseEther("0.1"))).eq(ethers.parseEther("70"));
     // A second amount proves this is decimal-correct valuation, not a fixed UI value.
-    expect(await pool.maxBorrowable(ethers.parseEther("0.25"))).eq(ethers.parseEther("250"));
+    expect(await pool.maxBorrowable(ethers.parseEther("0.25"))).eq(ethers.parseEther("175"));
   });
   it("enforces the independent oracle-priced 35% initial LTV for ETH-backed P2P requests", async () => {
     const { market } = await deployP2P();
@@ -198,9 +294,30 @@ describe("Lending V2", function () {
     await abcdFeed.setAnswer(0);
     await expect(market.previewMaxP2PPrincipal(collateral)).to.be.revertedWith("invalid price");
   });
+  it("stores the whitepaper ETH P2P table APR independently from the direct-loan APR", async () => {
+    const { market } = await deployP2P();
+    await market.connect(borrower).createRequest(ethers.parseEther("70"), 30 * DAY, { value: ethers.parseEther("0.1") });
+    await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("70"));
+    await market.connect(lender).fundRequest(1);
+    expect(await manager.P2P_ETH_APR_BPS()).eq(925);
+    expect((await manager.getLoan(1)).aprBps).eq(925);
+    expect(await manager.newLoanAprBps()).eq(925);
+  });
+  it("keeps P2P maturity accounting independent from the removed Direct late fee", async () => {
+    const { market } = await deployP2P();
+    await market.connect(borrower).createRequest(ethers.parseEther("70"), 30 * DAY, { value: ethers.parseEther("0.1") });
+    await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("70"));
+    await market.connect(lender).fundRequest(1);
+    const loan = await manager.getLoan(1);
+    await hh.provider.send("evm_setNextBlockTimestamp", [Number(loan.maturity) + 1]); await hh.provider.send("evm_mine", []);
+    await manager.accrue(1);
+    const matured = await manager.getLoan(1);
+    expect(matured.fees).eq(0); expect(matured.lateFeeAssessed).eq(false); expect(matured.state).eq(0);
+    expect(await manager.previewOutstanding(1)).eq(matured.principalOutstanding + matured.accruedInterest);
+  });
   it("keeps direct deposit ID 1 and P2P request ID 1 in independent collateral namespaces", async () => {
     const { market } = await deployP2P();
-    const directCollateral = ethers.parseEther("0.7");
+    const directCollateral = ethers.parseEther("1");
     const p2pCollateral = ethers.parseEther("0.2");
     await pool.connect(borrower).depositCollateral({ value: directCollateral });
     await market.connect(borrower).createRequest(ethers.parseEther("100"), 30 * DAY, { value: p2pCollateral });
@@ -215,7 +332,7 @@ describe("Lending V2", function () {
   });
   it("never aggregates direct and P2P collateral even when both flows use ID 1", async () => {
     const { market } = await deployP2P();
-    const directCollateral = ethers.parseEther("0.7");
+    const directCollateral = ethers.parseEther("1");
     const p2pCollateral = ethers.parseEther("0.2");
     await pool.connect(borrower).depositCollateral({ value: directCollateral });
     await market.connect(borrower).createRequest(ethers.parseEther("100"), 30 * DAY, { value: p2pCollateral });
@@ -229,27 +346,31 @@ describe("Lending V2", function () {
     expect(await vault.loanCollateral(1)).eq(directCollateral);
     expect(await vault.loanCollateral(2)).eq(p2pCollateral);
   });
-  it("exposes non-mutating interest, total-repayment, outstanding, fee, and time-state previews", async () => {
+  it("exposes non-mutating interest, total-repayment, outstanding, and time-state previews without a Direct late fee", async () => {
     await open(); const initial = await manager.getLoan(1);
-    const fullInterest = ethers.parseEther("1000") * 1200n * 30n * BigInt(DAY) / (10000n * BigInt(365 * DAY));
-    expect(await manager.previewAccruedInterest(1)).lt(fullInterest); expect(await manager.previewTotalRepayment(1)).eq(ethers.parseEther("1000") + fullInterest); expect(await manager.previewLoanStatus(1)).eq(0);
+    const fullInterest = ethers.parseEther("700") * 925n * 30n * BigInt(DAY) / (10000n * BigInt(365 * DAY));
+    expect(await manager.previewAccruedInterest(1)).lt(fullInterest); expect(await manager.previewTotalRepayment(1)).eq(ethers.parseEther("700") + fullInterest); expect(await manager.previewLoanStatus(1)).eq(0);
     await hh.provider.send("evm_increaseTime", [30 * DAY + 1]); await hh.provider.send("evm_mine", []);
-    expect(await manager.previewLoanStatus(1)).eq(2); expect(await manager.previewLateFee(1)).gt(0); expect(await manager.previewOutstanding(1)).gt(ethers.parseEther("1000"));
+    expect(await manager.previewLoanStatus(1)).eq(2); expect(await manager.previewOutstanding(1)).eq(ethers.parseEther("700") + fullInterest);
+    expect((await manager.getLoan(1)).fees).eq(0);
     expect((await manager.getLoan(1)).lastAccrual).eq(initial.lastAccrual);
   });
-  it("accrues 12% APR only over elapsed time and respects partial repayment ordering", async () => {
+  it("accrues the approved 9.25% Direct ETH APR only over elapsed time and respects partial repayment ordering", async () => {
     await open(); await hh.provider.send("evm_increaseTime", [15 * DAY]); await hh.provider.send("evm_mine", []);
     await pool.connect(borrower).syncLoan(1); const before = await manager.getLoan(1);
-    const expected = ethers.parseEther("1000") * 1200n * (before.lastAccrual - before.start) / (10000n * BigInt(365 * DAY)); expect(before.accruedInterest).eq(expected);
+    const expected = ethers.parseEther("700") * 925n * (before.lastAccrual - before.start) / (10000n * BigInt(365 * DAY)); expect(before.accruedInterest).eq(expected);
     await token.connect(borrower).approve(await pool.getAddress(), ethers.parseEther("100")); await pool.connect(borrower).repay(1, ethers.parseEther("100"));
-    const after = await manager.getLoan(1); const principalReduction = ethers.parseEther("1000") - after.principalOutstanding;
+    const after = await manager.getLoan(1); const principalReduction = ethers.parseEther("700") - after.principalOutstanding;
     expect(after.accruedInterest).eq(0); expect(after.fees).eq(0); expect(principalReduction).lt(ethers.parseEther("100")); expect(principalReduction).gt(0);
   });
-  it("assesses the one-time 2% fee at maturity and permits settlement then collateral withdrawal", async () => {
-    await open(); await hh.provider.send("evm_increaseTime", [30 * DAY + 1]); await hh.provider.send("evm_mine", []); await pool.syncLoan(1);
-    let loan = await manager.getLoan(1); expect(loan.state).eq(2); const fee = (loan.principalOutstanding + loan.accruedInterest) * 200n / 10000n; expect(loan.fees).eq(fee);
-    await pool.syncLoan(1); loan = await manager.getLoan(1); expect(loan.fees).eq(fee);
-    const due = await pool.outstanding(1); await token.connect(admin).transfer(borrower.address, due - ethers.parseEther("1000")); await token.connect(borrower).approve(await pool.getAddress(), due); await pool.connect(borrower).repayWithCompletionMetadata(1, due, completionMetadata("maturity")); await pool.connect(borrower).withdrawSettledCollateral(1);
+  it("does not assess a Direct maturity late fee and permits settlement then collateral withdrawal", async () => {
+    await open(); await hh.provider.send("evm_increaseTime", [30 * DAY + 1]); await hh.provider.send("evm_mine", []);
+    const maturitySync = await (await pool.syncLoan(1)).wait();
+    const feeAssessedTopic = ethers.id("FeeAssessed(uint256,uint256)");
+    expect(maturitySync!.logs.some((log: { topics: readonly string[] }) => log.topics[0] === feeAssessedTopic)).eq(false);
+    let loan = await manager.getLoan(1); expect(loan.state).eq(2); expect(loan.fees).eq(0); expect(loan.lateFeeAssessed).eq(false);
+    await pool.syncLoan(1); loan = await manager.getLoan(1); expect(loan.fees).eq(0);
+    const due = await pool.outstanding(1); await token.connect(admin).transfer(borrower.address, due - ethers.parseEther("700")); await token.connect(borrower).approve(await pool.getAddress(), due); await pool.connect(borrower).repayWithCompletionMetadata(1, due, completionMetadata("maturity")); await pool.connect(borrower).withdrawSettledCollateral(1);
     expect(await vault.loanCollateral(1)).eq(0); expect((await manager.getLoan(1)).state).eq(5);
   });
   it("rejects early collateral withdrawal, stale and invalid oracle data", async () => {
@@ -260,60 +381,105 @@ describe("Lending V2", function () {
   it("rejects oracle reads and liquidations while the emergency oracle circuit breaker is paused", async () => {
     await open(); await oracle.pause(); await expect(pool.maxBorrowable(ethers.parseEther("1"))).to.be.revertedWithCustomError(oracle, "EnforcedPause"); await expect(liquidation.healthFactor(1)).to.be.revertedWithCustomError(oracle, "EnforcedPause");
   });
-  it("liquidates at the approved 80% threshold and pays the 5% bonus", async () => {
-    await open(); await ethFeed.setAnswer(1250n * 10n ** 8n); expect(await liquidation.isLiquidatable(1)).to.be.true;
-    await token.connect(admin).approve(await reserve.getAddress(), ethers.parseEther("100")); await reserve.fund(ethers.parseEther("100"));
-    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("2000")); await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("2000"));
-    await expect(liquidation.connect(liquidator).liquidate(1)).to.emit(liquidation, "LoanLiquidated");
-    const loan = await manager.getLoan(1); expect(loan.state).eq(4); expect(loan.reserveContribution).eq(0); expect(await vault.loanCollateral(1)).eq(0);
-    await expect(liquidation.connect(liquidator).liquidate(1)).to.be.revertedWith("not liquidatable");
+  it("recognizes the whitepaper 80% partial-liquidation threshold but fails closed without a sale execution policy", async () => {
+    await open(); await ethFeed.setAnswer(800n * 10n ** 8n); await liquidation.syncRisk(1); await completeMarginCallCure(); expect(await liquidation.isLiquidatable(1)).to.be.true;
+    const [loanBefore, collateralBefore, reserveBefore] = [await manager.getLoan(1), await vault.loanCollateral(1), await reserve.availableBalance()];
+    await expect(liquidation.previewLiquidation(1)).to.be.revertedWith("partial liquidation execution not configured");
+    await expect(liquidation.connect(liquidator).liquidate(1)).to.be.revertedWith("partial liquidation execution not configured");
+    const loanAfter = await manager.getLoan(1);
+    expect(loanAfter.state).eq(loanBefore.state); expect(loanAfter.principalOutstanding).eq(loanBefore.principalOutstanding);
+    expect(await vault.loanCollateral(1)).eq(collateralBefore); expect(await reserve.availableBalance()).eq(reserveBefore);
+    expect(await reserve.reserveSettlementProcessed(1)).false;
   });
-  it("uses the reserve exactly once for a direct liquidation shortfall and records only the actual payout", async () => {
+  it("does not invoke the reserve or create bad debt while partial-liquidation execution is unavailable", async () => {
     await open();
-    // A $500 ETH price leaves collateral insufficient after the 5% bonus.
     await ethFeed.setAnswer(500n * 10n ** 8n);
     const funded = ethers.parseEther("100");
     await token.connect(admin).approve(await reserve.getAddress(), funded);
     await expect(reserve.fund(funded)).to.emit(reserve, "ReserveFunded");
-    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("2000"));
-    await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("2000"));
-
-    const quote = await liquidation.previewLiquidation(1);
-    expect(quote.reserveRequested).gt(funded);
-    const poolBefore = await token.balanceOf(await pool.getAddress());
-    await expect(liquidation.connect(liquidator).liquidate(1)).to.emit(reserve, "ReserveUsed");
-
-    const loan = await manager.getLoan(1);
-    expect(await reserve.reserveUsedByLoan(1)).eq(funded);
-    expect(await reserve.reserveSettlementProcessed(1)).true;
-    expect(await token.balanceOf(await reserve.getAddress())).eq(0);
-    expect(loan.reserveContribution).eq(funded);
-    expect(loan.badDebt).gt(0);
-    expect(await token.balanceOf(await pool.getAddress())).gt(poolBefore + funded);
-    await expect(reserve.cover(1, await pool.getAddress(), 1)).to.be.revertedWith("reserve already settled");
+    await liquidation.syncRisk(1); await completeMarginCallCure(1, 500n * 10n ** 8n); const loanBefore = await manager.getLoan(1);
+    await expect(liquidation.connect(liquidator).liquidate(1)).to.be.revertedWith("partial liquidation execution not configured");
+    const loanAfter = await manager.getLoan(1);
+    expect(await reserve.reserveUsedByLoan(1)).eq(0); expect(await reserve.reserveSettlementProcessed(1)).false;
+    expect(await token.balanceOf(await reserve.getAddress())).eq(funded);
+    expect(loanAfter.reserveContribution).eq(0); expect(loanAfter.badDebt).eq(0); expect(loanAfter.principalOutstanding).eq(loanBefore.principalOutstanding);
   });
-  it("rejects reserve payouts for invalid loans, wrong recipients, healthy loans, zero amounts, and unauthorized callers", async () => {
+  it("keeps reserve recovery fail-closed even for an authorized operator and eligible risk state", async () => {
     await open();
-    await expect(reserve.cover(0, await pool.getAddress(), 1)).to.be.revertedWith("invalid settlement");
-    await expect(reserve.cover(999, await pool.getAddress(), 1)).to.be.revertedWith("missing loan");
-    await expect(reserve.cover(1, await pool.getAddress(), 0)).to.be.revertedWith("invalid settlement");
-    await expect(reserve.cover(1, borrower.address, 1)).to.be.revertedWith("loan not reserve eligible");
+    const funded = ethers.parseEther("100");
+    await token.connect(admin).approve(await reserve.getAddress(), funded);
+    await reserve.fund(funded);
     await ethFeed.setAnswer(500n * 10n ** 8n);
-    await liquidation.syncRisk(1);
-    await expect(reserve.cover(1, borrower.address, 1)).to.be.revertedWith("invalid reserve recipient");
+    await liquidation.syncRisk(1); await completeMarginCallCure();
+    const balanceBefore = await reserve.availableBalance();
+    const loanBefore = await manager.getLoan(1);
+    await reserve.grantRole(ROLE("RESERVE_OPERATOR_ROLE"), admin.address);
+    await expect(reserve.cover(1, await pool.getAddress(), ethers.parseEther("1"))).to.be.revertedWith("liquidation engine required");
     await expect(reserve.connect(borrower).cover(1, await pool.getAddress(), 1)).to.be.revertedWithCustomError(reserve, "AccessControlUnauthorizedAccount");
+    const loanAfter = await manager.getLoan(1);
+    expect(await reserve.availableBalance()).eq(balanceBefore);
+    expect(await reserve.reserveUsedByLoan(1)).eq(0);
+    expect(await reserve.reserveSettlementProcessed(1)).false;
+    expect(loanAfter.principalOutstanding).eq(loanBefore.principalOutstanding);
+    expect(loanAfter.badDebt).eq(0);
   });
-  it("liquidates a direct loan without settling an unrelated funded P2P request", async () => {
+  it("uses ceiling-rounded protocol sale collateral, 1% nonzero minOut, lender-first recovery, capped reserve, and residual debt", async () => {
+    await open();
+    await ethFeed.setAnswer(800n * 10n ** 8n); // $700 debt / $800 collateral = 87.5%.
+    await liquidation.syncRisk(1);
+    await completeMarginCallCure();
+    expect(await liquidation.isLiquidatable(1)).true;
+
+    const WETH = await hh.ethers.getContractFactory("MockWETHV2"); const weth = await WETH.deploy();
+    const Router = await hh.ethers.getContractFactory("MockPancakeSwapRouterV2");
+    const router = await Router.deploy(await weth.getAddress(), await token.getAddress(), 800, 1);
+    // This deterministic router is an explicitly test-only execution fixture.
+    await token.transfer(await router.getAddress(), ethers.parseEther("1000"));
+    const Validator = await hh.ethers.getContractFactory("ChainlinkLiquidationPriceValidatorV2");
+    const validator = await Validator.deploy(await oracle.getAddress(), "0x0000000000000000000000000000000000000001", await token.getAddress(), 300);
+    const Adapter = await hh.ethers.getContractFactory("LiquidationSaleAdapterV2");
+    const adapter = await Adapter.deploy(admin.address, await token.getAddress());
+    await adapter.configure(await liquidation.getAddress(), await vault.getAddress(), await weth.getAddress(), await router.getAddress(), await validator.getAddress(), 300, [await weth.getAddress(), await token.getAddress()]);
+    await liquidation.setSaleAdapter(await adapter.getAddress());
+    await reserve.setLiquidationEngine(await liquidation.getAddress());
+    await pool.grantRole(ROLE("LIQUIDATION_RECOVERY_ROLE"), await liquidation.getAddress());
+    const reserveFunding = ethers.parseEther("100");
+    await token.approve(await reserve.getAddress(), reserveFunding); await reserve.fund(reserveFunding);
+
+    const debtBefore = await liquidation.totalDebt(1); const collateralBefore = await vault.loanCollateral(1);
+    const quote = await adapter.quote(1, debtBefore, collateralBefore, 7000);
+    expect(quote.collateralAmount).gt(0); expect(quote.collateralAmount).lt(collateralBefore); expect(quote.minOut).gt(0);
+    // At $800/ETH the floor output is 800 ABCD/ETH; the validator's minOut is 99%.
+    expect(quote.minOut).eq((quote.collateralAmount * 800n * 9900n) / 10000n);
+    const poolBalanceBefore = await token.balanceOf(await pool.getAddress()); const liquidityBefore = await pool.liquidity();
+    await expect(liquidation.connect(liquidator).liquidate(1)).to.emit(liquidation, "PartialLiquidationExecuted");
+    const recovery = await adapter.recoveryOf(1); const loanAfter = await manager.getLoan(1);
+    expect(recovery.finalized).true; expect(recovery.consumed).true;
+    // Interest accrues in the liquidation block, so its authoritative quote
+    // can be a few wei higher than the prior view quote. It must never round
+    // downward below that ceiling-derived requirement.
+    expect(recovery.collateralAmount).gte(quote.collateralAmount);
+    expect(await vault.loanCollateral(1)).eq(collateralBefore - recovery.collateralAmount);
+    expect(loanAfter.state).eq(7); // RESIDUAL_DEBT: no automatic write-off.
+    const debtAfter = await liquidation.totalDebt(1); expect(debtAfter).lt(debtBefore); expect(debtAfter).gt(0);
+    expect(await reserve.reserveUsedByLoan(1)).eq(reserveFunding);
+    const lenderRecovery = recovery.realizedRecoveryABCD + reserveFunding;
+    expect(await token.balanceOf(await pool.getAddress())).eq(poolBalanceBefore + lenderRecovery);
+    expect(await pool.liquidity()).eq(liquidityBefore + lenderRecovery);
+    expect(await nft.loanCertificate(1)).eq(0);
+    await expect(pool.connect(borrower).withdrawResidualLiquidationCollateral(1)).to.be.revertedWith("not liquidation settled");
+  });
+  it("keeps a direct partial-liquidation request fail-closed without touching an unrelated funded P2P request", async () => {
     await open(); const { market } = await deployP2P();
     await market.connect(borrower).createRequest(ethers.parseEther("70"), 30 * DAY, { value: ethers.parseEther("0.1") });
     await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("70")); await market.connect(lender).fundRequest(1);
-    const poolBefore = await token.balanceOf(await pool.getAddress()); await ethFeed.setAnswer(1250n * 10n ** 8n);
-    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("2000")); await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("2000"));
-    await liquidation.connect(liquidator).liquidate(1);
-    expect((await manager.getLoan(1)).state).eq(4); expect((await market.requests(1)).state).eq(1);
-    expect(await vault.loanCollateral(2)).eq(ethers.parseEther("0.1")); expect(await token.balanceOf(await pool.getAddress())).gt(poolBefore);
+    await ethFeed.setAnswer(800n * 10n ** 8n); await liquidation.syncRisk(1); await completeMarginCallCure();
+    const directBefore = await vault.loanCollateral(1);
+    await expect(liquidation.connect(liquidator).liquidate(1)).to.be.revertedWith("partial liquidation execution not configured");
+    expect((await manager.getLoan(1)).state).eq(6); expect((await market.requests(1)).state).eq(1);
+    expect(await vault.loanCollateral(1)).eq(directBefore); expect(await vault.loanCollateral(2)).eq(ethers.parseEther("0.1"));
   });
-  it("rejects a healthy loan and blocks paused originations", async () => { await open(); await expect(liquidation.liquidate(1)).to.be.revertedWith("not liquidatable"); await pool.pause(); await expect(open()).to.be.revertedWithCustomError(pool, "EnforcedPause"); });
+  it("rejects a healthy loan and blocks paused originations", async () => { await open(); await expect(liquidation.liquidate(1)).to.be.revertedWith("partial liquidation not required"); await pool.pause(); await expect(open()).to.be.revertedWithCustomError(pool, "EnforcedPause"); });
   it("supports only the approved 30/90/180 day terms and reaches default after the seven-day grace period", async () => {
     await open("100", 30 * DAY); await open("100", 90 * DAY); await open("100", 180 * DAY); await expect(open("100", 60 * DAY)).to.be.revertedWith("invalid terms");
     await hh.provider.send("evm_increaseTime", [37 * DAY + 1]); await hh.provider.send("evm_mine", []); await pool.syncLoan(1); expect((await manager.getLoan(1)).state).eq(3);
@@ -341,8 +507,9 @@ describe("Lending V2", function () {
     const referralTrack = await referral.getLoanReferral(1, borrower.address); expect(referralTrack.referrer).eq(liquidator.address); expect(referralTrack.requestId).eq(1);
     const request = await market.requests(1); expect(request.loanId).eq(1); expect(await vault.requestCollateral(1)).eq(0); expect(await vault.loanCollateral(1)).eq(ethers.parseEther("0.2"));
     expect(await nft.loanCertificate(1)).eq(0);
-    const lenderBefore = await hh.ethers.provider.getBalance(lender.address); await hh.provider.send("evm_increaseTime", [37 * DAY + 1]); await hh.provider.send("evm_mine", []); await ethFeed.setAnswer(2000n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n); await market.connect(admin).settleDefault(1);
-    expect((await manager.getLoan(1)).state).eq(4); expect((await market.requests(1)).state).eq(3); expect(await vault.loanCollateral(1)).eq(0); expect(await hh.ethers.provider.getBalance(lender.address)).gt(lenderBefore);
+    await hh.provider.send("evm_increaseTime", [37 * DAY + 1]); await hh.provider.send("evm_mine", []); await ethFeed.setAnswer(2000n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
+    await expect(market.connect(admin).settleDefault(1)).to.be.revertedWith("p2p default settlement policy required");
+    expect((await market.requests(1)).state).eq(1); expect(await vault.loanCollateral(1)).eq(ethers.parseEther("0.2"));
     expect(await nft.loanCertificate(1)).eq(0);
   });
   it("settles a deterministic V2 P2P EMI at its exact due timestamp and releases only that loan's collateral", async () => {
@@ -355,6 +522,10 @@ describe("Lending V2", function () {
     expect((await manager.getLoan(1)).state).eq(5); expect((await market.requests(1)).state).eq(3); expect(await vault.loanCollateral(1)).eq(0);
     expect(await nft.ownerOf(await nft.loanCertificates(1, 0))).eq(lender.address); expect(await nft.ownerOf(await nft.loanCertificates(1, 1))).eq(borrower.address); expect(await nft.ownerOf(await nft.loanCertificates(1, 2))).eq(admin.address);
     expect((await nft.getCertificate(await nft.loanCertificates(1, 0))).requestId).eq(1); expect((await nft.getCertificate(await nft.loanCertificates(1, 0))).isP2P).true;
+    expect((await nft.getCertificate(await nft.loanCertificates(1, 0))).certificateValue).eq(0);
+    const borrowerCertificate = await nft.loanCertificates(1, 1);
+    await nft.connect(borrower).transferFrom(borrower.address, lender.address, borrowerCertificate);
+    expect(await nft.ownerOf(borrowerCertificate)).eq(lender.address);
   });
   it("requires a P2P installment to be due and settles the live remainder after a permitted prepayment", async () => {
     const { market, emi } = await deployP2P();
@@ -374,34 +545,118 @@ describe("Lending V2", function () {
     expect((await emi.getSchedule(1))[0].paid).true;
     expect((await manager.getLoan(1)).state).eq(5); expect((await market.requests(1)).state).eq(3); expect(await vault.loanCollateral(1)).eq(0);
   });
-  it("records P2P borrower shortfall explicitly when lender-first collateral is insufficient", async () => {
+  it("fails closed instead of applying an unapproved P2P overdue collateral deduction", async () => {
+    const { market, emi } = await deployP2P();
+    await market.connect(borrower).createRequest(ethers.parseEther("100"), 90 * DAY, { value: ethers.parseEther("0.2") });
+    await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("100")); await market.connect(lender).fundRequest(1);
+    const loan = await manager.getLoan(1); const first = (await emi.getSchedule(1))[0];
+    await token.connect(admin).transfer(liquidator.address, first.amount + ethers.parseEther("1"));
+    await token.connect(liquidator).approve(await liquidation.getAddress(), first.amount + ethers.parseEther("1"));
+    await expect(liquidation.connect(liquidator).executeP2POverdueInstallment(1)).to.be.revertedWith("p2p overdue settlement policy required");
+    await hh.provider.send("evm_setNextBlockTimestamp", [Number(loan.start) + DAY * 30]);
+    await ethFeed.setAnswer(2000n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
+    const lenderBefore = await token.balanceOf(lender.address); const collateralBefore = await vault.loanCollateral(1);
+    await expect(liquidation.connect(liquidator).executeP2POverdueInstallment(1)).to.be.revertedWith("p2p overdue settlement policy required");
+    expect((await emi.getSchedule(1))[0].paid).false; expect(await emi.nextInstallment(1)).eq(0);
+    expect(await token.balanceOf(lender.address)).eq(lenderBefore);
+    expect(await vault.loanCollateral(1)).eq(collateralBefore);
+    expect((await manager.getLoan(1)).state).eq(0);
+    await expect(liquidation.connect(liquidator).executeP2POverdueInstallment(1)).to.be.revertedWith("p2p overdue settlement policy required");
+  });
+  it("keeps P2P collateral untouched when overdue-settlement policy is unavailable", async () => {
+    const { market, emi } = await deployP2P();
+    await market.connect(borrower).createRequest(ethers.parseEther("70"), 90 * DAY, { value: ethers.parseEther("0.1") });
+    await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("70")); await market.connect(lender).fundRequest(1);
+    const loan = await manager.getLoan(1); const installment = (await emi.getSchedule(1))[0];
+    await token.connect(admin).transfer(liquidator.address, installment.amount); await token.connect(liquidator).approve(await liquidation.getAddress(), installment.amount);
+    await hh.provider.send("evm_setNextBlockTimestamp", [Number(loan.start) + DAY * 30]);
+    await ethFeed.setAnswer(100n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
+    const lenderBefore = await token.balanceOf(lender.address); const collateralBefore = await vault.loanCollateral(1);
+    await expect(liquidation.connect(liquidator).executeP2POverdueInstallment(1)).to.be.revertedWith("p2p overdue settlement policy required");
+    expect((await emi.getSchedule(1))[0].paid).false; expect(await token.balanceOf(lender.address)).eq(lenderBefore); expect(await vault.loanCollateral(1)).eq(collateralBefore);
+  });
+  it("does not let a keeper settle a terminal P2P installment under undefined policy", async () => {
+    const { market, emi } = await deployP2P();
+    await market.connect(borrower).createRequest(ethers.parseEther("70"), 30 * DAY, { value: ethers.parseEther("0.1") });
+    await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("70")); await market.connect(lender).fundRequest(1);
+    const loan = await manager.getLoan(1); const installment = (await emi.getSchedule(1))[0];
+    await token.connect(admin).transfer(liquidator.address, installment.amount + ethers.parseEther("1")); await token.connect(liquidator).approve(await liquidation.getAddress(), installment.amount + ethers.parseEther("1"));
+    // Keep the fixture's canonical feeds fresh through the due-time block
+    // without mining a price-update block after that timestamp.
+    await oracle.configureFeed("0x0000000000000000000000000000000000000001", await ethFeed.getAddress(), 100 * DAY, true);
+    await oracle.configureFeed(await token.getAddress(), await abcdFeed.getAddress(), 100 * DAY, true);
+    await hh.provider.send("evm_setNextBlockTimestamp", [Number(loan.maturity)]);
+    await expect(liquidation.connect(liquidator).executeP2POverdueInstallment(1)).to.be.revertedWith("p2p overdue settlement policy required");
+    await expect(liquidation.connect(liquidator).executeP2POverdueInstallmentWithCompletionMetadata(1, completionMetadata("keeper-overdue"))).to.be.revertedWith("p2p overdue settlement policy required");
+    expect((await manager.getLoan(1)).state).eq(0); expect((await market.requests(1)).state).eq(1); expect(await vault.loanCollateral(1)).eq(ethers.parseEther("0.1"));
+    expect(await nft.loanCertificates(1, 0)).eq(0); expect(await nft.loanCertificates(1, 1)).eq(0); expect(await nft.loanCertificates(1, 2)).eq(0);
+  });
+  it("does not create a P2P bad-debt outcome before a recovery policy is approved", async () => {
     const Market = await hh.ethers.getContractFactory("LoanMarketplaceV2"); const market = await Market.deploy(admin.address, await token.getAddress(), await manager.getAddress(), await vault.getAddress(), await oracle.getAddress(), await nft.getAddress(), await referral.getAddress());
     const EMI = await hh.ethers.getContractFactory("EMIManagerV2"); const emi = await EMI.deploy(admin.address, await token.getAddress(), await manager.getAddress(), await vault.getAddress(), await nft.getAddress(), await referral.getAddress()); await market.setEMIManager(await emi.getAddress()); await emi.setMarketplace(await market.getAddress());
     await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), await market.getAddress()); await manager.grantRole(ROLE("LOAN_OPERATOR_ROLE"), await emi.getAddress()); await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), await market.getAddress()); await vault.grantRole(ROLE("VAULT_OPERATOR_ROLE"), await emi.getAddress()); await nft.grantRole(ROLE("MINTER_ROLE"), await market.getAddress()); await nft.grantRole(ROLE("MINTER_ROLE"), await emi.getAddress()); await nft.grantRole(ROLE("P2P_COMPLETION_OPERATOR_ROLE"), await emi.getAddress()); await referral.grantRole(ROLE("LENDING_REFERRAL_OPERATOR_ROLE"), await market.getAddress()); await referral.grantRole(ROLE("LENDING_REFERRAL_OPERATOR_ROLE"), await emi.getAddress()); await emi.grantRole(ROLE("P2P_OPERATOR_ROLE"), await market.getAddress());
     await market.connect(borrower).createRequest(ethers.parseEther("100"), 30 * DAY, { value: ethers.parseEther("0.2") }); await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("100")); await market.connect(lender).fundRequest(1);
-    await hh.provider.send("evm_increaseTime", [37 * DAY + 1]); await hh.provider.send("evm_mine", []); await ethFeed.setAnswer(400n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n); await market.connect(admin).settleDefault(1);
-    const loan = await manager.getLoan(1); expect(loan.state).eq(4); expect(loan.badDebt).gt(0); expect(await vault.loanCollateral(1)).eq(0);
+    await hh.provider.send("evm_increaseTime", [37 * DAY + 1]); await hh.provider.send("evm_mine", []); await ethFeed.setAnswer(400n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
+    await expect(market.connect(admin).settleDefault(1)).to.be.revertedWith("p2p default settlement policy required");
+    const loan = await manager.getLoan(1); expect(loan.badDebt).eq(0); expect(await vault.loanCollateral(1)).eq(ethers.parseEther("0.2"));
   });
-  it("routes generic liquidation of a P2P loan to its lender and atomically settles the request", async () => {
+  it("fails closed at P2P partial liquidation until deterministic sale rules are approved", async () => {
     const { market } = await deployP2P();
     await market.connect(borrower).createRequest(ethers.parseEther("70"), 30 * DAY, { value: ethers.parseEther("0.1") });
     await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("70"));
     await market.connect(lender).fundRequest(1);
-    await ethFeed.setAnswer(800n * 10n ** 8n);
+    await ethFeed.setAnswer(800n * 10n ** 8n); await liquidation.syncRisk(1); await completeMarginCallCure();
     await token.connect(admin).transfer(liquidator.address, ethers.parseEther("100"));
     await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("100"));
     const lenderBefore = await token.balanceOf(lender.address); const poolBefore = await token.balanceOf(await pool.getAddress());
-    await expect(liquidation.connect(liquidator).liquidate(1)).to.emit(market, "P2PLiquidationSettled");
-    expect((await manager.getLoan(1)).state).eq(4); expect((await market.requests(1)).state).eq(3);
-    expect(await vault.loanCollateral(1)).eq(0); expect(await token.balanceOf(lender.address)).gt(lenderBefore);
+    await expect(liquidation.previewP2PPartialLiquidation(1)).to.be.revertedWith("p2p partial sale policy required");
+    await expect(liquidation.connect(liquidator).liquidate(1)).to.be.revertedWith("p2p partial sale policy required");
+    const loan = await manager.getLoan(1);
+    expect(loan.state).eq(6); expect((await market.requests(1)).state).eq(1);
+    // The liquidation is mined in a later block than this preview, so the
+    // tiny per-second interest delta is authoritative. Assert the state
+    // invariants rather than treating a pre-transaction quote as storage.
+    expect(await vault.loanCollateral(1)).eq(ethers.parseEther("0.1")); expect(await token.balanceOf(lender.address)).eq(lenderBefore);
     expect(await token.balanceOf(await pool.getAddress())).eq(poolBefore);
     expect(await reserve.reserveUsedByLoan(1)).eq(0);
     expect(await reserve.reserveSettlementProcessed(1)).false;
     expect(await nft.loanCertificate(1)).eq(0);
   });
+  it("keeps a P2P margin call active rather than applying unapproved partial liquidation", async () => {
+    const { market } = await deployP2P();
+    await market.connect(borrower).createRequest(ethers.parseEther("70"), 90 * DAY, { value: ethers.parseEther("0.1") });
+    await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("70"));
+    await market.connect(lender).fundRequest(1);
+    await ethFeed.setAnswer(1_000n * 10n ** 8n);
+    await liquidation.syncRisk(1);
+    const marginCall = await manager.getLoan(1);
+    expect(marginCall.state).eq(6);
+    await hh.provider.send("evm_setNextBlockTimestamp", [Number(marginCall.marginCallCureEnd) + 1]);
+    await hh.provider.send("evm_mine", []);
+    await ethFeed.setAnswer(800n * 10n ** 8n); await abcdFeed.setAnswer(1n * 10n ** 8n);
+    expect((await manager.getLoan(1)).state).eq(6);
+    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("100"));
+    await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("100"));
+    const collateralBefore = await vault.loanCollateral(1);
+    await expect(liquidation.connect(liquidator).liquidate(1)).to.be.revertedWith("p2p partial sale policy required");
+    const restored = await manager.getLoan(1);
+    expect(restored.state).eq(6);
+    expect(await vault.loanCollateral(1)).eq(collateralBefore);
+    expect((await market.requests(1)).state).eq(1);
+  });
+  it("does not substitute a terminal P2P close when partial-sale policy is unavailable", async () => {
+    const { market } = await deployP2P();
+    await market.connect(borrower).createRequest(ethers.parseEther("70"), 30 * DAY, { value: ethers.parseEther("0.1") });
+    await token.connect(lender).approve(await market.getAddress(), ethers.parseEther("70")); await market.connect(lender).fundRequest(1);
+    await ethFeed.setAnswer(500n * 10n ** 8n); await liquidation.syncRisk(1); await completeMarginCallCure(1, 500n * 10n ** 8n);
+    await token.connect(admin).transfer(liquidator.address, ethers.parseEther("100")); await token.connect(liquidator).approve(await liquidation.getAddress(), ethers.parseEther("100"));
+    await expect(liquidation.previewP2PPartialLiquidation(1)).to.be.revertedWith("p2p partial sale policy required");
+    await expect(liquidation.connect(liquidator).liquidate(1)).to.be.revertedWith("p2p partial sale policy required");
+    expect((await manager.getLoan(1)).state).eq(6); expect((await market.requests(1)).state).eq(1); expect(await vault.loanCollateral(1)).eq(ethers.parseEther("0.1"));
+  });
   it("resists ETH callback reentrancy during settled-collateral withdrawal", async () => {
     const Attacker = await hh.ethers.getContractFactory("ReentrantBorrowerV2"); const attacker = await Attacker.deploy(await pool.getAddress(), await token.getAddress());
-    await token.connect(admin).transfer(await attacker.getAddress(), ethers.parseEther("1001")); await attacker.connect(admin).open(ethers.parseEther("1000"), 30 * DAY, { value: ethers.parseEther("1") });
+    await token.connect(admin).transfer(await attacker.getAddress(), ethers.parseEther("701")); await attacker.connect(admin).open(ethers.parseEther("700"), 30 * DAY, { value: ethers.parseEther("1") });
     const due = await pool.outstanding(1); await attacker.connect(admin).repayAll(1, due + ethers.parseEther("1"), completionMetadata("reentry")); await attacker.connect(admin).withdrawWithReentry(1);
     expect(await attacker.reentryFailed()).true; expect(await vault.loanCollateral(1)).eq(0); expect((await manager.getLoan(1)).state).eq(5);
   });

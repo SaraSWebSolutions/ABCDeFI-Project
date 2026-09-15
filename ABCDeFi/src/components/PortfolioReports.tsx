@@ -44,7 +44,6 @@ export const PortfolioReports: React.FC = () => {
     { name: 'ABCD Tokens', value: Math.round(abcdBalance * 0.05), color: '#10b981' },
     { name: 'ETH Collateral', value: Math.round(ethBalance * 3200), color: '#06b6d4' },
     { name: 'BNB Balance', value: Math.round(bnbBalance * 600), color: '#f59e0b' },
-    { name: 'Staking Yield Vaults', value: 3000, color: '#8b5cf6' },
   ];
 
   // Bar chart data

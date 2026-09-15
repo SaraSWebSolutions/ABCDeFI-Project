@@ -1,7 +1,8 @@
 const { Interface } = require('ethers');
 const SCOPE = 'canonical-lending-v2';
 const requiredNames = ['OracleAdapterV2', 'CollateralVaultV2', 'LoanManagerV2', 'LendingPoolV2', 'LiquidationV2', 'InsuranceReserveV2', 'LoanMarketplaceV2', 'EMIManagerV2', 'LoanNFTV2'];
-const namesFor = (manifest) => manifest.contracts.LendingReferralManagerV2 ? [...requiredNames, 'LendingReferralManagerV2'] : requiredNames;
+const optionalNames = ['LendingReferralManagerV2', 'LiquidationSaleAdapterV2'];
+const namesFor = (manifest) => [...requiredNames, ...optionalNames.filter((name) => manifest.contracts[name])];
 const lower = (value) => typeof value === 'string' ? value.toLowerCase() : value;
 const decimal = (value) => typeof value === 'bigint' ? value.toString() : Array.isArray(value) ? value.map(decimal) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, decimal(item)])) : value;
 

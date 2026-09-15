@@ -13,8 +13,6 @@ function eventType(eventName) {
     case 'Transfer': return 'Token Transfer';
     case 'TokensPurchased':
     case 'Purchased': return 'Buy Token';
-    case 'Staked': return 'Stake';
-    case 'Unstaked': return 'Unstake';
     case 'RewardsClaimed':
     case 'RewardClaimed': return 'Claim Reward';
     case 'CollateralETHDeposited':

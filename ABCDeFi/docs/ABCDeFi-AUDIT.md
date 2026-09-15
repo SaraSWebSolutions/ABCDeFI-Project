@@ -28,8 +28,7 @@ The highest-risk findings are exposed KYC provider credentials and demo authenti
 | Admin dashboard | `src/components/Admin*.tsx`, backend admin modules | UI/demo state is present; authorization and live data source are not consistently wired. |
 | NFT | `contracts/nft/*`, `contracts/LegionNFT.sol`, marketplace/services | Several incompatible NFT families. LoanNFT deploys but lending never mints it. `nftServices.ts` is mock data. |
 | ICO | `contracts/ico/*`, `server/ico.ts`, backend ICO module, frontend ICO services | Multiple flows. Canonical deploy script deploys `Presale` but omits `ICOManager` and `AllocationManager`. |
-| Staking | `contracts/staking/{Staking,StakingPool}.sol` | Script deploys only `StakingPool`; `Staking` is unwired. |
-| Rewards | `RewardPool.sol`, `Bonus*`, staking/reward backend modules | `RewardPool` and `CommissionDistributor` are omitted from canonical deployment; several UI/API values are mocked. |
+| Rewards | `RewardPool.sol`, `Bonus*`, reward backend modules | `RewardPool` and `CommissionDistributor` are omitted from canonical deployment; several UI/API values are mocked. Staking is permanently removed from the current product scope. |
 | Referral | `contracts/ico/ReferralManager.sol`, frontend/backend/server services | Contract exists and is deployed, but at least three incompatible referral implementations remain; `referralService.ts` creates fake transaction hashes. |
 | Credit / reputation | `FinancialInclusionScore.sol`, `ReputationNFT.sol`, frontend lending/score services | Score calculation exists in browser/demo data; `FinancialInclusionScore` is not canonically deployed and KYC/score does not gate loans. |
 | AI modules | `backend/**/aiService.js`, `backend/**/routes/ai.js`, `src/Services/aiAssistant.ts` | Present in duplicate backend trees; production provider/security/retention posture is not established. |
@@ -66,7 +65,7 @@ The highest-risk findings are exposed KYC provider credentials and demo authenti
 ### Medium
 
 1. `LoanMarketplace.openRequests` retains funded and cancelled IDs, causing unbounded growth and stale frontend iteration.
-2. Canonical deployment omits production-contract candidates: `RewardPool`, `Staking`, `ReserveManager`, `CommissionDistributor`, governance, oracle/reputation scorer, most NFT families/vaults, `ICOManager`, and `AllocationManager`.
+2. Canonical deployment omits production-contract candidates: `RewardPool`, `ReserveManager`, `CommissionDistributor`, governance, oracle/reputation scorer, most NFT families/vaults, `ICOManager`, and `AllocationManager`. Staking is permanently removed from the current product scope.
 3. Multiple hard-coded/demo/fake data paths are active in frontend services (`mockApiStore`, `nftServices`, `referralService`, KYC and liquidation history) and in the scaffold server/database.
 4. Browser/API logging exposes request bodies and operational data in `axiosConfig.ts` and several services.
 5. Checked-in `artifacts`, `dist`, `node_modules`, logs/uploads, `*.bak` configs and duplicate runtime folders increase drift and supply-chain/release risk.

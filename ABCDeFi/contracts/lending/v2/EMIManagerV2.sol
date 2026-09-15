@@ -12,7 +12,9 @@ import "./IP2PSettlementCallbackV2.sol";
 import "./LendingReferralManagerV2.sol";
 import "../../nft/LoanNFTV2.sol";
 
-/// @notice Bounded, deterministic (maximum six installments) V2 P2P EMI schedule manager.
+/// @notice Bounded, deterministic (maximum six installments) V2 schedule authority.
+/// P2P payments retain their marketplace settlement path; Direct payments are
+/// settled exclusively by LendingPoolV2 through the Direct-only functions below.
 contract EMIManagerV2 is AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     bytes32 public constant P2P_OPERATOR_ROLE = keccak256("P2P_OPERATOR_ROLE");
@@ -24,12 +26,16 @@ contract EMIManagerV2 is AccessControl, Pausable, ReentrancyGuard {
     LoanNFTV2 public immutable loanNFT;
     LendingReferralManagerV2 public immutable lendingReferralManager;
     address public marketplace;
+    address public lendingPool;
     mapping(uint256 => Installment[]) private schedules;
     mapping(uint256 => uint256) public nextInstallment;
     mapping(uint256 => uint256) public totalScheduled;
 
     event ScheduleCreated(uint256 indexed loanId, uint256 installments, uint256 total);
     event MarketplaceConfigured(address indexed marketplace);
+    event LendingPoolConfigured(address indexed lendingPool);
+    event DirectScheduleCreated(uint256 indexed loanId, uint256 installments, uint256 total);
+    event DirectInstallmentRecorded(uint256 indexed loanId, uint256 indexed installment, uint256 amount);
     event InstallmentPaid(uint256 indexed loanId, uint256 indexed installment, address indexed borrower, uint256 amount);
     event P2PCollateralReleased(uint256 indexed loanId, address indexed borrower, uint256 collateral);
 
@@ -47,11 +53,34 @@ contract EMIManagerV2 is AccessControl, Pausable, ReentrancyGuard {
         emit MarketplaceConfigured(marketplace_);
     }
 
+    /// @notice Configured once so only the canonical Direct pool can create
+    /// and advance Direct schedules. It deliberately has no P2P callbacks.
+    function setLendingPool(address lendingPool_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(lendingPool == address(0) && lendingPool_ != address(0), "already configured");
+        lendingPool = lendingPool_;
+        emit LendingPoolConfigured(lendingPool_);
+    }
+
     function createSchedule(uint256 loanId, uint48 term) external onlyRole(P2P_OPERATOR_ROLE) whenNotPaused {
         require(marketplace != address(0), "marketplace not configured");
+        LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
+        require(loan.isP2P, "not p2p loan");
+        _createSchedule(loanId, term, loan);
+    }
+
+    /// @notice Creates the approved Direct 30-day-period schedule at origination.
+    /// The calculation and final-remainder handling are shared with P2P.
+    function createDirectSchedule(uint256 loanId, uint48 term) external whenNotPaused {
+        require(msg.sender == lendingPool && lendingPool != address(0), "not lending pool");
+        LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
+        require(!loan.isP2P, "not direct loan");
+        _createSchedule(loanId, term, loan);
+        emit DirectScheduleCreated(loanId, term / 30 days, totalScheduled[loanId]);
+    }
+
+    function _createSchedule(uint256 loanId, uint48 term, LoanManagerV2.Loan memory loan) private {
         require(schedules[loanId].length == 0, "schedule exists");
         require(term == 30 days || term == 90 days || term == 180 days, "invalid term");
-        LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
         uint256 count = term / 30 days;
         uint256 total = uint256(loan.principal) + uint256(loan.principal) * loan.aprBps * term / (10_000 * 365 days);
         uint256 regular = total / count;
@@ -62,6 +91,62 @@ contract EMIManagerV2 is AccessControl, Pausable, ReentrancyGuard {
 
     function getSchedule(uint256 loanId) external view returns (Installment[] memory) { return schedules[loanId]; }
 
+    /// @notice Canonical next overdue amount. The amount is capped at the
+    /// current authoritative outstanding balance so a permitted prepayment can
+    /// never make the immutable schedule over-collect.
+    function previewOverdueInstallment(uint256 loanId)
+        external
+        view
+        returns (uint256 installmentIndex, uint256 amount, uint48 dueAt, bool completionRequired)
+    {
+        installmentIndex = nextInstallment[loanId];
+        require(installmentIndex < schedules[loanId].length, "schedule complete");
+        Installment memory installment = schedules[loanId][installmentIndex];
+        require(!installment.paid, "installment already settled");
+        require(block.timestamp >= installment.dueAt, "installment not due");
+        uint256 outstanding = _outstanding(loanId);
+        require(outstanding != 0, "no outstanding debt");
+        amount = installment.amount > outstanding ? outstanding : installment.amount;
+        dueAt = installment.dueAt;
+        completionRequired = amount == outstanding;
+    }
+
+    /// @notice Canonical next Direct installment. LendingPoolV2 uses this
+    /// preview immediately before it transfers ABCD and advances the schedule.
+    function previewDirectInstallment(uint256 loanId)
+        external
+        view
+        returns (uint256 installmentIndex, uint256 amount, uint48 dueAt, bool completionRequired)
+    {
+        LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
+        require(!loan.isP2P, "not direct loan");
+        installmentIndex = nextInstallment[loanId];
+        require(installmentIndex < schedules[loanId].length, "schedule complete");
+        Installment memory installment = schedules[loanId][installmentIndex];
+        require(!installment.paid, "installment already settled");
+        require(block.timestamp >= installment.dueAt, "installment not due");
+        uint256 outstanding = loanManager.previewOutstanding(loanId);
+        require(outstanding != 0, "no outstanding debt");
+        amount = installment.amount > outstanding ? outstanding : installment.amount;
+        dueAt = installment.dueAt;
+        completionRequired = amount == outstanding;
+    }
+
+    /// @notice Advances only a Direct schedule after LendingPoolV2 has settled
+    /// the exact previewed amount through its canonical Direct repayment path.
+    function recordDirectInstallment(uint256 loanId, uint256 amount) external whenNotPaused {
+        require(msg.sender == lendingPool && lendingPool != address(0), "not lending pool");
+        LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
+        require(!loan.isP2P, "not direct loan");
+        uint256 index = nextInstallment[loanId];
+        require(index < schedules[loanId].length, "schedule complete");
+        Installment storage installment = schedules[loanId][index];
+        require(!installment.paid && amount != 0 && amount <= installment.amount, "invalid installment");
+        installment.paid = true;
+        nextInstallment[loanId] = index + 1;
+        emit DirectInstallmentRecorded(loanId, index + 1, amount);
+    }
+
     function payInstallment(uint256 loanId) external nonReentrant {
         _payInstallment(loanId, false, _emptyCompletionMetadata());
     }
@@ -71,6 +156,7 @@ contract EMIManagerV2 is AccessControl, Pausable, ReentrancyGuard {
     }
 
     function _payInstallment(uint256 loanId, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata) private {
+        require(loanManager.getLoan(loanId).isP2P, "direct installment required");
         uint256 index = nextInstallment[loanId]; require(index < schedules[loanId].length, "schedule complete");
         Installment storage installment = schedules[loanId][index];
         require(block.timestamp >= installment.dueAt, "installment not due");
@@ -95,10 +181,15 @@ contract EMIManagerV2 is AccessControl, Pausable, ReentrancyGuard {
 
     function _pay(uint256 loanId, uint256 amount, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata) internal {
         LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId); require(loan.borrower == msg.sender, "not borrower");
+        require(loan.isP2P, "direct repayment required");
         loanManager.sync(loanId);
         uint256 due = _outstanding(loanId); require(amount != 0 && amount <= due, "invalid repayment");
         abcd.safeTransferFrom(msg.sender, loan.lender, amount);
         loanManager.repay(loanId, msg.sender, amount);
+        _finalizeIfRepaid(loanId, hasCompletionMetadata, metadata);
+    }
+
+    function _finalizeIfRepaid(uint256 loanId, bool hasCompletionMetadata, LoanNFTV2.CompletionMetadata memory metadata) private {
         LoanManagerV2.Loan memory settled = loanManager.getLoan(loanId);
         if (settled.state == LoanManagerV2.State.REPAID) {
             require(hasCompletionMetadata, "completion metadata required");
@@ -107,8 +198,8 @@ contract EMIManagerV2 is AccessControl, Pausable, ReentrancyGuard {
             uint256 requestId = IP2PSettlementCallbackV2(marketplace).requestByLoanId(loanId);
             loanNFT.mintCompletionCertificates(loanId, requestId, true, metadata);
             IP2PSettlementCallbackV2(marketplace).markLoanRepaid(loanId);
-            uint256 collateral = collateralVault.release(loanId, payable(msg.sender));
-            emit P2PCollateralReleased(loanId, msg.sender, collateral);
+            uint256 collateral = collateralVault.release(loanId, payable(settled.borrower));
+            emit P2PCollateralReleased(loanId, settled.borrower, collateral);
         } else if (settled.state == LoanManagerV2.State.GRACE_PERIOD) loanNFT.setStatus(loanId, LoanNFTV2.Status.GRACE_PERIOD);
     }
 

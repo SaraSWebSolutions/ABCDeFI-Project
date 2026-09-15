@@ -28,14 +28,6 @@ let mockNotifications = [
     read: true,
     timestamp: new Date(Date.now() - 86400000 * 2).toISOString(),
   },
-  {
-    id: 'notif-104',
-    title: 'Staking Reward Distributed',
-    message: 'You received 125.5 ABCD in staking yields for Legion Commander NFT.',
-    type: 'reward',
-    read: true,
-    timestamp: new Date(Date.now() - 86400000 * 4).toISOString(),
-  },
 ];
 
 /**

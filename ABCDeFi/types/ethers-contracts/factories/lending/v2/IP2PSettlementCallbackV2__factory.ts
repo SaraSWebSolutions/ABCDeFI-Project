@@ -94,6 +94,34 @@
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "loanId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address payable",
+        "name": "liquidator",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "debtReduction",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "collateralToLiquidator",
+        "type": "uint256"
+      }
+    ],
+    "name": "settlePartialLiquidation",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ] as const;
 

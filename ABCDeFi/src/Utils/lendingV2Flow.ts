@@ -31,7 +31,7 @@ export function borrowBlocker(input: { deposit: V2PendingDeposit | null; deposit
   return null;
 }
 
-export type DirectStage = 'IDLE' | 'DEPOSITING' | 'DEPOSIT_CONFIRMED' | 'CAPACITY_LOADING' | 'CAPACITY_READY' | 'BORROWING' | 'LOAN_ACTIVE' | 'REPAYING' | 'LOAN_REPAID' | 'COLLATERAL_WITHDRAWABLE' | 'COLLATERAL_WITHDRAWN' | 'MARGIN_CALL' | 'CURE_BY_REPAYMENT' | 'CURE_BY_COLLATERAL' | 'DEFAULTED' | 'LIQUIDATION_ELIGIBLE' | 'LIQUIDATED';
+export type DirectStage = 'IDLE' | 'DEPOSITING' | 'DEPOSIT_CONFIRMED' | 'CAPACITY_LOADING' | 'CAPACITY_READY' | 'BORROWING' | 'LOAN_ACTIVE' | 'REPAYING' | 'LOAN_REPAID' | 'COLLATERAL_WITHDRAWABLE' | 'COLLATERAL_WITHDRAWN' | 'MARGIN_CALL' | 'CURE_BY_REPAYMENT' | 'CURE_BY_COLLATERAL' | 'DEFAULTED' | 'LIQUIDATION_ELIGIBLE' | 'LIQUIDATED' | 'RESIDUAL_DEBT';
 export function directStage({ loan, deposit, capacityLoading, operation, depositConfirmed }: { loan: V2Read | null; deposit: V2PendingDeposit | null; capacityLoading: boolean; operation: string | null; depositConfirmed: boolean }): DirectStage {
   if (operation === 'Collateral deposit') return 'DEPOSITING';
   if (operation === 'Borrow') return 'BORROWING';
@@ -40,6 +40,7 @@ export function directStage({ loan, deposit, capacityLoading, operation, deposit
   if (loan) {
     if (loan.state === 5 && !positiveAmount(loan.collateralETH)) return 'COLLATERAL_WITHDRAWN';
     if (loan.state === 4) return 'LIQUIDATED';
+    if (loan.state === 7) return 'RESIDUAL_DEBT';
     if (loan.state === 1 && !positiveAmount(loan.outstanding)) return positiveAmount(loan.collateralETH) ? 'COLLATERAL_WITHDRAWABLE' : 'LOAN_REPAID';
     if (loan.liquidatable) return 'LIQUIDATION_ELIGIBLE';
     if (loan.state === 3) return 'DEFAULTED';
@@ -53,10 +54,10 @@ export function directStage({ loan, deposit, capacityLoading, operation, deposit
 
 export function loanActions(loan: V2Read | null, address?: string | null) {
   const owned = !!loan && sameWallet(loan.borrower, address);
-  const active = !!loan && [0, 2, 6].includes(loan.state);
+  const active = !!loan && [0, 2, 6, 7].includes(loan.state);
   return {
     repay: owned && active && positiveAmount(loan!.outstanding),
     topUp: owned && active && positiveAmount(loan!.collateralETH),
-    withdraw: owned && loan?.state === 1 && !positiveAmount(loan.outstanding) && positiveAmount(loan.collateralETH),
+    withdraw: owned && [1, 4].includes(loan?.state ?? -1) && !positiveAmount(loan.outstanding) && positiveAmount(loan.collateralETH),
   };
 }

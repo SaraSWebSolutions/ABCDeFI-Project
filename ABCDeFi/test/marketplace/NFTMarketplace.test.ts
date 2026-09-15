@@ -176,35 +176,38 @@ describe("NFTMarketplace Contract Suite", function () {
     });
   });
 
-  describe("5. Franchise transfer-lock protection", function () {
-    it("rejects escrow listing during the three-year lock and allows the real marketplace flow only after expiry", async function () {
+  describe("5. Franchise Registry transfer protection", function () {
+    it("rejects marketplace escrow permanently because it is outside the Registry-controlled transfer path", async function () {
       const FranchiseFactory = await hardhatEthers.getContractFactory("FranchiseNFT");
-      const franchise = await FranchiseFactory.deploy(admin.address, admin.address);
+      const franchise = await FranchiseFactory.deploy(admin.address);
       await franchise.waitForDeployment();
-      await franchise.connect(admin).mintFranchise(
+      const RegistryFactory = await hardhatEthers.getContractFactory("FranchiseRegistry");
+      const registry = await RegistryFactory.deploy(
+        await franchise.getAddress(),
+        admin.address,
+        admin.address,
+        admin.address,
+        admin.address,
+        admin.address,
+        admin.address,
+      );
+      await registry.waitForDeployment();
+      await franchise.connect(admin).setRegistry(await registry.getAddress());
+      await registry.connect(admin).setOperatorEligibility(seller.address, true);
+      await registry.connect(admin).registerFranchise(
+        hardhatEthers.keccak256(hardhatEthers.toUtf8Bytes("district:in-tg-hyd")),
+        3,
         seller.address,
-        "Hyderabad District Licence",
-        "IN-TG-HYD",
-        "Hyderabad, Telangana, India",
-        5,
-        0,
-        10_000,
-        6,
-        "ipfs://bafybeigdyrzt4metadata/metadata.json",
-        "bafybeigdyrzt4metadata"
+        "ipfs://bafybeigdyrzt4metadata/metadata.json"
       );
 
       const marketplaceAddress = await marketplace.getAddress();
-      await franchise.connect(seller).approve(marketplaceAddress, 1);
+      await expect(franchise.connect(seller).approve(marketplaceAddress, 1))
+        .to.be.revertedWithCustomError(franchise, "DirectApprovalForbidden");
       await expect(
         marketplace.connect(seller).listNFT(await franchise.getAddress(), 1, ethers.parseEther("1"))
-      ).to.be.revertedWith("Franchise NFT locked for 3 years from purchase");
-
-      await hardhatEthers.provider.send("evm_increaseTime", [1095 * 24 * 60 * 60 + 1]);
-      await hardhatEthers.provider.send("evm_mine", []);
-      await expect(marketplace.connect(seller).listNFT(await franchise.getAddress(), 1, ethers.parseEther("1")))
-        .to.emit(marketplace, "NFTListed");
-      expect(await franchise.ownerOf(1)).to.equal(marketplaceAddress);
+      ).to.be.revertedWithCustomError(franchise, "DirectTransferForbidden");
+      expect(await franchise.ownerOf(1)).to.equal(seller.address);
     });
   });
 });

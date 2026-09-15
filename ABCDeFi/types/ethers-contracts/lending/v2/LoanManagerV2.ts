@@ -6,29 +6,31 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 export declare namespace LoanManagerV2 {
       
-    export type LoanStruct = {borrower: AddressLike, lender: AddressLike, collateralETH: BigNumberish, principal: BigNumberish, principalOutstanding: BigNumberish, accruedInterest: BigNumberish, fees: BigNumberish, aprBps: BigNumberish, start: BigNumberish, lastAccrual: BigNumberish, maturity: BigNumberish, graceEnd: BigNumberish, marginCallAt: BigNumberish, marginCallCureEnd: BigNumberish, state: BigNumberish, lateFeeAssessed: boolean, reserveContribution: BigNumberish, badDebt: BigNumberish, totalRepaid: BigNumberish}
+    export type LoanStruct = {borrower: AddressLike, lender: AddressLike, collateralETH: BigNumberish, principal: BigNumberish, principalOutstanding: BigNumberish, accruedInterest: BigNumberish, fees: BigNumberish, aprBps: BigNumberish, start: BigNumberish, lastAccrual: BigNumberish, maturity: BigNumberish, graceEnd: BigNumberish, marginCallAt: BigNumberish, marginCallCureEnd: BigNumberish, state: BigNumberish, lateFeeAssessed: boolean, reserveContribution: BigNumberish, badDebt: BigNumberish, totalRepaid: BigNumberish, isP2P: boolean}
 
-    export type LoanStructOutput = [borrower: string, lender: string, collateralETH: bigint, principal: bigint, principalOutstanding: bigint, accruedInterest: bigint, fees: bigint, aprBps: bigint, start: bigint, lastAccrual: bigint, maturity: bigint, graceEnd: bigint, marginCallAt: bigint, marginCallCureEnd: bigint, state: bigint, lateFeeAssessed: boolean, reserveContribution: bigint, badDebt: bigint, totalRepaid: bigint] & {borrower: string, lender: string, collateralETH: bigint, principal: bigint, principalOutstanding: bigint, accruedInterest: bigint, fees: bigint, aprBps: bigint, start: bigint, lastAccrual: bigint, maturity: bigint, graceEnd: bigint, marginCallAt: bigint, marginCallCureEnd: bigint, state: bigint, lateFeeAssessed: boolean, reserveContribution: bigint, badDebt: bigint, totalRepaid: bigint }
+    export type LoanStructOutput = [borrower: string, lender: string, collateralETH: bigint, principal: bigint, principalOutstanding: bigint, accruedInterest: bigint, fees: bigint, aprBps: bigint, start: bigint, lastAccrual: bigint, maturity: bigint, graceEnd: bigint, marginCallAt: bigint, marginCallCureEnd: bigint, state: bigint, lateFeeAssessed: boolean, reserveContribution: bigint, badDebt: bigint, totalRepaid: bigint, isP2P: boolean] & {borrower: string, lender: string, collateralETH: bigint, principal: bigint, principalOutstanding: bigint, accruedInterest: bigint, fees: bigint, aprBps: bigint, start: bigint, lastAccrual: bigint, maturity: bigint, graceEnd: bigint, marginCallAt: bigint, marginCallCureEnd: bigint, state: bigint, lateFeeAssessed: boolean, reserveContribution: bigint, badDebt: bigint, totalRepaid: bigint, isP2P: boolean }
   
     }
 
   export interface LoanManagerV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "INITIAL_APR_BPS" | "LATE_FEE_BPS" | "LOAN_OPERATOR_ROLE" | "MARGIN_CALL_CURE_PERIOD" | "MAX_APR_BPS" | "MIN_APR_BPS" | "RATE_MANAGER_ROLE" | "accrue" | "activateMarginCall" | "close" | "create" | "cureMarginCall" | "getLoan" | "getRoleAdmin" | "grantRole" | "hasRole" | "liquidate" | "newLoanAprBps" | "nextLoanId" | "previewAccruedInterest" | "previewLateFee" | "previewLoanStatus" | "previewOutstanding" | "previewTotalRepayment" | "renounceRole" | "repay" | "revokeRole" | "setNewLoanAprBps" | "supportsInterface" | "sync"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "INITIAL_APR_BPS" | "LOAN_OPERATOR_ROLE" | "MARGIN_CALL_CURE_PERIOD" | "MAX_APR_BPS" | "MIN_APR_BPS" | "P2P_ETH_APR_BPS" | "RATE_MANAGER_ROLE" | "accrue" | "activateMarginCall" | "applyLiquidationRecovery" | "close" | "create" | "createP2P" | "cureMarginCall" | "getLoan" | "getRoleAdmin" | "grantRole" | "hasRole" | "liquidate" | "newLoanAprBps" | "nextLoanId" | "previewAccruedInterest" | "previewLiquidationObligation" | "previewLoanStatus" | "previewOutstanding" | "previewTotalRepayment" | "renounceRole" | "repay" | "revokeRole" | "setNewLoanAprBps" | "supportsInterface" | "sync"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "BadDebtRecorded" | "FeeAssessed" | "InterestAccrued" | "LoanCreated" | "LoanStateChanged" | "MarginCallActivated" | "MarginCallCured" | "NewLoanAprUpdated" | "RepaymentApplied" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "BadDebtRecorded" | "InterestAccrued" | "LiquidationRecoveryApplied" | "LoanCreated" | "LoanStateChanged" | "MarginCallActivated" | "MarginCallCured" | "NewLoanAprUpdated" | "RepaymentApplied" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'INITIAL_APR_BPS', values?: undefined): string;
-encodeFunctionData(functionFragment: 'LATE_FEE_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LOAN_OPERATOR_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MARGIN_CALL_CURE_PERIOD', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MAX_APR_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MIN_APR_BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'P2P_ETH_APR_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'RATE_MANAGER_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'accrue', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'activateMarginCall', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'applyLiquidationRecovery', values: [BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'close', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'create', values: [AddressLike, AddressLike, BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'createP2P', values: [AddressLike, AddressLike, BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'cureMarginCall', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getLoan', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
@@ -38,7 +40,7 @@ encodeFunctionData(functionFragment: 'liquidate', values: [BigNumberish, BigNumb
 encodeFunctionData(functionFragment: 'newLoanAprBps', values?: undefined): string;
 encodeFunctionData(functionFragment: 'nextLoanId', values?: undefined): string;
 encodeFunctionData(functionFragment: 'previewAccruedInterest', values: [BigNumberish]): string;
-encodeFunctionData(functionFragment: 'previewLateFee', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'previewLiquidationObligation', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'previewLoanStatus', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'previewOutstanding', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'previewTotalRepayment', values: [BigNumberish]): string;
@@ -51,16 +53,18 @@ encodeFunctionData(functionFragment: 'sync', values: [BigNumberish]): string;
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'INITIAL_APR_BPS', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'LATE_FEE_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LOAN_OPERATOR_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MARGIN_CALL_CURE_PERIOD', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MAX_APR_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MIN_APR_BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'P2P_ETH_APR_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'RATE_MANAGER_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'accrue', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'activateMarginCall', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'applyLiquidationRecovery', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'close', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'create', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'createP2P', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'cureMarginCall', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getLoan', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
@@ -70,7 +74,7 @@ decodeFunctionResult(functionFragment: 'liquidate', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'newLoanAprBps', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'nextLoanId', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'previewAccruedInterest', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'previewLateFee', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'previewLiquidationObligation', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'previewLoanStatus', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'previewOutstanding', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'previewTotalRepayment', data: BytesLike): Result;
@@ -95,10 +99,10 @@ decodeFunctionResult(functionFragment: 'sync', data: BytesLike): Result;
 
   
 
-    export namespace FeeAssessedEvent {
-      export type InputTuple = [loanId: BigNumberish, amount: BigNumberish];
-      export type OutputTuple = [loanId: bigint, amount: bigint];
-      export interface OutputObject {loanId: bigint, amount: bigint };
+    export namespace InterestAccruedEvent {
+      export type InputTuple = [loanId: BigNumberish, amount: BigNumberish, total: BigNumberish];
+      export type OutputTuple = [loanId: bigint, amount: bigint, total: bigint];
+      export interface OutputObject {loanId: bigint, amount: bigint, total: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -107,10 +111,10 @@ decodeFunctionResult(functionFragment: 'sync', data: BytesLike): Result;
 
   
 
-    export namespace InterestAccruedEvent {
-      export type InputTuple = [loanId: BigNumberish, amount: BigNumberish, total: BigNumberish];
-      export type OutputTuple = [loanId: bigint, amount: bigint, total: bigint];
-      export interface OutputObject {loanId: bigint, amount: bigint, total: bigint };
+    export namespace LiquidationRecoveryAppliedEvent {
+      export type InputTuple = [loanId: BigNumberish, collateralRecovery: BigNumberish, reserveRecovery: BigNumberish, remainingDebt: BigNumberish];
+      export type OutputTuple = [loanId: bigint, collateralRecovery: bigint, reserveRecovery: bigint, remainingDebt: bigint];
+      export interface OutputObject {loanId: bigint, collateralRecovery: bigint, reserveRecovery: bigint, remainingDebt: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -277,14 +281,6 @@ decodeFunctionResult(functionFragment: 'sync', data: BytesLike): Result;
     
 
     
-    LATE_FEE_BPS: TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >
-    
-
-    
     LOAN_OPERATOR_ROLE: TypedContractMethod<
       [],
       [string],
@@ -317,6 +313,14 @@ decodeFunctionResult(functionFragment: 'sync', data: BytesLike): Result;
     
 
     
+    P2P_ETH_APR_BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     RATE_MANAGER_ROLE: TypedContractMethod<
       [],
       [string],
@@ -341,6 +345,14 @@ decodeFunctionResult(functionFragment: 'sync', data: BytesLike): Result;
     
 
     
+    applyLiquidationRecovery: TypedContractMethod<
+      [id: BigNumberish, collateralRecovery: BigNumberish, reserveRecovery: BigNumberish, ],
+      [bigint],
+      'nonpayable'
+    >
+    
+
+    
     close: TypedContractMethod<
       [id: BigNumberish, ],
       [void],
@@ -351,6 +363,14 @@ decodeFunctionResult(functionFragment: 'sync', data: BytesLike): Result;
     
     create: TypedContractMethod<
       [borrower: AddressLike, lender: AddressLike, collateral: BigNumberish, principal: BigNumberish, aprBps: BigNumberish, term: BigNumberish, ],
+      [bigint],
+      'nonpayable'
+    >
+    
+
+    
+    createP2P: TypedContractMethod<
+      [borrower: AddressLike, lender: AddressLike, collateral: BigNumberish, principal: BigNumberish, term: BigNumberish, ],
       [bigint],
       'nonpayable'
     >
@@ -429,7 +449,7 @@ decodeFunctionResult(functionFragment: 'sync', data: BytesLike): Result;
     
 
     
-    previewLateFee: TypedContractMethod<
+    previewLiquidationObligation: TypedContractMethod<
       [id: BigNumberish, ],
       [bigint],
       'view'
@@ -521,11 +541,6 @@ getFunction(nameOrSignature: 'INITIAL_APR_BPS'): TypedContractMethod<
       [bigint],
       'view'
     >;
-getFunction(nameOrSignature: 'LATE_FEE_BPS'): TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >;
 getFunction(nameOrSignature: 'LOAN_OPERATOR_ROLE'): TypedContractMethod<
       [],
       [string],
@@ -546,6 +561,11 @@ getFunction(nameOrSignature: 'MIN_APR_BPS'): TypedContractMethod<
       [bigint],
       'view'
     >;
+getFunction(nameOrSignature: 'P2P_ETH_APR_BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
 getFunction(nameOrSignature: 'RATE_MANAGER_ROLE'): TypedContractMethod<
       [],
       [string],
@@ -561,6 +581,11 @@ getFunction(nameOrSignature: 'activateMarginCall'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'applyLiquidationRecovery'): TypedContractMethod<
+      [id: BigNumberish, collateralRecovery: BigNumberish, reserveRecovery: BigNumberish, ],
+      [bigint],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'close'): TypedContractMethod<
       [id: BigNumberish, ],
       [void],
@@ -568,6 +593,11 @@ getFunction(nameOrSignature: 'close'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'create'): TypedContractMethod<
       [borrower: AddressLike, lender: AddressLike, collateral: BigNumberish, principal: BigNumberish, aprBps: BigNumberish, term: BigNumberish, ],
+      [bigint],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'createP2P'): TypedContractMethod<
+      [borrower: AddressLike, lender: AddressLike, collateral: BigNumberish, principal: BigNumberish, term: BigNumberish, ],
       [bigint],
       'nonpayable'
     >;
@@ -616,7 +646,7 @@ getFunction(nameOrSignature: 'previewAccruedInterest'): TypedContractMethod<
       [bigint],
       'view'
     >;
-getFunction(nameOrSignature: 'previewLateFee'): TypedContractMethod<
+getFunction(nameOrSignature: 'previewLiquidationObligation'): TypedContractMethod<
       [id: BigNumberish, ],
       [bigint],
       'view'
@@ -668,8 +698,8 @@ getFunction(nameOrSignature: 'sync'): TypedContractMethod<
     >;
 
     getEvent(key: 'BadDebtRecorded'): TypedContractEvent<BadDebtRecordedEvent.InputTuple, BadDebtRecordedEvent.OutputTuple, BadDebtRecordedEvent.OutputObject>;
-getEvent(key: 'FeeAssessed'): TypedContractEvent<FeeAssessedEvent.InputTuple, FeeAssessedEvent.OutputTuple, FeeAssessedEvent.OutputObject>;
 getEvent(key: 'InterestAccrued'): TypedContractEvent<InterestAccruedEvent.InputTuple, InterestAccruedEvent.OutputTuple, InterestAccruedEvent.OutputObject>;
+getEvent(key: 'LiquidationRecoveryApplied'): TypedContractEvent<LiquidationRecoveryAppliedEvent.InputTuple, LiquidationRecoveryAppliedEvent.OutputTuple, LiquidationRecoveryAppliedEvent.OutputObject>;
 getEvent(key: 'LoanCreated'): TypedContractEvent<LoanCreatedEvent.InputTuple, LoanCreatedEvent.OutputTuple, LoanCreatedEvent.OutputObject>;
 getEvent(key: 'LoanStateChanged'): TypedContractEvent<LoanStateChangedEvent.InputTuple, LoanStateChangedEvent.OutputTuple, LoanStateChangedEvent.OutputObject>;
 getEvent(key: 'MarginCallActivated'): TypedContractEvent<MarginCallActivatedEvent.InputTuple, MarginCallActivatedEvent.OutputTuple, MarginCallActivatedEvent.OutputObject>;
@@ -686,12 +716,12 @@ getEvent(key: 'RoleRevoked'): TypedContractEvent<RoleRevokedEvent.InputTuple, Ro
       BadDebtRecorded: TypedContractEvent<BadDebtRecordedEvent.InputTuple, BadDebtRecordedEvent.OutputTuple, BadDebtRecordedEvent.OutputObject>;
     
 
-      'FeeAssessed(uint256,uint256)': TypedContractEvent<FeeAssessedEvent.InputTuple, FeeAssessedEvent.OutputTuple, FeeAssessedEvent.OutputObject>;
-      FeeAssessed: TypedContractEvent<FeeAssessedEvent.InputTuple, FeeAssessedEvent.OutputTuple, FeeAssessedEvent.OutputObject>;
-    
-
       'InterestAccrued(uint256,uint256,uint256)': TypedContractEvent<InterestAccruedEvent.InputTuple, InterestAccruedEvent.OutputTuple, InterestAccruedEvent.OutputObject>;
       InterestAccrued: TypedContractEvent<InterestAccruedEvent.InputTuple, InterestAccruedEvent.OutputTuple, InterestAccruedEvent.OutputObject>;
+    
+
+      'LiquidationRecoveryApplied(uint256,uint256,uint256,uint256)': TypedContractEvent<LiquidationRecoveryAppliedEvent.InputTuple, LiquidationRecoveryAppliedEvent.OutputTuple, LiquidationRecoveryAppliedEvent.OutputObject>;
+      LiquidationRecoveryApplied: TypedContractEvent<LiquidationRecoveryAppliedEvent.InputTuple, LiquidationRecoveryAppliedEvent.OutputTuple, LiquidationRecoveryAppliedEvent.OutputObject>;
     
 
       'LoanCreated(uint256,address,address,uint256,uint256,uint16,uint48)': TypedContractEvent<LoanCreatedEvent.InputTuple, LoanCreatedEvent.OutputTuple, LoanCreatedEvent.OutputObject>;

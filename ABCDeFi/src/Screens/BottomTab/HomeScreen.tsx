@@ -62,7 +62,6 @@ const MOCK_LOAN: any = null; // Default loan hidden
 const MOCK_REWARDS = { claimable: '257.5 ABCD', pending: true };
 const MOCK_TRANSACTIONS = [
   { icon: 'cash-outline', label: 'EMI Payment', amount: '-87.5 ABCD', date: '31 Jul 2026', positive: false },
-  { icon: 'trending-up-outline', label: 'Staking Reward', amount: '+87.5 ABCD', date: '15 Jul 2026', positive: true },
   { icon: 'gift-outline', label: 'KYC Bonus', amount: '+50 ABCD', date: '02 Jul 2026', positive: true },
   { icon: 'layers-outline', label: 'ICO Purchase', amount: '-0.32 ETH', date: '01 Jul 2026', positive: false },
 ];

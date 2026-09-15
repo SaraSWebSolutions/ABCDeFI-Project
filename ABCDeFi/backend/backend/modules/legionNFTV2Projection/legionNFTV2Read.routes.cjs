@@ -1,0 +1,12 @@
+const express = require('express');
+const models = require('./models.cjs');
+const { loadLegionNFTV2Manifest } = require('../../config/legionNFTV2Manifest.cjs');
+const { createLegionNFTV2ReadController } = require('./legionNFTV2Read.controller.cjs');
+const router = express.Router();
+const controller = createLegionNFTV2ReadController({ models, manifestLoader: loadLegionNFTV2Manifest });
+router.get('/status', controller.status);
+router.get('/wallet/:address', controller.wallet);
+router.get('/territories/:tokenId', controller.territory);
+router.get('/territories/:tokenId/history', controller.history);
+router.get('/transfer-requests/:requestId', controller.request);
+module.exports = router;

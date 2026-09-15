@@ -1,60 +1,132 @@
 # ABCDeFi Lending V2 Protocol Configuration
 
-This document governs the V2 lending contracts. V1 contracts remain unchanged
-and wind-down only.
+This document records the currently deployed canonical Lending V2 behavior.
+It does not authorize a deployment, change a contract, or turn a
+whitepaper-underspecified mechanism into an implemented protocol rule. Lending
+V1 remains legacy/reference only and is not the canonical lending path.
 
-## Approved direct-loan parameters
+## Authority and interpretation
 
-| Parameter | Value |
+### Whitepaper-defined requirements
+
+The ABCDeFi whitepaper specifies the ETH row of the crypto-collateral table as
+35% LTV with a 9.25% annual borrowing rate (page 25). It also describes a 70%
+margin call, a 72-hour cure opportunity, and action around 80% LTV by selling a
+portion of crypto collateral to restore the position toward 70% LTV (pages 24
+and 26).
+
+### Approved current V2 policy
+
+The deployed ETH-backed Direct and P2P V2 paths use the explicit values below.
+The current 30/90/180-day catalogue, simple per-second interest accrual, and
+Direct-only maturity settings are implementation policy. They are not claimed
+to make the whitepaper's illustrative one-year/twelve-installment scenario a
+universal rule.
+
+### Unspecified and blocked behavior
+
+The whitepaper does not define the deterministic sale, price execution,
+rounding, dust, residual-debt, residual-collateral, or settlement mechanics
+needed to execute a partial collateral sale safely. Those mechanics are not
+configured. No liquidation bonus, close-factor execution, reserve payout,
+bad-debt settlement, or collateral seizure is implied by this document.
+
+## Canonical ETH lending parameters
+
+| Path | Initial maximum LTV | New-loan APR | Supported terms |
+| --- | ---: | ---: | --- |
+| Direct ETH Lending | 3,500 BPS (35%) | 925 BPS (9.25%) | 30, 90, or 180 days |
+| P2P ETH Lending | 3,500 BPS (35%) | 925 BPS (9.25%) | 30, 90, or 180 days |
+
+`LendingPoolV2.MAX_INITIAL_LTV_BPS` enforces the Direct ETH limit.
+`LoanMarketplaceV2.P2P_INITIAL_LTV_BPS` independently enforces the P2P ETH
+request limit. `LoanManagerV2` stores the agreed 925-BPS APR on each new
+ETH-backed loan; an existing loan's APR does not change after origination.
+
+## Interest, repayment, and settlement
+
+The deployed V2 engine uses simple, non-compounding interest through maturity:
+
+`principalOutstanding * APR_BPS * elapsed / (10,000 * 365 days)`.
+
+Solidity rounds the calculation down. Repayment applies to fees, then accrued
+interest, then principal. Direct repayment returns liquidity to `LendingPoolV2`;
+P2P repayment transfers ABCD to the recorded lender through `EMIManagerV2`.
+
+Direct loans retain the existing seven-day maturity grace state, but the
+canonical local deployment assesses **no Direct crypto late fee** and
+introduces no replacement maturity fee. The whitepaper does not define a
+crypto-loan late-fee or grace-period rule.
+
+Collateral is released only after the relevant loan is fully settled. A terminal
+repayment requires real provenance for lender, borrower, and platform
+completion certificates; no completion certificate is created at origination.
+
+## Risk state machine
+
+| Risk state | Canonical deployed behavior |
 | --- | --- |
-| Fixed annual APR | 1,200 BPS (12%) |
-| Terms | 30, 90, or 180 days |
-| Initial maximum LTV | 5,000 BPS (50%) |
-| Liquidation threshold | 7,500 BPS (75%) |
-| Close factor | 10,000 BPS (100%) |
-| Liquidation bonus | 500 BPS (5%) |
-| Grace period | 7 days |
-| Late fee | One-time 200 BPS (2%) of debt at maturity |
+| Margin call | 7,000 BPS (70% LTV) |
+| Cure period | 259,200 seconds (72 hours) |
+| Partial-liquidation eligibility | 8,000 BPS (approximately 80% LTV) |
+| Restoration objective | 7,000 BPS (70% LTV) |
+| Partial-sale execution | **NOT CONFIGURED — FAIL CLOSED** |
 
-## Approved P2P ETH request parameter
+At or above 70% LTV, a loan can enter margin call. The borrower can cure by
+adding collateral or repaying. At or above approximately 80% LTV, the risk
+engine reports partial-liquidation eligibility. The canonical liquidation write
+path deliberately reverts while the whitepaper-undefined sale and settlement
+policy is absent. It does not seize collateral, reduce debt, pay a reserve,
+mark a loan liquidated, emit a successful liquidation event, award a 5%
+bonus, or execute a 100% close factor.
 
-P2P V2 accepts ETH collateral only. Its independent initial maximum LTV is
-3,500 BPS (35%), the ETH row of the approved collateral table. `LoanMarketplaceV2`
-prices ETH and ABCD through `OracleAdapterV2` and enforces that maximum during
-request creation. This does not change the Direct Lending V2 5,000 BPS policy.
+## Oracle and collateral accounting
 
-## Interest and repayment
+`OracleAdapterV2` accepts Chainlink-compatible USD feeds and rejects disabled,
+invalid, or stale answers according to the configured feed heartbeat. It
+normalizes prices to 18-decimal USD values. The current Local Hardhat deployment
+uses explicitly local mock ETH/USD and ABCD/USD feeds; those values are not
+production prices or a production oracle configuration.
 
-Interest is simple, non-compounding, and accrues per second through maturity:
+Collateral remains isolated by Direct deposit ID before Direct origination, P2P
+request ID before P2P funding, and loan ID after a loan is created. It is never
+aggregated merely by borrower address.
 
-`principalOutstanding * APR_BPS * elapsed / (10_000 * 365 days)`.
+## Completion LoanNFTs
 
-Accrual rounds down in Solidity; repayment consumes fee, then accrued interest,
-then principal. Accrual stops at maturity, full repayment, or liquidation. The
-late fee is assessed once when a loan first enters grace period and is based on
-the outstanding principal plus accrued interest at maturity.
+After successful full settlement, `LoanNFTV2` atomically creates exactly three
+transferable ERC-721 completion certificates: lender, borrower, and platform.
+Each carries a role-specific URI and hash provenance record, loan facts, and a
+completion block. The whitepaper's 1%-of-principal-plus-interest USD-worth
+concept remains blocked: it does not define a USD valuation source, timestamp,
+rounding, or accounting/redeemability semantics. The contract therefore records
+no fabricated USD certificate value.
 
-## Oracle and risk controls
+## Lending referral boundaries
 
-V2 values ETH and ABCD against configurable Chainlink-compatible USD feeds.
-Answers must be positive and no older than the configured heartbeat. Feed
-decimal normalization produces 18-decimal USD prices. A stale, invalid, or
-circuit-broken feed blocks new borrowing and liquidation; repayment remains
-available. Local tests use mock feeds only.
+The canonical `LendingReferralManagerV2` records the whitepaper's 0.05% monthly
+ABCD referral entitlement, capped at 12 periods, and permits one aggregate
+payout only at successful loan completion or the one-year boundary, whichever
+comes first. The reward is funded from the configured marketing-allocation
+reward vault; it is not minted. A referral certificate records **0.5% of the
+originated amount lent or borrowed** (the loan principal), not principal plus
+interest. Defaulted or liquidated loans cannot claim referral rewards.
 
-## Settlement
+The whitepaper does not define a USD valuation, redemption, or additional
+economic utility for this referral certificate. Loan completion certificates'
+separate 1%-of-principal-plus-interest USD-worth concept remains blocked until
+valuation and accounting mechanics are approved.
 
-Liquidation covers up to 100% of current debt. The liquidator supplies ABCD and
-receives collateral worth the covered debt plus 5%, capped by locked collateral.
-Surplus collateral is returned to the borrower once debt and approved fees are
-settled. A collateral shortfall is recorded explicitly. The insurance reserve
-may cover the approved amount first; any uncovered balance remains recorded bad
-debt and borrower liability.
+## Explicit boundaries
 
-## V2 boundaries
-
-Collateral is keyed by request ID before P2P funding and loan ID after funding;
-it is never keyed solely by borrower. Every V2 direct loan mints a non-empty,
-non-transferable borrower LoanNFT certificate. P2P V2 certificates likewise
-require a non-empty metadata URI. Production URI pinning is an external service
-requirement and not performed by these contracts.
+- No 5% liquidation bonus is active.
+- No 100% liquidation close-factor execution is active.
+- No partial collateral sale is executed until deterministic sale and settlement
+  mechanics receive separate approval.
+- No unsupported reserve/default/bad-debt waterfall is represented as active.
+- No production oracle provider or heartbeat policy is asserted from local mock
+  feeds.
+- X-token and X-Peat mechanics remain blocked: their historical
+  quadrillion-token valuation model conflicts with the fixed 1B ABCD supply.
+- Fiat lending, custody, payment rails, and compliance are future/out of the
+  current canonical crypto-lending scope.

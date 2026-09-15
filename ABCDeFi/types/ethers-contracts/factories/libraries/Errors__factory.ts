@@ -88,11 +88,6 @@ import type { NonPayableOverrides } from "../../common.js"
     "type": "error"
   },
   {
-    "inputs": [],
-    "name": "InsufficientStakedBalance",
-    "type": "error"
-  },
-  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -119,11 +114,6 @@ import type { NonPayableOverrides } from "../../common.js"
     "type": "error"
   },
   {
-    "inputs": [],
-    "name": "InvalidDuration",
-    "type": "error"
-  },
-  {
     "inputs": [
       {
         "internalType": "string",
@@ -147,11 +137,6 @@ import type { NonPayableOverrides } from "../../common.js"
   {
     "inputs": [],
     "name": "LoanNotActive",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "LockPeriodNotEnded",
     "type": "error"
   },
   {
@@ -254,11 +239,6 @@ import type { NonPayableOverrides } from "../../common.js"
     "type": "error"
   },
   {
-    "inputs": [],
-    "name": "RewardPoolDepleted",
-    "type": "error"
-  },
-  {
     "inputs": [
       {
         "internalType": "bytes32",
@@ -349,7 +329,7 @@ import type { NonPayableOverrides } from "../../common.js"
   }
 ] as const;
 
-  const _bytecode = "0x608060405234601a57604051603e601f823930815050603e90f35b5f80fdfe60806040525f80fdfea264697066735822122095c28feb4853cfa3ebd5b75a88cbca177ac397451dbc1bc5195b46c93ddb94fe64736f6c63430008180033";
+  const _bytecode = "0x608060405234601a57604051603e601f823930815050603e90f35b5f80fdfe60806040525f80fdfea264697066735822122055bf6174cd653669930c855869279abb19aaaa8bffadfc49d2cb6529a92b1cb664736f6c63430008180033";
 
   
       type ErrorsConstructorParams = [signer?: Signer] | ConstructorParameters<typeof ContractFactory>;

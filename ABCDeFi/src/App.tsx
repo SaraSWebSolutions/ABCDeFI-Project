@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { WalletProvider } from './Context/WalletContext';
 import { AuthProvider, useAuth } from './Context/AuthContext';
+import { DEVELOPMENT_AUTH_ENABLED } from './Config/auth';
 import { LoginPage } from './pages/LoginPage';
 import { Navbar } from './components/Navbar';
 import { UserDashboard } from './components/UserDashboard';
@@ -72,6 +73,13 @@ export function AppContent() {
 
   useEffect(() => {
     if (!user || !token || !dashboardMode || adminAccessDenied || onAdminLoginRoute) return;
+    // A local development bootstrap always starts at the ordinary existing
+    // user dashboard. The persisted backend role still governs any explicit
+    // later /admin navigation.
+    if (DEVELOPMENT_AUTH_ENABLED && pathname === '/') {
+      navigateDashboard('user', true);
+      return;
+    }
     const canonicalPath = pathForDashboardMode(dashboardMode);
     if (window.location.pathname !== canonicalPath) {
       navigateDashboard(dashboardMode, true);
@@ -88,6 +96,9 @@ export function AppContent() {
   // Guest/demo access is intentionally disabled so the UI cannot imply that
   // simulated protocol actions are real user activity.
   if (!user || !token) {
+    if (DEVELOPMENT_AUTH_ENABLED && !sessionVerified) {
+      return <div className="min-h-screen bg-slate-950 text-slate-100 grid place-items-center p-6"><p className="text-sm text-slate-300">Preparing local development session…</p></div>;
+    }
     return <LoginPage variant={onAdminLoginRoute ? 'admin' : 'user'} />;
   }
 

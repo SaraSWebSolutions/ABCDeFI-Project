@@ -6,7 +6,7 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface ConstantsInterface extends Interface {
-    getFunction(nameOrSignature: "BONUS_ADMIN_ROLE" | "BPS_DENOMINATOR" | "BURNER_ROLE" | "COMMUNITY_BPS" | "CONTINGENCY_BPS" | "CONTRACTS_BPS" | "EDUCATION_BPS" | "GOVERNANCE_ROLE" | "INFRASTRUCTURE_BPS" | "LENDING_ADMIN_ROLE" | "LIQUIDATION_ADMIN_ROLE" | "LIQUIDATOR_ROLE" | "LIQUIDITY_BPS" | "LOAN_MANAGER_ADMIN_ROLE" | "LOAN_OPERATOR_ROLE" | "MARKETING_BPS" | "MARKETPLACE_ADMIN_ROLE" | "MAX_SUPPLY" | "MINTER_NFT_ROLE" | "MINTER_ROLE" | "NFT_ADMIN_ROLE" | "PAUSER_ROLE" | "PRESALE_ADMIN_ROLE" | "RESERVE_BPS" | "STAKING_ADMIN_ROLE" | "TOKEN_DECIMALS" | "TOKEN_NAME" | "TOKEN_SYMBOL" | "TREASURY_ADMIN_ROLE" | "TREASURY_ROLE" | "VAULT_ADMIN_ROLE" | "VAULT_OPERATOR_ROLE" | "VESTING_ADMIN_ROLE" | "WITHDRAWER_ROLE"): FunctionFragment;
+    getFunction(nameOrSignature: "BONUS_ADMIN_ROLE" | "BPS_DENOMINATOR" | "BURNER_ROLE" | "COMMUNITY_BPS" | "CONTINGENCY_BPS" | "CONTRACTS_BPS" | "EDUCATION_BPS" | "GOVERNANCE_ROLE" | "INFRASTRUCTURE_BPS" | "LENDING_ADMIN_ROLE" | "LIQUIDATION_ADMIN_ROLE" | "LIQUIDATOR_ROLE" | "LIQUIDITY_BPS" | "LOAN_MANAGER_ADMIN_ROLE" | "LOAN_OPERATOR_ROLE" | "MARKETING_BPS" | "MARKETPLACE_ADMIN_ROLE" | "MAX_SUPPLY" | "MINTER_NFT_ROLE" | "MINTER_ROLE" | "NFT_ADMIN_ROLE" | "PAUSER_ROLE" | "PRESALE_ADMIN_ROLE" | "RESERVE_BPS" | "TOKEN_DECIMALS" | "TOKEN_NAME" | "TOKEN_SYMBOL" | "TREASURY_ADMIN_ROLE" | "TREASURY_ROLE" | "VAULT_ADMIN_ROLE" | "VAULT_OPERATOR_ROLE" | "VESTING_ADMIN_ROLE" | "WITHDRAWER_ROLE"): FunctionFragment;
 
     
 
@@ -34,7 +34,6 @@ encodeFunctionData(functionFragment: 'NFT_ADMIN_ROLE', values?: undefined): stri
 encodeFunctionData(functionFragment: 'PAUSER_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'PRESALE_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'RESERVE_BPS', values?: undefined): string;
-encodeFunctionData(functionFragment: 'STAKING_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'TOKEN_DECIMALS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'TOKEN_NAME', values?: undefined): string;
 encodeFunctionData(functionFragment: 'TOKEN_SYMBOL', values?: undefined): string;
@@ -69,7 +68,6 @@ decodeFunctionResult(functionFragment: 'NFT_ADMIN_ROLE', data: BytesLike): Resul
 decodeFunctionResult(functionFragment: 'PAUSER_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'PRESALE_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'RESERVE_BPS', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'STAKING_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'TOKEN_DECIMALS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'TOKEN_NAME', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'TOKEN_SYMBOL', data: BytesLike): Result;
@@ -309,14 +307,6 @@ decodeFunctionResult(functionFragment: 'WITHDRAWER_ROLE', data: BytesLike): Resu
     
 
     
-    STAKING_ADMIN_ROLE: TypedContractMethod<
-      [],
-      [string],
-      'view'
-    >
-    
-
-    
     TOKEN_DECIMALS: TypedContractMethod<
       [],
       [bigint],
@@ -509,11 +499,6 @@ getFunction(nameOrSignature: 'PRESALE_ADMIN_ROLE'): TypedContractMethod<
 getFunction(nameOrSignature: 'RESERVE_BPS'): TypedContractMethod<
       [],
       [bigint],
-      'view'
-    >;
-getFunction(nameOrSignature: 'STAKING_ADMIN_ROLE'): TypedContractMethod<
-      [],
-      [string],
       'view'
     >;
 getFunction(nameOrSignature: 'TOKEN_DECIMALS'): TypedContractMethod<

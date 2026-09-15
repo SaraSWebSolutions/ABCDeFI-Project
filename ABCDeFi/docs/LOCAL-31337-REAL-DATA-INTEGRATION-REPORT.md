@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | Wallet | Explicit WalletContext connection only | No passive account restoration; a connected wallet is not SIWE-verified. |
 | Token/native balances | `ABCDToken.balanceOf` and RPC `getBalance` | Read failures render unavailable rather than a fabricated zero. |
-| Portfolio | Token, staking, lending, vesting, referral, and deployed NFT reads | Static financial values and USD/trend estimates were removed; unsupported metrics say unavailable. |
+| Portfolio | Token, lending, vesting, referral, and deployed NFT reads | Static financial values and USD/trend estimates were removed; unsupported metrics say unavailable. |
 | Transaction history | Authenticated `/api/transactions`, chain-filtered `ChainEvent` data | Only the current verified wallet and canonical chain can be queried. |
 | NFT ecosystem | Direct ParticipantNFT, ReputationNFT, GuruNFT, LoanNFT, and NFTMarketplace reads | Active UI reads chain state; legacy unscoped Mongo NFT endpoints return `503`. |
 | P2P/EMI | LoanMarketplace, LoanManager, and EMIManager reads | Empty local-chain state is displayed as empty, not as sample loans. |
@@ -21,7 +21,7 @@
 ## Explicitly unavailable rather than simulated
 
 - USD portfolio valuation and historic trends: no price oracle/indexed historical series.
-- Global staking aggregate, EMI due, and health factor where the deployed contracts do not expose a canonical aggregate/risk read.
+- EMI due and health factor where the deployed contracts do not expose a canonical aggregate/risk read. Staking is permanently removed from the current product scope.
 - Legacy presale and NFT API records: disabled instead of serving unscoped Mongo/mock data.
 - KYC provider submission: disabled until a real provider/webhook implementation exists.
 
