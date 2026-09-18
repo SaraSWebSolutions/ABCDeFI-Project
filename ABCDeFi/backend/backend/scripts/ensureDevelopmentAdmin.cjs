@@ -4,6 +4,8 @@
  * It creates a development administrator only when the caller supplies the
  * local database, development-auth gate, and credentials as process inputs.
  */
+const { loadLocalDevelopmentEnv } = require('./loadLocalDevelopmentEnv.cjs');
+loadLocalDevelopmentEnv();
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 const connectDb = require('../config/db');

@@ -79,11 +79,42 @@ The fresh disposable Franchise manifest is
 `deployments.phase12-admin-franchise-local.json`; it is explicitly local-only
 and is used only for this Phase 12 verification.
 
-## Remaining lock conditions
+## Authenticated browser verification and closure evidence
 
-The fresh local chain/write portion is complete. The implementation remains
-**unlocked** until an account with the persisted application administrator
-role completes the real OTP login and verifies the canonical `/admin` route.
-The current authenticated browser account was correctly denied Admin access;
-that is a security pass, not a substitute for Admin-dashboard verification.
-No lock record is created by this document.
+The remaining application-authentication gate was completed using the normal
+persisted `UserAccount` administrator path on the local database: password
+verification followed by the server-generated, one-time administrator OTP.
+No browser shortcut, mock session, or automatic wallet-role elevation was used.
+
+The authenticated browser reached the canonical `/admin` route and verified:
+
+- the application session identifies a local development administrator;
+- the dashboard reads the fresh local chain `31337` manifests and canonical
+  indexed projections, rather than legacy/mock module data;
+- Treasury, Marketplace, Legion Marketplace, and Franchise each report the
+  confirmed local checkpoint `119`;
+- the canonical history renders real module events in block/log order,
+  including the fresh Admin E2E pause/unpause provenance at blocks `110`–`119`;
+- the connected wallet holds no Treasury, Marketplace, Legion, Franchise, or
+  Legion Marketplace module-local role, so no emergency write control is
+  exposed; and
+- the dashboard makes the application-role/on-chain-role distinction explicit.
+
+Browser runtime inspection found no ABCDeFi dashboard runtime error. The only
+observed warnings originated in the installed wallet-extension content script;
+they do not originate in the dashboard application.
+
+## Final regression evidence
+
+- local Admin deployment-runner guard tests: 5 passing;
+- focused development-auth/bootstrap tests: 17 passing;
+- application/backend/frontend suite: 231 passing;
+- full Solidity suite: 265 Mocha passing plus 30 TAP passing, using
+  `NODE_OPTIONS=--max-old-space-size=12288` and `hardhat test --no-compile`
+  after the initial native Hardhat allocation retry;
+- TypeScript: passing;
+- production build: passing (existing bundle-size warning only); and
+- no BSC Testnet, BSC Mainnet, or other live deployment/transaction occurred.
+
+The Phase 12 final lock is recorded separately in
+`PHASE12-ADMIN-LOCK.md`.

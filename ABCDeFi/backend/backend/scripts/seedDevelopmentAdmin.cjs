@@ -2,6 +2,8 @@
  * Local-development operator utility. This is intentionally not an API route:
  * production processes and browser clients cannot use it to gain admin access.
  */
+const { loadLocalDevelopmentEnv } = require('./loadLocalDevelopmentEnv.cjs');
+loadLocalDevelopmentEnv();
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 const connectDb = require('../config/db');

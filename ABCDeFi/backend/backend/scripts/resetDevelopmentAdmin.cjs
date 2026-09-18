@@ -2,6 +2,8 @@
  * Local-development operator utility. This is not an HTTP route and cannot
  * change production users, JWT behaviour, or browser authorization.
  */
+const { loadLocalDevelopmentEnv } = require('./loadLocalDevelopmentEnv.cjs');
+loadLocalDevelopmentEnv();
 const bcrypt = require('bcrypt');
 const mongoose = require('mongoose');
 const connectDb = require('../config/db');

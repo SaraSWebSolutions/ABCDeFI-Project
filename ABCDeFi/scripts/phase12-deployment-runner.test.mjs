@@ -38,6 +38,7 @@ test("fresh-runtime runners protect manifest targets and retain Phase 1/2 deploy
   assert.match(lending, /assertLocalChainId/);
   assert.match(franchise, /FRANCHISE_MANIFEST_PATH is required/);
   assert.match(franchise, /sourcePaths: \[basePath\]/);
+  assert.doesNotMatch(root, /deploy\("FranchiseNFT"/);
   assert.match(lending, /lendingV2/);
   assert.match(lending, /LTV_BPS/);
 });
@@ -59,6 +60,15 @@ test("composed runner has the approved narrow order and does not start a Hardhat
     assert.ok(index > lastIndex, `${script} must retain approved ordering`);
     lastIndex = index;
   }
+  assert.match(runner, /shell: process\.platform === "win32"/);
   assert.doesNotMatch(runner, /hardhat node/);
   assert.doesNotMatch(runner, /indexer/);
+});
+
+test("Admin E2E consumes manifest-selected canonical modules and does not deploy a duplicate Franchise foundation", () => {
+  const e2e = source("run-canonical-admin-local-e2e.ts");
+  assert.match(e2e, /FRANCHISE_MANIFEST_PATH/);
+  assert.match(e2e, /getContractAt\('FranchiseRegistry'/);
+  assert.doesNotMatch(e2e, /FranchiseRegistry\.deploy\(/);
+  assert.doesNotMatch(e2e, /FranchiseNFT\.deploy\(/);
 });

@@ -15,7 +15,12 @@ const paths = {
 
 function run(script: string, environment: NodeJS.ProcessEnv) {
   const npx = process.platform === "win32" ? "npx.cmd" : "npx";
-  const result = spawnSync(npx, ["hardhat", "run", script, "--network", "localhost"], { stdio: "inherit", env: environment });
+  // Windows cannot spawn a .cmd shim directly without a shell. This affects
+  // only the local runner process and preserves the same explicit command and
+  // isolated-manifest safeguards on every platform.
+  const result = spawnSync(npx, ["hardhat", "run", script, "--network", "localhost"], {
+    stdio: "inherit", env: environment, shell: process.platform === "win32",
+  });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Phase 12 composed deployment stopped at ${script}.`);
 }

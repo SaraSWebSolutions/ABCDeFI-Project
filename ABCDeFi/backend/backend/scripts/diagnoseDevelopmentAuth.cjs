@@ -1,4 +1,6 @@
 /* Local-only authentication consistency diagnostic. Never prints credentials, hashes, tokens, or OTPs. */
+const { loadLocalDevelopmentEnv } = require('./loadLocalDevelopmentEnv.cjs');
+loadLocalDevelopmentEnv();
 const mongoose = require('mongoose');
 const connectDb = require('../config/db');
 const UserAccount = require('../modules/user/userAccount/userAccount.model');

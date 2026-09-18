@@ -223,10 +223,10 @@ async function main() {
   // receives the initial administration and minting roles; this does not add
   // payment, revenue, or marketplace behavior.
   const legionNFT = await deploy("LegionNFT", [deployer.address, deployer.address]);
-  // Franchise certificates are issuer-minted ERC-721 licences. The deployer is
-  // deliberately the initial minter; no public purchase or revenue mechanism
-  // is implied by this deployment.
-  const franchiseNFT = await deploy("FranchiseNFT", [deployer.address, deployer.address]);
+  // The canonical Phase 9 FranchiseNFT is Registry-controlled and is deployed
+  // later by the isolated Franchise foundation step. Do not create an old
+  // standalone instance here: it would be unbound to FranchiseRegistry and
+  // could not represent the canonical non-financial assignment foundation.
   const loanNFT = await deploy("LoanNFT", [loanMarketplaceAddress]);
   const referralManager = await deploy("ReferralManager", [tokenAddress, wallets.reserve]);
   const bonusEngine = await deploy("BonusEngine", [tokenAddress, wallets.reserve]);
@@ -241,9 +241,6 @@ async function main() {
   const VAULT_OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("VAULT_OPERATOR_ROLE"));
   const MARKETPLACE_EMI_OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("EMI_OPERATOR_ROLE"));
   const LENDING_ADMIN_ROLE = ethers.keccak256(ethers.toUtf8Bytes("LENDING_ADMIN_ROLE"));
-  const FRANCHISE_MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_ROLE"));
-  const FRANCHISE_PAUSER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("PAUSER_ROLE"));
-  const FRANCHISE_UPDATER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("UPDATER_ROLE"));
   const LEGION_MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_ROLE"));
   const LEGION_PAUSER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("PAUSER_ROLE"));
 
@@ -263,14 +260,6 @@ async function main() {
   await (await loanMarketplace.grantRole(MARKETPLACE_EMI_OPERATOR_ROLE, emiManagerAddress)).wait();
   await (await collateralVault.grantRole(VAULT_OPERATOR_ROLE, loanMarketplaceAddress)).wait();
   await (await loanMarketplace.setEMIManager(emiManagerAddress)).wait();
-  if (
-    !await franchiseNFT.hasRole(ethers.ZeroHash, deployer.address) ||
-    !await franchiseNFT.hasRole(FRANCHISE_MINTER_ROLE, deployer.address) ||
-    !await franchiseNFT.hasRole(FRANCHISE_PAUSER_ROLE, deployer.address) ||
-    !await franchiseNFT.hasRole(FRANCHISE_UPDATER_ROLE, deployer.address)
-  ) {
-    throw new Error("FranchiseNFT role wiring verification failed");
-  }
   if (
     !await legionNFT.hasRole(ethers.ZeroHash, deployer.address) ||
     !await legionNFT.hasRole(LEGION_MINTER_ROLE, deployer.address) ||

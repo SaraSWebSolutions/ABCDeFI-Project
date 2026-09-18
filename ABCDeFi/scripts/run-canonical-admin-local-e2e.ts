@@ -2,8 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { network } from 'hardhat';
 
-type LocalManifest = { chainId: number; deploymentVersion: string; contracts: Record<string, { address: string }>; roles: Record<string, string> };
+type LocalManifest = { chainId: number | string; deploymentVersion: string; contracts: Record<string, { address: string }>; roles: Record<string, string> };
 const readManifest = (file: string) => JSON.parse(fs.readFileSync(path.resolve(file), 'utf8')) as LocalManifest;
+
+function signerForAddress(signers: any[], address: string, label: string) {
+  const signer = signers.find((candidate) => candidate.address.toLowerCase() === address.toLowerCase());
+  if (!signer) throw new Error(`${label}: manifest role address is not available from the local Hardhat signer set.`);
+  return signer;
+}
 
 async function expectPauseCycle(label: string, contract: any, pauser: any, unpauser: any, expectedPauseEvent: string, expectedUnpauseEvent: string) {
   let unauthorized = false;
@@ -25,38 +31,57 @@ async function main() {
   const { ethers } = await network.connect();
   if ((await ethers.provider.getNetwork()).chainId !== 31337n) throw new Error('Canonical Admin local E2E requires Hardhat 31337 only.');
   const signers = await ethers.getSigners();
-  const treasuryManifest = readManifest('deployments.treasury-v2-local.json');
-  const marketplaceManifest = readManifest('deployments.abcd-nft-marketplace-v2-local.json');
-  const legionMarketplaceManifest = readManifest('deployments.legion-marketplace-v2-local.json');
-  const legionManifest = readManifest('deployments.legion-nft-v2-local.json');
+  const treasuryManifest = readManifest(process.env.TREASURY_V2_MANIFEST_PATH || 'deployments.treasury-v2-local.json');
+  const marketplaceManifest = readManifest(process.env.ABCD_NFT_MARKETPLACE_MANIFEST_PATH || 'deployments.abcd-nft-marketplace-v2-local.json');
+  const legionMarketplaceManifest = readManifest(process.env.LEGION_MARKETPLACE_MANIFEST_PATH || 'deployments.legion-marketplace-v2-local.json');
+  const legionManifest = readManifest(process.env.LEGION_NFT_V2_MANIFEST_PATH || 'deployments.legion-nft-v2-local.json');
+  const franchiseManifestPath = process.env.FRANCHISE_MANIFEST_PATH || 'deployments.franchise-foundation-local.json';
+  const franchiseManifest = readManifest(franchiseManifestPath);
 
   const treasury = await ethers.getContractAt('TreasuryV2', treasuryManifest.contracts.TreasuryV2.address);
   const marketplace = await ethers.getContractAt('ABCDNFTMarketplaceV2', marketplaceManifest.contracts.ABCDNFTMarketplaceV2.address);
   const legion = await ethers.getContractAt('LegionNFTV2', legionManifest.contracts.LegionNFTV2.address);
   const legionMarketplace = await ethers.getContractAt('LegionMarketplaceSettlementAdapterV2', legionMarketplaceManifest.contracts.LegionMarketplaceSettlementAdapterV2.address);
 
-  const FranchiseNFT = await ethers.getContractFactory('FranchiseNFT');
-  const franchiseNft = await FranchiseNFT.deploy(signers[0].address);
-  await franchiseNft.waitForDeployment();
-  const FranchiseRegistry = await ethers.getContractFactory('FranchiseRegistry');
-  const franchiseRegistry = await FranchiseRegistry.deploy(await franchiseNft.getAddress(), signers[0].address, signers[1].address, signers[2].address, signers[3].address, signers[4].address, signers[5].address);
-  await franchiseRegistry.waitForDeployment();
-  const binding = await franchiseNft.connect(signers[0]).setRegistry(await franchiseRegistry.getAddress());
-  const bindingReceipt = await binding.wait();
-  if (!bindingReceipt || bindingReceipt.status !== 1) throw new Error('Franchise registry binding did not succeed.');
-  const franchiseBlock = Number(bindingReceipt.blockNumber);
-  const franchiseBlockHash = (await ethers.provider.getBlock(franchiseBlock))!.hash;
-  const franchiseManifestPath = path.resolve('deployments.phase12-admin-franchise-local.json');
-  fs.writeFileSync(franchiseManifestPath, `${JSON.stringify({ network: 'localhost', chainId: '31337', rpcUrl: 'http://127.0.0.1:8545', deployer: signers[0].address, deploymentVersion: `phase12-admin-franchise-local-${franchiseBlockHash}`, contracts: { FranchiseNFT: { address: await franchiseNft.getAddress(), deploymentTransactionHash: franchiseNft.deploymentTransaction()!.hash, deploymentBlock: Number((await franchiseNft.deploymentTransaction()!.wait())!.blockNumber) }, FranchiseRegistry: { address: await franchiseRegistry.getAddress(), deploymentTransactionHash: franchiseRegistry.deploymentTransaction()!.hash, deploymentBlock: franchiseBlock } } }, null, 2)}\n`);
+  const franchiseNft = await ethers.getContractAt('FranchiseNFT', franchiseManifest.contracts.FranchiseNFT.address);
+  const franchiseRegistry = await ethers.getContractAt('FranchiseRegistry', franchiseManifest.contracts.FranchiseRegistry.address);
+  if ((await franchiseNft.registry()).toLowerCase() !== (await franchiseRegistry.getAddress()).toLowerCase()) {
+    throw new Error('FranchiseNFT is not bound to the selected canonical FranchiseRegistry.');
+  }
 
   const result = {
     chainId: '31337',
-    treasury: await expectPauseCycle('Treasury', treasury, signers[5], signers[6], 'TreasuryPaused', 'TreasuryUnpaused'),
-    marketplace: await expectPauseCycle('Marketplace', marketplace, signers[2], signers[2], 'Paused', 'Unpaused'),
-    legion: await expectPauseCycle('Legion', legion, signers[2], signers[2], 'Paused', 'Unpaused'),
-    franchise: await expectPauseCycle('Franchise', franchiseRegistry, signers[4], signers[5], 'Paused', 'Unpaused'),
-    legionMarketplace: await expectPauseCycle('Legion Marketplace', legionMarketplace, signers[4], signers[4], 'Paused', 'Unpaused'),
-    franchiseManifestPath,
+    treasury: await expectPauseCycle(
+      'Treasury', treasury,
+      signerForAddress(signers, treasuryManifest.roles.pauser, 'Treasury pauser'),
+      signerForAddress(signers, treasuryManifest.roles.unpauser, 'Treasury unpauser'),
+      'TreasuryPaused', 'TreasuryUnpaused',
+    ),
+    marketplace: await expectPauseCycle(
+      'Marketplace', marketplace,
+      signerForAddress(signers, marketplaceManifest.roles.pauser, 'Marketplace pauser'),
+      signerForAddress(signers, marketplaceManifest.roles.pauser, 'Marketplace pauser'),
+      'Paused', 'Unpaused',
+    ),
+    legion: await expectPauseCycle(
+      'Legion', legion,
+      signerForAddress(signers, legionManifest.roles.pauser, 'Legion pauser'),
+      signerForAddress(signers, legionManifest.roles.pauser, 'Legion pauser'),
+      'Paused', 'Unpaused',
+    ),
+    franchise: await expectPauseCycle(
+      'Franchise', franchiseRegistry,
+      signerForAddress(signers, franchiseManifest.deployer, 'Franchise pauser'),
+      signerForAddress(signers, franchiseManifest.deployer, 'Franchise unpauser'),
+      'Paused', 'Unpaused',
+    ),
+    legionMarketplace: await expectPauseCycle(
+      'Legion Marketplace', legionMarketplace,
+      signerForAddress(signers, legionMarketplaceManifest.roles.pauser, 'Legion Marketplace pauser'),
+      signerForAddress(signers, legionMarketplaceManifest.roles.pauser, 'Legion Marketplace pauser'),
+      'Paused', 'Unpaused',
+    ),
+    franchiseManifestPath: path.resolve(franchiseManifestPath),
   };
   console.log(JSON.stringify(result, null, 2));
 }
