@@ -17,6 +17,7 @@
     "deploy:abcd-nft-marketplace:local": "hardhat run scripts/deploy-abcd-nft-marketplace-local.ts --network localhost",
     "deploy:legion-marketplace:local": "hardhat run scripts/deploy-legion-marketplace-local.ts --network localhost",
     "deploy:treasury-v2:local": "hardhat run scripts/deploy-treasury-v2-local.ts --network localhost",
+    "deploy:phase12:composed:local": "hardhat run scripts/deploy-phase12-composed-local.ts --network localhost",
     "e2e:legion-marketplace:local": "hardhat run scripts/run-legion-marketplace-local-e2e.ts --network localhost",
     "e2e:treasury-v2:local": "hardhat run scripts/run-treasury-v2-local-e2e.ts --network localhost",
     "e2e:admin:local": "hardhat run scripts/run-canonical-admin-local-e2e.ts --network localhost",

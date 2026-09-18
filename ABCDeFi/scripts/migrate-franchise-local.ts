@@ -1,6 +1,7 @@
 import { network } from "hardhat";
 import fs from "node:fs";
 import path from "node:path";
+import { assertManifestOutputPath, resolveManifestPath } from "./deployment-manifest-guards.mjs";
 
 type Deployment = { address: string; deploymentTransactionHash: string; deploymentBlock: number };
 type Manifest = { network: string; chainId: string; rpcUrl: string; deployer: string; deploymentVersion?: string; contracts: Record<string, Deployment> };
@@ -20,9 +21,8 @@ function requireLocalManifest(manifestPath: string): Manifest {
   return manifest;
 }
 
-function initializeIsolatedManifest(manifestPath: string) {
+function initializeIsolatedManifest(manifestPath: string, basePath: string) {
   if (fs.existsSync(manifestPath)) return;
-  const basePath = path.resolve(process.env.FRANCHISE_BASE_MANIFEST_PATH || "deployments.json");
   const base = JSON.parse(fs.readFileSync(basePath, "utf8")) as Manifest;
   const { FranchiseNFT: _legacyNft, FranchiseRegistry: _legacyRegistry, ...contracts } = base.contracts;
   fs.writeFileSync(manifestPath, `${JSON.stringify({ ...base, contracts }, null, 2)}\n`, "utf8");
@@ -48,8 +48,18 @@ async function deployed(factoryName: string, args: readonly string[]) {
 }
 
 async function main() {
-  const manifestPath = path.resolve(process.env.FRANCHISE_MANIFEST_PATH || "deployments.json");
-  initializeIsolatedManifest(manifestPath);
+  if (!process.env.FRANCHISE_MANIFEST_PATH) {
+    throw new Error("FRANCHISE_MANIFEST_PATH is required. Franchise foundation must use an isolated fresh-local manifest.");
+  }
+  const manifestPath = resolveManifestPath(process.env.FRANCHISE_MANIFEST_PATH, "deployments.json");
+  const basePath = resolveManifestPath(process.env.FRANCHISE_BASE_MANIFEST_PATH || process.env.ROOT_DEPLOYMENT_MANIFEST_PATH, "deployments.json");
+  assertManifestOutputPath({
+    outputPath: manifestPath,
+    sourcePaths: [basePath],
+    protectedPaths: [path.resolve("deployments.json")],
+    label: "Franchise foundation",
+  });
+  initializeIsolatedManifest(manifestPath, basePath);
   const manifest = requireLocalManifest(manifestPath);
   const { ethers } = await network.connect();
   const chain = await ethers.provider.getNetwork();

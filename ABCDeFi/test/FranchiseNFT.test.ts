@@ -44,8 +44,8 @@ describe("Phase 9 Franchise foundation", function () {
     await registry.connect(registryAdmin).setOperatorEligibility(proposed.address, true);
   });
 
-  async function register(key = territoryKey()) {
-    return registry.connect(issuer).registerFranchise(key, 3, holder.address, metadataURI);
+  async function register(key = territoryKey(), level = 0, parentTokenId = 0, operator = holder.address) {
+    return registry.connect(issuer).registerFranchise(key, level, parentTokenId, operator, metadataURI);
   }
 
   async function registered() {
@@ -64,7 +64,8 @@ describe("Phase 9 Franchise foundation", function () {
     await expect(register()).to.emit(registry, "FranchiseRegistered");
     const franchise = await registry.getFranchise(1);
     expect(franchise.territoryKey).to.equal(territoryKey());
-    expect(franchise.level).to.equal(3n);
+    expect(franchise.level).to.equal(0n);
+    expect(franchise.parentTokenId).to.equal(0n);
     expect(franchise.operator).to.equal(holder.address);
     expect(franchise.status).to.equal(0n);
     expect(franchise.operatorVersion).to.equal(1n);
@@ -73,16 +74,35 @@ describe("Phase 9 Franchise foundation", function () {
     expect(await registry.tokenIdForTerritory(territoryKey())).to.equal(1n);
 
     await expect(register()).to.be.revertedWithCustomError(registry, "TerritoryAlreadyRegistered");
-    await expect(registry.connect(outsider).registerFranchise(territoryKey("other"), 0, holder.address, metadataURI))
+    await expect(registry.connect(outsider).registerFranchise(territoryKey("other"), 0, 0, holder.address, metadataURI))
       .to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
-    await expect(registry.connect(issuer).registerFranchise(territoryKey("unapproved"), 0, outsider.address, metadataURI))
+    await expect(registry.connect(issuer).registerFranchise(territoryKey("unapproved"), 0, 0, outsider.address, metadataURI))
       .to.be.revertedWithCustomError(registry, "OperatorNotEligible");
+  });
+
+  it("enforces the immutable Continental -> National -> State -> District hierarchy", async function () {
+    await register(territoryKey("continental:in"), 0, 0);
+    await register(territoryKey("national:in"), 1, 1);
+    await register(territoryKey("state:in-tg"), 2, 2);
+    await register(territoryKey("district:in-tg-hyd"), 3, 3);
+
+    expect((await registry.getFranchise(1)).parentTokenId).to.equal(0n);
+    expect((await registry.getFranchise(2)).parentTokenId).to.equal(1n);
+    expect((await registry.getFranchise(3)).parentTokenId).to.equal(2n);
+    expect((await registry.getFranchise(4)).parentTokenId).to.equal(3n);
+
+    await expect(register(territoryKey("continental:invalid-parent"), 0, 1))
+      .to.be.revertedWithCustomError(registry, "InvalidParent");
+    await expect(register(territoryKey("national:missing-parent"), 1, 0))
+      .to.be.revertedWithCustomError(registry, "InvalidParent");
+    await expect(register(territoryKey("state:wrong-parent"), 2, 1))
+      .to.be.revertedWithCustomError(registry, "InvalidParentLevel");
   });
 
   it("allows only the bound Registry to mint and rejects malformed metadata", async function () {
     await expect(nft.connect(outsider).mintFromRegistry(holder.address, 1, metadataURI))
       .to.be.revertedWithCustomError(nft, "OnlyRegistry");
-    await expect(registry.connect(issuer).registerFranchise(territoryKey(), 0, holder.address, "https://example.invalid/metadata.json"))
+    await expect(registry.connect(issuer).registerFranchise(territoryKey(), 0, 0, holder.address, "https://example.invalid/metadata.json"))
       .to.be.revertedWithCustomError(nft, "InvalidMetadataURI");
     await expect(nft.connect(outsider).setRegistry(outsider.address))
       .to.be.revertedWithCustomError(nft, "AccessControlUnauthorizedAccount");
@@ -174,7 +194,7 @@ describe("Phase 9 Franchise foundation", function () {
     await isolatedRegistry.waitForDeployment();
     await isolatedRegistry.connect(registryAdmin).setOperatorEligibility(holder.address, true);
     await isolatedRegistry.connect(registryAdmin).setOperatorEligibility(proposed.address, true);
-    await isolatedRegistry.connect(issuer).registerFranchise(territoryKey("mock:state"), 2, holder.address, metadataURI);
+    await isolatedRegistry.connect(issuer).registerFranchise(territoryKey("mock:continental"), 0, 0, holder.address, metadataURI);
     await isolatedRegistry.connect(holder).requestTransfer(1, proposed.address);
     await isolatedRegistry.connect(registryAdmin).approveTransfer(1);
 
@@ -219,7 +239,7 @@ describe("Phase 9 Franchise foundation", function () {
     await expect(registry.connect(lifecycleAdmin).reactivate(tokenId))
       .to.be.revertedWithCustomError(registry, "InvalidLifecycleTransition");
 
-    const second = await register(territoryKey("state:in-tg"));
+    const second = await register(territoryKey("continental:in-tg"));
     await registry.connect(lifecycleAdmin).suspend(2);
     await registry.connect(lifecycleAdmin).revoke(2);
     expect((await registry.getFranchise(2)).status).to.equal(2n);
@@ -230,7 +250,7 @@ describe("Phase 9 Franchise foundation", function () {
     const { tokenId, requestId } = await approvedRequest();
     await registry.connect(pauser).pause();
 
-    await expect(registry.connect(issuer).registerFranchise(territoryKey("district:in-tg-hyd"), 3, holder.address, metadataURI))
+    await expect(registry.connect(issuer).registerFranchise(territoryKey("continental:in-tg-hyd"), 0, 0, holder.address, metadataURI))
       .to.be.revertedWithCustomError(registry, "EnforcedPause");
     await expect(registry.connect(holder).requestTransfer(tokenId, outsider.address))
       .to.be.revertedWithCustomError(registry, "EnforcedPause");
@@ -246,7 +266,7 @@ describe("Phase 9 Franchise foundation", function () {
 
     await expect(registry.connect(outsider).unpause()).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
     await registry.connect(unpauser).unpause();
-    await expect(registry.connect(issuer).registerFranchise(territoryKey("district:in-tg-hyd"), 3, holder.address, metadataURI))
+    await expect(registry.connect(issuer).registerFranchise(territoryKey("continental:in-tg-hyd"), 0, 0, holder.address, metadataURI))
       .to.emit(registry, "FranchiseRegistered");
   });
 
@@ -254,6 +274,6 @@ describe("Phase 9 Franchise foundation", function () {
     const tokenId = await registered();
     await expect(registry.connect(outsider).suspend(tokenId)).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
     await expect(registry.connect(outsider).pause()).to.be.revertedWithCustomError(registry, "AccessControlUnauthorizedAccount");
-    await expect(registry.connect(issuer).registerFranchise(territoryKey("value"), 0, holder.address, metadataURI, { value: 1n })).to.revert(ethers);
+    await expect(registry.connect(issuer).registerFranchise(territoryKey("value"), 0, 0, holder.address, metadataURI, { value: 1n })).to.revert(ethers);
   });
 });

@@ -2,9 +2,11 @@ import { network } from "hardhat";
 import { ethers } from "ethers";
 import fs from "node:fs";
 import path from "node:path";
+import { assertLocalChainId, assertLocalManifest, assertManifestOutputPath, readJsonManifest, resolveManifestPath } from "./deployment-manifest-guards.mjs";
 
 type Deployment = { address: string; deploymentTransactionHash: string; deploymentBlock: number };
-const ROOT = path.resolve("deployments.json");
+const ROOT = resolveManifestPath(process.env.LENDING_V2_MANIFEST_PATH || process.env.ROOT_DEPLOYMENT_MANIFEST_PATH, "deployments.json");
+const HISTORICAL_ROOT = path.resolve("deployments.json");
 const ROLE = (name: string) => ethers.keccak256(ethers.toUtf8Bytes(name));
 const ETH_ASSET = "0x0000000000000000000000000000000000000001";
 
@@ -20,10 +22,18 @@ function assertAddress(value: unknown, name: string): asserts value is string {
 async function main() {
   const { ethers: hh } = await network.connect();
   const chain = await hh.provider.getNetwork();
-  if (chain.chainId !== 31337n) throw new Error(`Lending V2 local deployment permits only chain 31337; received ${chain.chainId}`);
+  assertLocalChainId(chain.chainId, "Lending V2 local deployment");
   if (!fs.existsSync(ROOT)) throw new Error("Root deployments.json is required before V2 deployment");
-  const manifest = JSON.parse(fs.readFileSync(ROOT, "utf8"));
-  if (Number(manifest.chainId) !== 31337 || manifest.network !== "localhost") throw new Error("Root manifest is not the canonical localhost deployment");
+  const manifest = assertLocalManifest(readJsonManifest(ROOT, "Lending V2 root"), "Lending V2 root");
+  if (ROOT !== HISTORICAL_ROOT) {
+    assertManifestOutputPath({
+      outputPath: ROOT,
+      sourcePaths: [],
+      protectedPaths: [HISTORICAL_ROOT],
+      allowOverwrite: true,
+      label: "Lending V2",
+    });
+  }
   // A V2 deployment is deliberately additive.  Re-running this script against a
   // manifest that already names a V2 deployment would silently orphan the prior
   // local V2 addresses, which is unsafe for the separate V1/V2 architecture.

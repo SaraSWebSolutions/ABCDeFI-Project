@@ -9,6 +9,8 @@ assert.match(shell, /FranchiseRegistryDashboard/);
 assert.match(shell, /activeTab === 'franchise' && <FranchiseRegistryDashboard/);
 assert.match(dashboard, /Administrative business-unit assignments only/);
 assert.match(dashboard, /no legal territory title, price, purchase, commission, Treasury, Lending, Referral, Legion, or marketplace right/);
+assert.match(dashboard, /Registry operator/);
+assert.match(dashboard, /Parent token ID/);
 assert.doesNotMatch(dashboard, /list for sale|buy franchise|priceUSD|commissionBps|revenue share/i);
 assert.match(service, /canonical-indexed-on-chain/);
 assert.match(service, /registryAddress/);

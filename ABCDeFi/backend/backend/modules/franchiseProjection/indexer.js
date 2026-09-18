@@ -1,9 +1,9 @@
 const { Contract, Interface } = require('ethers');
 
-// v2 did not retain inherited AccessControl provenance from the Registry
-// deployment. A clean v3 rebuild is required rather than trusting that
-// operational-only checkpoint.
-const SCOPE = 'canonical-franchise-foundation-v3';
+// v3 did not retain the immutable parent/operator fields from the canonical
+// Registry record. A clean v4 rebuild is required rather than serving a
+// partial hierarchy snapshot from an older checkpoint.
+const SCOPE = 'canonical-franchise-foundation-v4';
 const EVENTS = [
   'RoleGranted', 'RoleRevoked', 'RoleAdminChanged',
   'OperatorEligibilitySet', 'FranchiseRegistered', 'TransferRequested', 'TransferApproved',
@@ -39,7 +39,7 @@ class FranchiseIndexer {
   }
   async readCertificate(tokenId, metadataURI, latestEvidence) {
     const [owner, record] = await Promise.all([this.nft.ownerOf(tokenId), this.registry.getFranchise(tokenId)]);
-    return { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, registryAddress: this.manifest.registryAddress, nftAddress: this.manifest.nftAddress, tokenId: asString(tokenId), owner: lower(owner), territoryKey: record.territoryKey, level: asString(record.level), status: asString(record.status), operatorVersion: asString(record.operatorVersion), metadataURI, latestEvidence };
+    return { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, registryAddress: this.manifest.registryAddress, nftAddress: this.manifest.nftAddress, tokenId: asString(tokenId), owner: lower(owner), territoryKey: record.territoryKey, level: asString(record.level), parentTokenId: asString(record.parentTokenId), operator: lower(record.operator), status: asString(record.status), operatorVersion: asString(record.operatorVersion), metadataURI, latestEvidence };
   }
   async tokenIdForEvent(parsed) {
     if (parsed.args.tokenId !== undefined) return asString(parsed.args.tokenId);

@@ -12,7 +12,7 @@ const event = new Schema({ chainId: uint, deploymentVersion: { type: String, req
 event.index({ chainId: 1, deploymentVersion: 1, registryAddress: 1, transactionHash: 1, logIndex: 1 }, { unique: true });
 const certificate = new Schema({
   chainId: uint, deploymentVersion: { type: String, required: true }, registryAddress: address, nftAddress: address, tokenId: uint, owner: address,
-  territoryKey: { type: String, required: true }, level: uint, status: uint, operatorVersion: uint,
+  territoryKey: { type: String, required: true }, level: uint, parentTokenId: uint, operator: address, status: uint, operatorVersion: uint,
   metadataURI: { type: String, required: true }, registrationEvidence: evidence, latestEvidence: evidence, indexedAt: { type: Date, default: Date.now },
 }, { versionKey: false });
 certificate.index({ chainId: 1, deploymentVersion: 1, registryAddress: 1, tokenId: 1 }, { unique: true });

@@ -1,0 +1,6 @@
+ADMIN_EMAIL=happy32dinesh@gmail.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=happy32dinesh@gmail.com
+SMTP_PASS=DINESH@9632

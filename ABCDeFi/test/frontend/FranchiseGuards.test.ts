@@ -14,11 +14,12 @@ test('Franchise foundation exposes an explicit unavailable state rather than leg
 test('Franchise foundation reads only canonical Registry-indexed records and normalizes enum labels', async () => {
   const fetcher = async (url: string) => {
     if (url.endsWith('/status')) return response({ available: true, status: 'AVAILABLE', checkpoint: '12', source })();
-    if (url.includes('/wallet/')) return response({ available: true, status: 'AVAILABLE', source, data: [{ tokenId: '1', owner: wallet.toLowerCase(), territoryKey: '0x01', level: '3', status: '0', operatorVersion: '1', metadataURI: 'ipfs://test-only' }] })();
+    if (url.includes('/wallet/')) return response({ available: true, status: 'AVAILABLE', source, data: [{ tokenId: '1', owner: wallet.toLowerCase(), territoryKey: '0x01', level: '3', parentTokenId: '12', operator: wallet.toLowerCase(), status: '0', operatorVersion: '1', metadataURI: 'ipfs://test-only' }] })();
     return response({ available: true, status: 'AVAILABLE', source, data: [{ eventName: 'FranchiseRegistered', evidence: { blockNumber: '6', transactionHash: '0x'.padEnd(66, '1'), logIndex: 0 } }] })();
   };
   const snapshot = await getFranchiseWalletSnapshot(wallet, fetcher as any);
   assert.equal(snapshot.franchises[0].level, 'DISTRICT'); assert.equal(snapshot.franchises[0].status, 'ACTIVE');
+  assert.equal(snapshot.franchises[0].parentTokenId, '12'); assert.equal(snapshot.franchises[0].operator, wallet.toLowerCase());
   assert.equal(snapshot.franchises[0].metadataURI, 'ipfs://test-only'); assert.equal(snapshot.history['1'][0].eventName, 'FranchiseRegistered');
 });
 

@@ -23,7 +23,7 @@ test('Franchise read API is unavailable before a confirmed canonical checkpoint'
 });
 
 test('Franchise read API accepts a checksummed wallet and returns only indexed canonical records', async () => {
-  const certificate = { tokenId: '1', owner: wallet.toLowerCase(), territoryCode: 'IN-TG-HYD' };
+  const certificate = { tokenId: '1', owner: wallet.toLowerCase(), operator: wallet.toLowerCase(), territoryKey: '0x01', parentTokenId: '0', level: '0', status: '0', operatorVersion: '1', metadataURI: 'ipfs://test-only' };
   const controller = createFranchiseReadController({ models: models(true, [certificate]), manifest }); const res = response();
   await controller.wallet({ params: { address: wallet }, query: { limit: '50' } }, res, (error) => { throw error; });
   assert.equal(res.body.status, 'AVAILABLE'); assert.equal(res.body.source.kind, 'canonical-indexed-on-chain'); assert.equal(res.body.wallet, wallet.toLowerCase()); assert.deepEqual(res.body.data, [certificate]);

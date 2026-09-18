@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 export declare namespace FranchiseRegistry {
       
-    export type FranchiseRecordStruct = {territoryKey: BytesLike, level: BigNumberish, operator: AddressLike, status: BigNumberish, operatorVersion: BigNumberish, exists: boolean}
+    export type FranchiseRecordStruct = {territoryKey: BytesLike, level: BigNumberish, parentTokenId: BigNumberish, operator: AddressLike, status: BigNumberish, operatorVersion: BigNumberish, exists: boolean}
 
-    export type FranchiseRecordStructOutput = [territoryKey: string, level: bigint, operator: string, status: bigint, operatorVersion: bigint, exists: boolean] & {territoryKey: string, level: bigint, operator: string, status: bigint, operatorVersion: bigint, exists: boolean }
+    export type FranchiseRecordStructOutput = [territoryKey: string, level: bigint, parentTokenId: bigint, operator: string, status: bigint, operatorVersion: bigint, exists: boolean] & {territoryKey: string, level: bigint, parentTokenId: bigint, operator: string, status: bigint, operatorVersion: bigint, exists: boolean }
   
 
     export type TransferRequestStruct = {tokenId: BigNumberish, currentOperator: AddressLike, proposedOperator: AddressLike, operatorVersion: BigNumberish, active: boolean, approved: boolean}
@@ -43,7 +43,7 @@ encodeFunctionData(functionFragment: 'isOperatorEligible', values: [AddressLike]
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
 encodeFunctionData(functionFragment: 'reactivate', values: [BigNumberish]): string;
-encodeFunctionData(functionFragment: 'registerFranchise', values: [BytesLike, BigNumberish, AddressLike, string]): string;
+encodeFunctionData(functionFragment: 'registerFranchise', values: [BytesLike, BigNumberish, BigNumberish, AddressLike, string]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'requestTransfer', values: [BigNumberish, AddressLike]): string;
 encodeFunctionData(functionFragment: 'revoke', values: [BigNumberish]): string;
@@ -89,9 +89,9 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
   
     export namespace FranchiseRegisteredEvent {
-      export type InputTuple = [tokenId: BigNumberish, territoryKey: BytesLike, operator: AddressLike, level: BigNumberish, metadataURI: string];
-      export type OutputTuple = [tokenId: bigint, territoryKey: string, operator: string, level: bigint, metadataURI: string];
-      export interface OutputObject {tokenId: bigint, territoryKey: string, operator: string, level: bigint, metadataURI: string };
+      export type InputTuple = [tokenId: BigNumberish, territoryKey: BytesLike, operator: AddressLike, level: BigNumberish, parentTokenId: BigNumberish, metadataURI: string];
+      export type OutputTuple = [tokenId: bigint, territoryKey: string, operator: string, level: bigint, parentTokenId: bigint, metadataURI: string];
+      export interface OutputObject {tokenId: bigint, territoryKey: string, operator: string, level: bigint, parentTokenId: bigint, metadataURI: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -435,7 +435,7 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
     
     registerFranchise: TypedContractMethod<
-      [territoryKey: BytesLike, level: BigNumberish, operator: AddressLike, metadataURI: string, ],
+      [territoryKey: BytesLike, level: BigNumberish, parentTokenId: BigNumberish, operator: AddressLike, metadataURI: string, ],
       [bigint],
       'nonpayable'
     >
@@ -622,7 +622,7 @@ getFunction(nameOrSignature: 'reactivate'): TypedContractMethod<
       'nonpayable'
     >;
 getFunction(nameOrSignature: 'registerFranchise'): TypedContractMethod<
-      [territoryKey: BytesLike, level: BigNumberish, operator: AddressLike, metadataURI: string, ],
+      [territoryKey: BytesLike, level: BigNumberish, parentTokenId: BigNumberish, operator: AddressLike, metadataURI: string, ],
       [bigint],
       'nonpayable'
     >;
@@ -687,7 +687,7 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
     filters: {
       
-      'FranchiseRegistered(uint256,bytes32,address,uint8,string)': TypedContractEvent<FranchiseRegisteredEvent.InputTuple, FranchiseRegisteredEvent.OutputTuple, FranchiseRegisteredEvent.OutputObject>;
+      'FranchiseRegistered(uint256,bytes32,address,uint8,uint256,string)': TypedContractEvent<FranchiseRegisteredEvent.InputTuple, FranchiseRegisteredEvent.OutputTuple, FranchiseRegisteredEvent.OutputObject>;
       FranchiseRegistered: TypedContractEvent<FranchiseRegisteredEvent.InputTuple, FranchiseRegisteredEvent.OutputTuple, FranchiseRegisteredEvent.OutputObject>;
     
 
