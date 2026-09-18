@@ -11,26 +11,31 @@ async function main() {
   const Token = await ethers.getContractFactory("ABCDToken");
   const token = await Token.deploy(admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address, admin.address);
   await token.waitForDeployment();
-  const Barter = await ethers.getContractFactory("BarterNFT");
-  const barter = await Barter.deploy(admin.address);
-  await barter.waitForDeployment();
+  const TestCollection = await ethers.getContractFactory("MarketplaceTestERC721");
+  const testCollection = await TestCollection.deploy();
+  await testCollection.waitForDeployment();
   const Marketplace = await ethers.getContractFactory("ABCDNFTMarketplaceV2");
   const marketplace = await Marketplace.deploy(await token.getAddress(), admin.address, marketplaceAdmin.address, pauser.address);
   await marketplace.waitForDeployment();
-  const configuration = await marketplace.connect(marketplaceAdmin).configureCollection(await barter.getAddress(), true);
+  const configuration = await marketplace.connect(marketplaceAdmin).configureCollection(await testCollection.getAddress(), true);
   const configurationReceipt = await configuration.wait();
-  if (!configurationReceipt || Number(configurationReceipt.status) !== 1) throw new Error("Local BarterNFT collection configuration failed.");
+  if (!configurationReceipt || Number(configurationReceipt.status) !== 1) throw new Error("Local MarketplaceTestERC721 collection configuration failed.");
 
   const deploymentBlock = Number(configurationReceipt.blockNumber);
+  const deploymentBlockHash = (await ethers.provider.getBlock(deploymentBlock))?.hash;
+  if (!deploymentBlockHash) throw new Error("Local marketplace deployment block hash is unavailable.");
   const manifest = {
-    deploymentVersion: "abcd-nft-marketplace-v2-local-v1",
+    // Hardhat reuses deterministic addresses on every fresh in-memory chain.
+    // Bind this local-only projection identity to the deployment block hash so
+    // a checkpoint from a prior local chain cannot be mistaken for this one.
+    deploymentVersion: `abcd-nft-marketplace-v2-local-v1-${deploymentBlockHash}`,
     network: "hardhat-local",
     chainId: 31337,
     rpcUrl: "http://127.0.0.1:8545",
     deploymentBlock,
     contracts: {
       ABCDToken: { address: await token.getAddress(), deploymentBlock: Number((await token.deploymentTransaction()!.wait())!.blockNumber) },
-      BarterNFT: { address: await barter.getAddress(), deploymentBlock: Number((await barter.deploymentTransaction()!.wait())!.blockNumber) },
+      MarketplaceTestERC721: { address: await testCollection.getAddress(), deploymentBlock: Number((await testCollection.deploymentTransaction()!.wait())!.blockNumber) },
       ABCDNFTMarketplaceV2: { address: await marketplace.getAddress(), deploymentBlock, configurationTransaction: configuration.hash },
     },
     roles: { defaultAdmin: admin.address, marketplaceAdmin: marketplaceAdmin.address, pauser: pauser.address },

@@ -104,10 +104,36 @@ KYC/KYB rule may be inferred from transferability.
 
 The transfer-approval authority is the authorized Legion administrator/Registry
 under the least-privilege administrative security model. It must perform no
-financial, KYC/KYB, Franchise, or Marketplace evaluation. Contract request
-storage, cancellation/invalidation functions, and the complete event ABI are
-technical design details that must preserve the owner-approved anti-replay and
-provenance invariants.
+financial, KYC/KYB, Franchise, or generic Marketplace evaluation. The sole
+exception is the owner-approved Phase 10B correlation validation for the
+matching targeted sale/request; it does not create a general Marketplace right.
+Contract request storage, cancellation/invalidation functions, and the complete
+event ABI are technical design details that must preserve the owner-approved
+anti-replay and provenance invariants.
+
+## Narrow Phase 10B controlled-settlement exception
+
+**OWNER-APPROVED EXTENSION — NOT WHITEPAPER-DEFINED:** Legion Marketplace
+integration is permitted **only** as the explicitly owner-approved Phase 10B
+controlled settlement extension for canonical `LegionNFTV2` Country, State,
+and District NFTs. This is a narrow amendment to LEG-32, documented by
+`PHASE8-LEGION-PHASE10B-AMENDMENT-APPROVAL.md` and
+`PHASE10B-LEGION-MARKETPLACE-BUYER-DECISIONS.md`.
+
+The seller creates a targeted fixed-price ABCD sale naming one buyer, then
+creates the matching LEG-44 request naming that buyer. Legion administration
+approves the request. Only that buyer may settle. A dedicated, separately
+controlled settlement authority may execute only the already-approved,
+correctly correlated request, atomically transferring exact ABCD to the seller
+and the Legion NFT to the buyer. The sale and request are consumed; replay
+reverts.
+
+Denied, cancelled, invalidated, or stale requests make their linked sale
+terminally not-settleable/cancelled. A new sale and new LEG-44 request are
+required. This exception does not authorize generic ERC-721 Marketplace
+transfer, public approvals, unrestricted transfers, Marketplace-admin elevation
+to Legion admin, fees, royalties, commissions, valuation, Lending, Franchise,
+Barter, Treasury, governance, or other cross-module rights.
 
 ## Minting, batch minting, metadata, and provenance
 
@@ -150,16 +176,17 @@ hardcoded and no unnecessary role is created.
 The following are **OUT OF SCOPE**:
 
 - `treasuryShareBps` or any Treasury-share field (LEG-26);
-- Legion-specific Marketplace integration (LEG-32);
+- generic Legion Marketplace integration (LEG-32, as narrowly amended only
+  for the explicit Phase 10B controlled-settlement exception above);
 - commission/revenue (LEG-34);
 - Treasury integration (LEG-35); and
 - financial rights (LEG-36).
 
-No Reserve, pricing, payment, purchase, population-based pricing, reward,
-yield, token allocation, lending, referral, KYC/KYB, legal territory ownership,
-or unapproved economic formula may be implemented. LEG-33 does not authorize a
-Marketplace implementation; it only leaves a future external-consumption
-question for later specification.
+No Reserve, generic pricing, payment, purchase, population-based pricing,
+reward, yield, token allocation, lending, referral, KYC/KYB, legal territory
+ownership, or unapproved economic formula may be implemented. The only payment
+exception is the exact-ABCD atomic Phase 10B settlement described above.
+LEG-33 does not authorize any other Marketplace implementation.
 
 ## Legion / Franchise separation
 
@@ -207,7 +234,8 @@ policy or be weakened to bypass an invariant.
 | LEG-26 | Treasury-share field rejected/out of scope. |
 | LEG-27…30 | Admin-controlled metadata/name mutation and hierarchy/mint/transfer/metadata/lifecycle provenance. |
 | LEG-31 | Permanent hierarchy provenance. |
-| LEG-32…36 | Marketplace integration and financial/economic functionality excluded. |
+| LEG-32 | Generic Marketplace integration excluded; only the formal owner-approved Phase 10B targeted-buyer controlled-settlement exception is permitted. |
+| LEG-33…36 | No other Marketplace or financial/economic functionality is authorized. |
 | LEG-37…40 | Full Legion/Franchise separation. |
 
 ## Specification gate

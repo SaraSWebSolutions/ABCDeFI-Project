@@ -15,10 +15,7 @@ export declare namespace ILegionNFTV2 {
 
     export type TerritoryRecordStructOutput = [level: bigint, parentId: bigint, population: bigint, displayName: string, canonicalIdentifier: string, metadataURI: string, territoryKey: string] & {level: bigint, parentId: bigint, population: bigint, displayName: string, canonicalIdentifier: string, metadataURI: string, territoryKey: string }
   
-    }
 
-export declare namespace LegionNFTV2 {
-      
     export type TransferRequestStruct = {tokenId: BigNumberish, currentOwner: AddressLike, proposedOwner: AddressLike, active: boolean, approved: boolean}
 
     export type TransferRequestStructOutput = [tokenId: bigint, currentOwner: string, proposedOwner: string, active: boolean, approved: boolean] & {tokenId: bigint, currentOwner: string, proposedOwner: string, active: boolean, approved: boolean }
@@ -26,12 +23,13 @@ export declare namespace LegionNFTV2 {
     }
 
   export interface LegionNFTV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "LEGION_ADMIN_ROLE" | "LEGION_MINTER_ROLE" | "MAX_BATCH_SIZE" | "PAUSER_ROLE" | "activeTransferRequestForToken" | "approve" | "approveTransfer" | "balanceOf" | "batchMintCountry" | "batchMintDistrict" | "batchMintState" | "cancelTransfer" | "executeTransfer" | "getApproved" | "getRoleAdmin" | "getTerritory" | "getTransferRequest" | "grantRole" | "hasRole" | "invalidateTransfer" | "isApprovedForAll" | "mintCountry" | "mintDistrict" | "mintState" | "name" | "normalizeIdentifier" | "ownerOf" | "pause" | "paused" | "renounceRole" | "requestTransfer" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "supportsInterface" | "symbol" | "territoryKey" | "tokenIdForTerritoryKey" | "tokenURI" | "transferFrom" | "unpause" | "updateMetadata"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "LEGION_ADMIN_ROLE" | "LEGION_MARKETPLACE_SETTLER_ROLE" | "LEGION_MINTER_ROLE" | "MAX_BATCH_SIZE" | "PAUSER_ROLE" | "activeTransferRequestForToken" | "approve" | "approveTransfer" | "balanceOf" | "batchMintCountry" | "batchMintDistrict" | "batchMintState" | "cancelTransfer" | "executeMarketplaceTransfer" | "executeTransfer" | "getApproved" | "getRoleAdmin" | "getTerritory" | "getTransferRequest" | "grantRole" | "hasRole" | "invalidateTransfer" | "isApprovedForAll" | "mintCountry" | "mintDistrict" | "mintState" | "name" | "normalizeIdentifier" | "ownerOf" | "pause" | "paused" | "renounceRole" | "requestTransfer" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "supportsInterface" | "symbol" | "territoryKey" | "tokenIdForTerritoryKey" | "tokenURI" | "transferFrom" | "unpause" | "updateMetadata"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "TerritoryMetadataUpdated" | "TerritoryMinted" | "Transfer" | "TransferApproved" | "TransferCancelled" | "TransferExecuted" | "TransferRequested" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "MarketplaceTransferExecuted" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "TerritoryMetadataUpdated" | "TerritoryMinted" | "Transfer" | "TransferApproved" | "TransferCancelled" | "TransferExecuted" | "TransferRequested" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LEGION_ADMIN_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'LEGION_MARKETPLACE_SETTLER_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LEGION_MINTER_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MAX_BATCH_SIZE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'PAUSER_ROLE', values?: undefined): string;
@@ -43,6 +41,7 @@ encodeFunctionData(functionFragment: 'batchMintCountry', values: [ILegionNFTV2.B
 encodeFunctionData(functionFragment: 'batchMintDistrict', values: [ILegionNFTV2.BatchMintItemStruct[]]): string;
 encodeFunctionData(functionFragment: 'batchMintState', values: [ILegionNFTV2.BatchMintItemStruct[]]): string;
 encodeFunctionData(functionFragment: 'cancelTransfer', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'executeMarketplaceTransfer', values: [BigNumberish, BigNumberish, AddressLike, AddressLike, BigNumberish, AddressLike]): string;
 encodeFunctionData(functionFragment: 'executeTransfer', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getApproved', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
@@ -77,6 +76,7 @@ encodeFunctionData(functionFragment: 'updateMetadata', values: [BigNumberish, st
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LEGION_ADMIN_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'LEGION_MARKETPLACE_SETTLER_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LEGION_MINTER_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MAX_BATCH_SIZE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'PAUSER_ROLE', data: BytesLike): Result;
@@ -88,6 +88,7 @@ decodeFunctionResult(functionFragment: 'batchMintCountry', data: BytesLike): Res
 decodeFunctionResult(functionFragment: 'batchMintDistrict', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'batchMintState', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'cancelTransfer', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'executeMarketplaceTransfer', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'executeTransfer', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getApproved', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
@@ -138,6 +139,18 @@ decodeFunctionResult(functionFragment: 'updateMetadata', data: BytesLike): Resul
       export type InputTuple = [owner: AddressLike, operator: AddressLike, approved: boolean];
       export type OutputTuple = [owner: string, operator: string, approved: boolean];
       export interface OutputObject {owner: string, operator: string, approved: boolean };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace MarketplaceTransferExecutedEvent {
+      export type InputTuple = [requestId: BigNumberish, saleId: BigNumberish, tokenId: BigNumberish, seller: AddressLike, buyer: AddressLike, abcdToken: AddressLike, price: BigNumberish, settlementAuthority: AddressLike];
+      export type OutputTuple = [requestId: bigint, saleId: bigint, tokenId: bigint, seller: string, buyer: string, abcdToken: string, price: bigint, settlementAuthority: string];
+      export interface OutputObject {requestId: bigint, saleId: bigint, tokenId: bigint, seller: string, buyer: string, abcdToken: string, price: bigint, settlementAuthority: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -340,6 +353,14 @@ decodeFunctionResult(functionFragment: 'updateMetadata', data: BytesLike): Resul
     
 
     
+    LEGION_MARKETPLACE_SETTLER_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     LEGION_MINTER_ROLE: TypedContractMethod<
       [],
       [string],
@@ -428,6 +449,14 @@ decodeFunctionResult(functionFragment: 'updateMetadata', data: BytesLike): Resul
     
 
     
+    executeMarketplaceTransfer: TypedContractMethod<
+      [requestId: BigNumberish, saleId: BigNumberish, expectedSeller: AddressLike, expectedBuyer: AddressLike, price: BigNumberish, abcdToken: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     executeTransfer: TypedContractMethod<
       [requestId: BigNumberish, ],
       [void],
@@ -462,7 +491,7 @@ decodeFunctionResult(functionFragment: 'updateMetadata', data: BytesLike): Resul
     
     getTransferRequest: TypedContractMethod<
       [requestId: BigNumberish, ],
-      [LegionNFTV2.TransferRequestStructOutput],
+      [ILegionNFTV2.TransferRequestStructOutput],
       'view'
     >
     
@@ -688,6 +717,11 @@ getFunction(nameOrSignature: 'LEGION_ADMIN_ROLE'): TypedContractMethod<
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'LEGION_MARKETPLACE_SETTLER_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'LEGION_MINTER_ROLE'): TypedContractMethod<
       [],
       [string],
@@ -743,6 +777,11 @@ getFunction(nameOrSignature: 'cancelTransfer'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'executeMarketplaceTransfer'): TypedContractMethod<
+      [requestId: BigNumberish, saleId: BigNumberish, expectedSeller: AddressLike, expectedBuyer: AddressLike, price: BigNumberish, abcdToken: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'executeTransfer'): TypedContractMethod<
       [requestId: BigNumberish, ],
       [void],
@@ -765,7 +804,7 @@ getFunction(nameOrSignature: 'getTerritory'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'getTransferRequest'): TypedContractMethod<
       [requestId: BigNumberish, ],
-      [LegionNFTV2.TransferRequestStructOutput],
+      [ILegionNFTV2.TransferRequestStructOutput],
       'view'
     >;
 getFunction(nameOrSignature: 'grantRole'): TypedContractMethod<
@@ -901,6 +940,7 @@ getFunction(nameOrSignature: 'updateMetadata'): TypedContractMethod<
 
     getEvent(key: 'Approval'): TypedContractEvent<ApprovalEvent.InputTuple, ApprovalEvent.OutputTuple, ApprovalEvent.OutputObject>;
 getEvent(key: 'ApprovalForAll'): TypedContractEvent<ApprovalForAllEvent.InputTuple, ApprovalForAllEvent.OutputTuple, ApprovalForAllEvent.OutputObject>;
+getEvent(key: 'MarketplaceTransferExecuted'): TypedContractEvent<MarketplaceTransferExecutedEvent.InputTuple, MarketplaceTransferExecutedEvent.OutputTuple, MarketplaceTransferExecutedEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
 getEvent(key: 'RoleGranted'): TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
@@ -922,6 +962,10 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
       'ApprovalForAll(address,address,bool)': TypedContractEvent<ApprovalForAllEvent.InputTuple, ApprovalForAllEvent.OutputTuple, ApprovalForAllEvent.OutputObject>;
       ApprovalForAll: TypedContractEvent<ApprovalForAllEvent.InputTuple, ApprovalForAllEvent.OutputTuple, ApprovalForAllEvent.OutputObject>;
+    
+
+      'MarketplaceTransferExecuted(uint256,uint256,uint256,address,address,address,uint256,address)': TypedContractEvent<MarketplaceTransferExecutedEvent.InputTuple, MarketplaceTransferExecutedEvent.OutputTuple, MarketplaceTransferExecutedEvent.OutputObject>;
+      MarketplaceTransferExecuted: TypedContractEvent<MarketplaceTransferExecutedEvent.InputTuple, MarketplaceTransferExecutedEvent.OutputTuple, MarketplaceTransferExecutedEvent.OutputObject>;
     
 
       'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;

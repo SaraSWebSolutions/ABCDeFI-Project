@@ -1,8 +1,25 @@
-# Phase 10A — ABCDeFi Barter NFT Owner Decision Register
+# Phase 10 — NFT Marketplace Owner Decision Register
 
 ## Canonical direction and evidence boundary
 
-**PHASE 10A CURRENT MODEL: ABCDeFi BARTER NFT = UNIQUE-GOODS NFT + LOAN + ABCD INSTALLMENT REPAYMENT + COLLATERAL**
+## 10A — owner-approved fixed-price ABCD NFT Marketplace
+
+**CURRENT CANONICAL PHASE 10A SCOPE: fixed-price sale of an explicitly
+allowlisted standard ERC-721 collection, paid in ABCD.**
+
+This is an **OWNER-APPROVED PRODUCT SCOPE**, not a claim that the whitepaper
+defines a complete generic paid NFT marketplace. The approved scope is limited
+to non-custodial listings, seller cancellation, on-chain ownership and approval
+validation, exact ABCD payment, and atomic ABCD-plus-NFT settlement. It has no
+Marketplace fee, royalty, commission, auction, dynamic pricing, partial fill,
+expiry, automatic lending, automatic Barter financing, automatic Legion rights,
+or automatic Franchise rights.
+
+The current local implementation is intentionally limited to a test-only
+ordinary ERC-721 collection. Legion and Franchise remain excluded: their
+Registry-controlled transfer models are not generalized by Phase 10A.
+
+## Separate whitepaper-derived Barter concept — blocked
 
 The authoritative `ABCDeFI.pdf`, PDF sheet 14 / printed page 29, defines only
 the following high-level concept: a unique-goods NFT with a certain value is
@@ -12,13 +29,15 @@ back and the collateral is taken back. Precious metals, diamonds, and
 gemstones are examples. This is not a complete lending, custody, valuation, or
 marketplace specification.
 
-**PHASE 10A = BLOCKED — OWNER DECISIONS REQUIRED**
+**BARTER FINANCING = BLOCKED — OWNER DECISIONS REQUIRED**
 
 ### Supersession record
 
 1. NFT-for-NFT barter exchange is **SUPERSEDED BEFORE IMPLEMENTATION**.
-2. ABCD-token-priced NFT sale marketplace is **SUPERSEDED**.
-3. Neither historical direction authorizes a Barter NFT loan rule.
+2. The fixed-price ABCD NFT Marketplace is the current **OWNER-APPROVED
+   PHASE 10A** scope; it is not Barter financing.
+3. The whitepaper-derived Barter financing concept remains blocked until its
+   separate custody, valuation, lending, and settlement decisions are approved.
 
 ## Legacy component audit
 
@@ -27,8 +46,8 @@ marketplace specification.
 | `contracts/nft/BarterNFT.sol`, `contracts/interfaces/IBarterNFT.sol` and duplicate token-package copies | ERC-721 voucher with `partyA`, `partyB`, `offerValue`, `requestedValue`, and `OPEN/EXECUTED/CANCELLED`; no loan, installment, collateral, or settlement | **B — Requires modification**; ERC-721/access-control mechanics are only a possible technical foundation | Do not use its voucher agreement, peer-to-peer execution, values, or statuses as policy. |
 | `contracts/nft/RWABarterNFT.sol` | Admin-valued RWA mint plus direct NFT-for-NFT swap and an `inEscrow` flag | **C — Conflicts** and **D — Unsupported/invented business logic** | Do not use its cashless swap, USD valuation, custodian URI semantics, or escrow assumption. |
 | Legacy Barter tests in `test/nft/NFTSuite.test.ts` and token-package duplicate | Tests a peer-to-peer barter voucher/execution path | **E — Dead/unused legacy code** for Phase 10A | Retain unless separately authorized; not canonical coverage. |
-| `contracts/marketplace/ABCDNFTMarketplaceV2.sol`, interface, scripts, manifest, tests | Superseded ABCD-priced sale prototype | **C — Conflicts** with the corrected loan model | Do not extend or present as Barter NFT behavior. |
-| `backend/backend/modules/abcdMarketplaceProjection/`, related manifest/indexer/API wiring | Projection for the superseded sale prototype | **E — Dead/unused legacy code** for this scope | No canonical Barter-loan projection exists. |
+| `contracts/marketplace/ABCDNFTMarketplaceV2.sol`, interface, scripts, manifest, tests | Owner-approved fixed-price ABCD sale for explicitly allowlisted standard ERC-721 collections | **A — Canonical Phase 10A marketplace** | Do not present it as Barter financing or as a Legion/Franchise market. |
+| `backend/backend/modules/abcdMarketplaceProjection/`, related manifest/indexer/API wiring | Canonical indexed-on-chain projection for the Phase 10A ABCD marketplace | **A — Canonical Phase 10A projection** | No canonical Barter-loan projection exists. |
 | `src/Services/barterEconomy.ts`, `src/components/NFTMarketplaceGovernancePortal.tsx`, `src/Services/mockApiStore.ts`, Admin/NFT submodule displays | Static RWA catalogue, mock swaps, ticket values, and UI-only outcomes | **D — Unsupported/invented business logic** and **E — demo/legacy** | Never use as production truth or loan data. |
 | `src/Services/nftEcosystem.ts` gift/barter rules | 7-day lock, 8.5% APY, 10% spread, 24-hour escrow | **D — Unsupported/invented economics** | Not approved Barter NFT economics. |
 | `backend/backend/modules/nft/nft.model.js` generic `RWA Barter` category | Generic NFT storage field set, not a Barter-loan projection | **F — Unknown — requires owner decision** | May not become canonical until the loan event/data model is approved. |
@@ -39,7 +58,7 @@ marketplace specification.
 | Assumption found | Classification | Reason |
 | --- | --- | --- |
 | Peer-to-peer NFT-for-NFT swap | **CONFLICTING** | Superseded and not the whitepaper loan lifecycle. |
-| Seller listing, ABCD sale price, allowance sale settlement | **OUT OF SCOPE** | Superseded sale prototype. |
+| Seller listing, ABCD sale price, allowance sale settlement | **OWNER-APPROVED FOR PHASE 10A ONLY** | Fixed-price ABCD Marketplace scope; not Barter financing policy. |
 | Admin-supplied USD value and custodian URI | **OWNER DECISION REQUIRED** | Whitepaper says “certain value” but defines no valuation/custody mechanism. |
 | 7-day lock, 8.5% APY, 10% valuation spread, 24-hour escrow | **OWNER DECISION REQUIRED** | Legacy UI constants, not whitepaper-defined. |
 | 2.5% trading fee, 1% listing fee, 5% royalty, ETH price | **OUT OF SCOPE** | Generic legacy marketplace calculations, not a Barter-loan rule. |
@@ -125,4 +144,6 @@ separately approved custody model.
 
 ## Final status
 
-**PHASE 10A = BLOCKED — OWNER DECISIONS REQUIRED**
+**PHASE 10A MARKETPLACE = OWNER-APPROVED FIXED-PRICE ABCD SALE SCOPE**
+
+**BARTER FINANCING = BLOCKED — OWNER DECISIONS REQUIRED**

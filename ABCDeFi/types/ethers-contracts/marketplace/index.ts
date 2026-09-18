@@ -2,4 +2,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export type { ABCDNFTMarketplaceV2 } from './ABCDNFTMarketplaceV2.js';
+export type { LegionMarketplaceSettlementAdapterV2 } from './LegionMarketplaceSettlementAdapterV2.js';
 export type { NFTMarketplace } from './NFTMarketplace.js';

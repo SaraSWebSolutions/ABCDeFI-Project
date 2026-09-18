@@ -81,11 +81,15 @@ test('user-facing Franchise and canonical Legion views cannot issue administrato
   assert.doesNotMatch(legionSource, /Mint Legion certificate/);
 });
 
-test('administrator issuance remains structurally isolated in AdminPortalEngine', () => {
+test('legacy issuance controls remain outside the active Phase 12 Admin console', () => {
   const adminSource = fs.readFileSync(new URL('../src/components/AdminPortalEngine.tsx', import.meta.url), 'utf8');
-  assert.match(adminSource, /<AdminNftIssuance\s*\/>/);
-  assert.match(adminSource, /<ICOAdmin\s*\/>/);
-  assert.match(adminSource, /<AdminAuthenticationDiagnostics\s*\/>/);
+  const activeAdminSource = adminSource.slice(
+    adminSource.indexOf('export const AdminPortalEngine'),
+    adminSource.indexOf('// Legacy mock-backed control-center'),
+  );
+  assert.match(activeAdminSource, /<CanonicalAdminDashboard\s*\/>/);
+  assert.match(activeAdminSource, /<AdminAuthenticationDiagnostics\s*\/>/);
+  assert.doesNotMatch(activeAdminSource, /<AdminNftIssuance\s*\/>|<ICOAdmin\s*\/>/);
 });
 
 test('the active admin route is narrow, real-capability-only, and separate from legacy mock controls', () => {
@@ -97,10 +101,10 @@ test('the active admin route is narrow, real-capability-only, and separate from 
 
   assert.match(activeAdminSource, /user\?\.role !== 'admin'/);
   assert.match(activeAdminSource, /Application administrator access does not grant any on-chain role/);
-  assert.match(activeAdminSource, /canonical ICO remains inactive/);
+  assert.match(activeAdminSource, /does not create a universal/);
   assert.match(activeAdminSource, /<AdminAuthenticationDiagnostics\s*\/>/);
-  assert.match(activeAdminSource, /<ICOAdmin\s*\/>/);
-  assert.match(activeAdminSource, /<AdminNftIssuance\s*\/>/);
+  assert.match(activeAdminSource, /<CanonicalAdminDashboard\s*\/>/);
+  assert.doesNotMatch(activeAdminSource, /<ICOAdmin\s*\/>|<AdminNftIssuance\s*\/>/);
   assert.doesNotMatch(activeAdminSource, /mockApiStore/);
   assert.doesNotMatch(activeAdminSource, /RoleManager/);
   assert.doesNotMatch(activeAdminSource, /AdminPanel/);

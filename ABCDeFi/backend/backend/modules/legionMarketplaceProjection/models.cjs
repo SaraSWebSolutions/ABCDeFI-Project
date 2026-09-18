@@ -1,0 +1,15 @@
+const mongoose = require('mongoose');
+const { Schema } = mongoose;
+const uint = { type: String, required: true, match: /^\d+$/ };
+const address = { type: String, required: true, lowercase: true, match: /^0x[a-f0-9]{40}$/ };
+const hash = { type: String, required: true, lowercase: true, match: /^0x[a-f0-9]{64}$/ };
+const model = (name, schema, collection) => mongoose.models[name] || mongoose.model(name, schema, collection);
+const evidence = new Schema({ transactionHash: hash, blockNumber: uint, logIndex: { type: Number, required: true }, blockHash: hash, eventName: { type: String, required: true } }, { _id: false });
+const checkpoint = new Schema({ chainId: uint, deploymentVersion: String, settlementAddress: address, lastProcessedBlock: uint, lastProcessedBlockHash: hash, indexedAt: Date }, { versionKey: false });
+checkpoint.index({ chainId: 1, deploymentVersion: 1, settlementAddress: 1 }, { unique: true });
+const event = new Schema({ chainId: uint, deploymentVersion: String, settlementAddress: address, contractAddress: address, transactionHash: hash, blockNumber: uint, logIndex: Number, blockHash: hash, eventName: String, args: Schema.Types.Mixed, removed: Boolean, indexedAt: Date }, { versionKey: false });
+event.index({ chainId: 1, deploymentVersion: 1, settlementAddress: 1, contractAddress: 1, transactionHash: 1, logIndex: 1 }, { unique: true });
+const sale = new Schema({ chainId: uint, deploymentVersion: String, settlementAddress: address, saleId: uint, tokenId: uint, requestId: { type: String, default: null }, seller: address, buyer: address, price: uint, status: String, createdEvidence: evidence, latestEvidence: evidence, indexedAt: Date }, { versionKey: false });
+sale.index({ chainId: 1, deploymentVersion: 1, settlementAddress: 1, saleId: 1 }, { unique: true });
+sale.index({ chainId: 1, deploymentVersion: 1, settlementAddress: 1, tokenId: 1 });
+module.exports = { LegionMarketplaceCheckpoint: model('LegionMarketplaceCheckpoint', checkpoint, 'legion_marketplace_checkpoints_v2'), LegionMarketplaceEvent: model('LegionMarketplaceEvent', event, 'legion_marketplace_events_v2'), LegionMarketplaceSale: model('LegionMarketplaceSale', sale, 'legion_marketplace_sales_v2') };

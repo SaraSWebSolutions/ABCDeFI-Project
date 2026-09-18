@@ -2,3 +2,4 @@
 /* tslint:disable */
 /* eslint-disable */
 export type { Treasury } from './Treasury.js';
+export type { TreasuryV2 } from './TreasuryV2.js';

@@ -35,6 +35,7 @@ import { TransactionHistory } from './TransactionHistory';
 import { NFTEcosystem } from './NFTEcosystem';
 import { LegionNFTV2Dashboard } from './LegionNFTV2Dashboard';
 import { ABCDNFTMarketplaceV2Dashboard } from './ABCDNFTMarketplaceV2Dashboard';
+import { LegionMarketplaceV2Dashboard } from './LegionMarketplaceV2Dashboard';
 import { FranchiseRegistryDashboard } from './FranchiseRegistryDashboard';
 import { ICOv2Dashboard } from './ICOv2Dashboard';
 import { ClaimPortal } from './ClaimPortal';
@@ -45,6 +46,7 @@ import { AIGamesDashboard } from './AIGamesDashboard';
 import { MasterProtocolManager } from './MasterProtocolManager';
 import { NFTSubModuleManager } from './NFTSubModuleManager';
 import { LendingV2 } from './LendingV2';
+import { TreasuryV2Dashboard } from './TreasuryV2Dashboard';
 
 import NextGenProtocolDashboard from './NextGenProtocolDashboard';
 
@@ -138,6 +140,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
     { id: 'legion', label: 'Legion Territories', icon: MapPinned },
     { id: 'franchise', label: 'Franchise NFTs', icon: Building2 },
     { id: 'abcd-nft-marketplace', label: 'ABCD NFT Marketplace', icon: ShoppingCart },
+    { id: 'legion-marketplace', label: 'Legion Settlement', icon: ShoppingCart },
+    { id: 'treasury-v2', label: 'Treasury', icon: ShieldCheck },
     // { id: 'ai-59c', label: '🤖 59C AI Games & Learning', icon: Bot },
     { id: 'ico', label: 'ICO Participation', icon: Rocket },
     { id: 'referral', label: 'Referrals', icon: Users },
@@ -396,6 +400,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
 
       {activeTab === 'franchise' && <FranchiseRegistryDashboard />}
       {activeTab === 'abcd-nft-marketplace' && <ABCDNFTMarketplaceV2Dashboard />}
+      {activeTab === 'legion-marketplace' && <LegionMarketplaceV2Dashboard />}
+      {activeTab === 'treasury-v2' && <TreasuryV2Dashboard />}
 
       {/* {activeTab === 'vesting' && (
         <ClaimPortal

@@ -10,8 +10,8 @@ import ToastContainer, { ToastMessage } from './ToastContainer';
 import Web3ActionModal from './Web3ActionModal';
 import AdminSecurityConfirmationModal from './AdminSecurityConfirmationModal';
 import ICOAdmin from './ICOAdmin';
-import { AdminNftIssuance } from './AdminNftIssuance';
 import { AdminAuthenticationDiagnostics } from './AdminAuthenticationDiagnostics';
+import { CanonicalAdminDashboard } from './CanonicalAdminDashboard';
 import { useAuth } from '../Context/AuthContext';
 
 export interface AdminUserRole {
@@ -21,10 +21,10 @@ export interface AdminUserRole {
 }
 
 /**
- * Active administrator route. Only ICOAdmin currently has a canonical
- * deployments.json -> contract -> signer path. The former broad operations
- * dashboard remains below as isolated legacy code; it must not present its
- * mock API metrics as live protocol data.
+ * Active administrator route. The Phase 12 console is manifest/indexer-bound
+ * and exposes no synthetic power. The former broad operations dashboard
+ * remains below as isolated legacy code and must not present mock metrics as
+ * canonical protocol data.
  */
 export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> = ({ onOpenUserDashboard }) => {
   const { user, sessionVerified } = useAuth();
@@ -50,12 +50,14 @@ export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> =
     <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 text-sm text-amber-100">
       <h1 className="font-bold">Canonical admin controls</h1>
       <p className="mt-1 text-amber-100/80">
-        Presale administration and role-protected Franchise/Legion NFT issuance are available in this local runtime. They read the canonical
-        deployment manifest and use the connected MetaMask account for authorized writes.
+        The dashboard reads canonical manifests, indexers, and the connected
+        wallet's existing module-local roles. It does not create a universal
+        Admin blockchain role.
       </p>
       <p className="mt-2 text-xs text-amber-100/70">
-        Application administrator access does not grant any on-chain role. Every write independently checks the connected signer’s
-        contract permission and waits for a real receipt. The canonical ICO remains inactive because no approved sale inventory exists.
+        Application administrator access does not grant any on-chain role. Any
+        future supported write independently checks the connected signer,
+        receipt, expected event, indexer, API, and dashboard reconciliation.
       </p>
       <p className="mt-2 text-xs text-amber-100/70">
         TVL, revenue, user counts, KYC, AML, generic analytics, support, and fabricated loan metrics are unavailable
@@ -63,8 +65,7 @@ export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> =
       </p>
     </div>
     <AdminAuthenticationDiagnostics />
-    <ICOAdmin />
-    <AdminNftIssuance />
+    <CanonicalAdminDashboard />
   </section>
   );
 };

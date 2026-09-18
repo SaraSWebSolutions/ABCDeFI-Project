@@ -2,4 +2,5 @@
 /* tslint:disable */
 /* eslint-disable */
 export { ABCDNFTMarketplaceV2__factory } from './ABCDNFTMarketplaceV2__factory.js';
+export { LegionMarketplaceSettlementAdapterV2__factory } from './LegionMarketplaceSettlementAdapterV2__factory.js';
 export { NFTMarketplace__factory } from './NFTMarketplace__factory.js';

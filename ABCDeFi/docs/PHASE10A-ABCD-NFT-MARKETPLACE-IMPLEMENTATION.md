@@ -4,10 +4,11 @@
 
 This is an owner-approved, fixed-price ABCD-token sale for explicitly
 allowlisted standard ERC-721 collections. It is not a claim that the
-whitepaper defines an ABCD commercial sale. The whitepaper describes Barter
-NFTs broadly, but does not define this payment, price, fee, or settlement
-model. Phase 10A does not modify locked Phase 8 Legion or Phase 9 Franchise;
-both remain excluded from the collection allowlist.
+whitepaper defines an ABCD commercial sale. The separate whitepaper-derived
+Barter financing concept remains blocked because it does not define custody,
+valuation, LTV, interest, default, liquidation, or settlement mechanics.
+Phase 10A does not modify locked Phase 8 Legion or Phase 9 Franchise; both
+remain excluded from the collection allowlist.
 
 ## Canonical components
 
@@ -37,12 +38,13 @@ function exists.
 ## Local-only evidence
 
 The isolated manifest `deployments.abcd-nft-marketplace-v2-local.json` binds
-the Hardhat 31337 deployment. Its real local E2E minted a test-only Barter NFT,
+the Hardhat 31337 deployment. Its real local E2E minted a test-only ordinary ERC-721,
 created listing `1` at exactly `25 ABCD`, approved exactly that amount, and
 purchased it atomically. The canonical indexer reached block `10`; the API
 projected the listing as `SOLD` with the corresponding create and purchase
-events. This is local verification only, not BSC/Testnet or production
-evidence.
+events. The final fresh local verification also exercised stale ownership and
+revoked approval paths; its canonical indexer checkpoint reached `18`. This is
+local verification only, not BSC/Testnet or production evidence.
 
 ## Deferred work
 

@@ -23,15 +23,18 @@ territorial-right rule.
   bypass paths revert.
 - `parentId` is immutable. Parent and child ownership are independent, and a
   parent transfer never transfers a child.
-- There is no public burn, Marketplace, pricing, payment, Treasury, Reserve,
-  lending, referral, commission, revenue, reward, governance, Franchise, or
-  legal-territory ownership right.
+- There is no public burn, generic Marketplace, pricing, payment, Treasury,
+  Reserve, lending, referral, commission, revenue, reward, governance,
+  Franchise, or legal-territory ownership right. The sole exception is the
+  formal owner-approved Phase 10B targeted-buyer controlled settlement,
+  documented in the Phase 8 amendment approval and Phase 10B buyer-decision
+  records.
 
 ## Verification evidence
 
 | Area | Result | Evidence |
 | --- | --- | --- |
-| Owner decisions | PASS | LEG-01…LEG-44: 39 approved; LEG-26/32/34/35/36 remain rejected/out of scope; no undecided decision. |
+| Owner decisions | PASS, as amended | LEG-01…LEG-44: 39 approved; LEG-32 has a narrow formal Phase 10B exception; LEG-26/34/35/36 remain rejected/out of scope; no undecided Phase 8 decision. |
 | Solidity controls | PASS | `contracts/nft/LegionNFTV2.sol`, `contracts/interfaces/ILegionNFTV2.sol`, and `test/LegionNFTV2.test.ts`. |
 | Focused Legion tests | PASS | 14 passing. |
 | Full Solidity suite | PASS | 245 Hardhat/Mocha tests; 33 TAP checks; no skips; ICO V2 coverage executed. |
@@ -54,11 +57,13 @@ deployment record.
 
 ## Deferred / excluded work
 
-The following remain intentionally absent: Continent hierarchy, Marketplace,
-financial rights, Treasury/Reserve, lending, referral, governance, Franchise
-integration, pricing/payment/revenue/commission, legal territorial ownership,
-production artwork mapping, and IPFS publication. No unspecified whitepaper
-economics were introduced.
+The following remain intentionally absent: Continent hierarchy, generic
+Marketplace behavior, financial rights, Treasury/Reserve, lending, referral,
+governance, Franchise integration, generic pricing/payment/revenue/commission,
+legal territorial ownership, production artwork mapping, and IPFS publication.
+The only Marketplace/payment exception is the owner-approved Phase 10B
+targeted-buyer controlled settlement. No unspecified whitepaper economics were
+introduced.
 
 ## Status
 
@@ -66,8 +71,10 @@ economics were introduced.
 
 **PHASE 8: LOCKED**
 
-This record formally locks the verified Phase 8 LegionNFTV2 foundation. It does
-not authorize Phase 9 implementation, any deployment, or expansion into
-registration, KYC, onboarding, purchase, pricing, payment, commercial minting,
-Marketplace/resale/royalty behavior, production IPFS mapping, or a Continent
-hierarchy.
+This record formally locks the verified Phase 8 LegionNFTV2 foundation. The
+only later amendment is the owner-approved Phase 10B targeted-buyer controlled
+settlement extension. It does not authorize general registration, KYC,
+onboarding, commercial minting, generic purchase/pricing/payment,
+Marketplace/resale/royalty behavior, production IPFS mapping, a Continent
+hierarchy, or any other expansion. The extension remains an owner-approved
+product rule, not a whitepaper-defined commercial requirement.

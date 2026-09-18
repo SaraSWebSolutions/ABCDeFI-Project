@@ -16,17 +16,10 @@ import "../interfaces/ILegionNFTV2.sol";
 contract LegionNFTV2 is ERC721, AccessControl, Pausable, ReentrancyGuard, ILegionNFTV2 {
     bytes32 public constant LEGION_ADMIN_ROLE = keccak256("LEGION_ADMIN_ROLE");
     bytes32 public constant LEGION_MINTER_ROLE = keccak256("LEGION_MINTER_ROLE");
+    bytes32 public constant LEGION_MARKETPLACE_SETTLER_ROLE = keccak256("LEGION_MARKETPLACE_SETTLER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     uint256 public constant MAX_BATCH_SIZE = 100;
-
-    struct TransferRequest {
-        uint256 tokenId;
-        address currentOwner;
-        address proposedOwner;
-        bool active;
-        bool approved;
-    }
 
     error InvalidAddress();
     error InvalidParent(uint256 parentId);
@@ -45,6 +38,7 @@ contract LegionNFTV2 is ERC721, AccessControl, Pausable, ReentrancyGuard, ILegio
     error TransferRequestNotApproved(uint256 requestId);
     error TransferRequestAlreadyApproved(uint256 requestId);
     error TransferRequestStale(uint256 requestId);
+    error MarketplaceSettlementMismatch();
 
     uint256 private _nextTokenId = 1;
     uint256 private _nextRequestId = 1;
@@ -54,7 +48,7 @@ contract LegionNFTV2 is ERC721, AccessControl, Pausable, ReentrancyGuard, ILegio
 
     mapping(uint256 => TerritoryRecord) private _territories;
     mapping(bytes32 => uint256) public tokenIdForTerritoryKey;
-    mapping(uint256 => TransferRequest) private _transferRequests;
+    mapping(uint256 => ILegionNFTV2.TransferRequest) private _transferRequests;
     mapping(uint256 => uint256) public activeTransferRequestForToken;
 
     constructor(address defaultAdmin, address minter, address pauser) ERC721("ABCDeFi Legion NFT V2", "ABCD-LEGION-V2") {
@@ -144,7 +138,7 @@ contract LegionNFTV2 is ERC721, AccessControl, Pausable, ReentrancyGuard, ILegio
         if (activeRequestId != 0) revert ActiveTransferRequest(tokenId, activeRequestId);
 
         requestId = _nextRequestId++;
-        _transferRequests[requestId] = TransferRequest({
+        _transferRequests[requestId] = ILegionNFTV2.TransferRequest({
             tokenId: tokenId,
             currentOwner: currentOwner,
             proposedOwner: proposedOwner,
@@ -156,7 +150,7 @@ contract LegionNFTV2 is ERC721, AccessControl, Pausable, ReentrancyGuard, ILegio
     }
 
     function approveTransfer(uint256 requestId) external onlyRole(LEGION_ADMIN_ROLE) whenNotPaused {
-        TransferRequest storage request = _activeRequest(requestId);
+        ILegionNFTV2.TransferRequest storage request = _activeRequest(requestId);
         if (request.approved) revert TransferRequestAlreadyApproved(requestId);
         if (_requireOwned(request.tokenId) != request.currentOwner) revert TransferRequestStale(requestId);
         request.approved = true;
@@ -164,18 +158,18 @@ contract LegionNFTV2 is ERC721, AccessControl, Pausable, ReentrancyGuard, ILegio
     }
 
     function cancelTransfer(uint256 requestId) external whenNotPaused {
-        TransferRequest storage request = _activeRequest(requestId);
+        ILegionNFTV2.TransferRequest storage request = _activeRequest(requestId);
         if (msg.sender != request.currentOwner) revert NotCurrentOwner(msg.sender, request.currentOwner);
         _cancelRequest(requestId, request, false);
     }
 
     function invalidateTransfer(uint256 requestId) external onlyRole(LEGION_ADMIN_ROLE) whenNotPaused {
-        TransferRequest storage request = _activeRequest(requestId);
+        ILegionNFTV2.TransferRequest storage request = _activeRequest(requestId);
         _cancelRequest(requestId, request, true);
     }
 
     function executeTransfer(uint256 requestId) external whenNotPaused nonReentrant {
-        TransferRequest storage request = _activeRequest(requestId);
+        ILegionNFTV2.TransferRequest storage request = _activeRequest(requestId);
         if (!request.approved) revert TransferRequestNotApproved(requestId);
         if (msg.sender != request.currentOwner) revert NotCurrentOwner(msg.sender, request.currentOwner);
         if (_requireOwned(request.tokenId) != request.currentOwner) revert TransferRequestStale(requestId);
@@ -190,6 +184,44 @@ contract LegionNFTV2 is ERC721, AccessControl, Pausable, ReentrancyGuard, ILegio
         _controlledTransferFrom = address(0);
         _controlledTransferTo = address(0);
         emit TransferExecuted(requestId, request.tokenId, request.currentOwner, request.proposedOwner);
+    }
+
+    /**
+     * @notice Executes an already-approved LEG-44 request solely for the
+     *         approved Phase 10B settlement adapter.
+     * @dev The adapter is the dedicated role holder and must validate the
+     *      correlated sale and perform ABCD payment in the same transaction.
+     *      This does not enable public approvals or direct ERC-721 transfers.
+     */
+    function executeMarketplaceTransfer(
+        uint256 requestId,
+        uint256 saleId,
+        address expectedSeller,
+        address expectedBuyer,
+        uint256 price,
+        address abcdToken
+    ) external onlyRole(LEGION_MARKETPLACE_SETTLER_ROLE) whenNotPaused nonReentrant {
+        if (saleId == 0 || expectedSeller == address(0) || expectedBuyer == address(0) || price == 0 || abcdToken == address(0)) {
+            revert MarketplaceSettlementMismatch();
+        }
+        ILegionNFTV2.TransferRequest storage request = _activeRequest(requestId);
+        if (!request.approved) revert TransferRequestNotApproved(requestId);
+        if (request.currentOwner != expectedSeller || request.proposedOwner != expectedBuyer) revert MarketplaceSettlementMismatch();
+        if (_requireOwned(request.tokenId) != request.currentOwner) revert TransferRequestStale(requestId);
+
+        request.active = false;
+        activeTransferRequestForToken[request.tokenId] = 0;
+        _controlledTransferTokenId = request.tokenId;
+        _controlledTransferFrom = request.currentOwner;
+        _controlledTransferTo = request.proposedOwner;
+        _safeTransfer(request.currentOwner, request.proposedOwner, request.tokenId);
+        _controlledTransferTokenId = 0;
+        _controlledTransferFrom = address(0);
+        _controlledTransferTo = address(0);
+        emit TransferExecuted(requestId, request.tokenId, request.currentOwner, request.proposedOwner);
+        emit MarketplaceTransferExecuted(
+            requestId, saleId, request.tokenId, request.currentOwner, request.proposedOwner, abcdToken, price, msg.sender
+        );
     }
 
     function updateMetadata(uint256 tokenId, string calldata displayName, uint256 population, string calldata metadataURI)
@@ -224,13 +256,17 @@ contract LegionNFTV2 is ERC721, AccessControl, Pausable, ReentrancyGuard, ILegio
         return _territories[tokenId];
     }
 
+    function ownerOf(uint256 tokenId) public view override(ERC721, ILegionNFTV2) returns (address) {
+        return super.ownerOf(tokenId);
+    }
+
     /// @notice Returns the IPFS-compatible URI held in the canonical territory record.
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         _requireOwned(tokenId);
         return _territories[tokenId].metadataURI;
     }
 
-    function getTransferRequest(uint256 requestId) external view returns (TransferRequest memory) {
+    function getTransferRequest(uint256 requestId) external view override returns (ILegionNFTV2.TransferRequest memory) {
         if (_transferRequests[requestId].tokenId == 0) revert TransferRequestNotFound(requestId);
         return _transferRequests[requestId];
     }
@@ -324,12 +360,12 @@ contract LegionNFTV2 is ERC721, AccessControl, Pausable, ReentrancyGuard, ILegio
         if (actual != expected) revert InvalidParentLevel(expected, actual);
     }
 
-    function _activeRequest(uint256 requestId) private view returns (TransferRequest storage request) {
+    function _activeRequest(uint256 requestId) private view returns (ILegionNFTV2.TransferRequest storage request) {
         request = _transferRequests[requestId];
         if (request.tokenId == 0 || !request.active) revert TransferRequestNotFound(requestId);
     }
 
-    function _cancelRequest(uint256 requestId, TransferRequest storage request, bool byAdministrator) private {
+    function _cancelRequest(uint256 requestId, ILegionNFTV2.TransferRequest storage request, bool byAdministrator) private {
         request.active = false;
         activeTransferRequestForToken[request.tokenId] = 0;
         emit TransferCancelled(requestId, msg.sender, byAdministrator);

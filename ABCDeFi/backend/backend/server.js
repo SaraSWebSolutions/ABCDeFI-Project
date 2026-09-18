@@ -31,6 +31,7 @@ const rewardRouter = require("./modules/user/rewards/rewards.routes");
 const AdminUserRouter = require("./modules/admin/userManagement/userManagement.routes");
 const TermsRouter = require("./modules/user/terms/terms.routes");
 const AdminAuthRouter = require("./modules/user/userAccount/adminAuth.routes");
+const CanonicalAdminRouter = require("./modules/admin/canonicalAdmin/canonicalAdmin.routes.cjs");
 const FaqRouter = require("./modules/user/faq/faq.routes");
 const AboutRouter = require("./modules/user/about/about.routes");
 const UserNotificationRouter = require("./modules/user/notification/notification.routes");
@@ -49,6 +50,8 @@ const IcoV2Router = require("./modules/icoV2/icoV2.routes.cjs");
 const LegionCredentialReadRouter = require("./modules/legionCredentialProjection/legionCredentialRead.routes.cjs");
 const LegionNFTV2ReadRouter = require("./modules/legionNFTV2Projection/legionNFTV2Read.routes.cjs");
 const ABCDMarketplaceReadRouter = require("./modules/abcdMarketplaceProjection/read.routes.cjs");
+const LegionMarketplaceReadRouter = require("./modules/legionMarketplaceProjection/read.routes.cjs");
+const TreasuryV2ReadRouter = require("./modules/treasuryProjection/read.routes.cjs");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -92,6 +95,10 @@ app.use("/api/legion-nft-v2", LegionNFTV2ReadRouter);
 // Phase 10A is a manifest-bound, event-indexed ABCD sale read surface. It
 // never falls back to the legacy seeded /api/marketplace routes.
 app.use("/api/abcd-nft-marketplace-v2", ABCDMarketplaceReadRouter);
+// Phase 10B is a separate, fail-closed projection for the narrowly approved
+// targeted Legion settlement extension. It never falls back to generic or legacy marketplace data.
+app.use("/api/legion-marketplace-v2", LegionMarketplaceReadRouter);
+app.use("/api/treasury-v2", TreasuryV2ReadRouter);
 app.use("/api/whitePaper", WhitePaperRouter);
 app.use("/api/privacyPolicy", privacyRouter);
 app.use("/api/reward", rewardRouter);
@@ -101,6 +108,9 @@ app.use("/api/terms", TermsRouter);
 // bcrypt password verification plus the existing login OTP flow. The legacy
 // standalone Admin model is intentionally not mounted.
 app.use("/api/admin", AdminAuthRouter);
+// Canonical Phase 12 Admin reads are authenticated and manifest/indexer-bound.
+// They never grant a wallet an on-chain role or fall back to legacy/mock data.
+app.use("/api/admin/canonical", CanonicalAdminRouter);
 app.use("/api/faq", FaqRouter);
 app.use("/api/about", AboutRouter);
 app.use("/api/user/notification", UserNotificationRouter);

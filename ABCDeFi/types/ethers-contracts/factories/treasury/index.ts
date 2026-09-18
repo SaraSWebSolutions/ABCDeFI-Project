@@ -2,3 +2,4 @@
 /* tslint:disable */
 /* eslint-disable */
 export { Treasury__factory } from './Treasury__factory.js';
+export { TreasuryV2__factory } from './TreasuryV2__factory.js';
