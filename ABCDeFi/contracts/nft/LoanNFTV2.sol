@@ -3,13 +3,14 @@ pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "../lending/v2/LoanManagerV2.sol";
+import "../lending/v2/OracleAdapterV2.sol";
 
 /// @notice Transferable completion certificates for settled Lending V2 loans.
-/// @dev The completion-value field remains zero until the whitepaper's
-/// USD valuation timestamp and oracle policy are explicitly approved. It is
+/// @dev The stored completion value is informational provenance only. It is
 /// never a redeemable claim, transfer of loan proceeds, reserve withdrawal,
-/// or token payout.
+/// token payout, or other financial right.
 contract LoanNFTV2 is ERC721URIStorage, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     /// @dev Completion authority is deliberately narrower than the legacy
@@ -17,7 +18,9 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
     /// P2P settlement operator cannot mint a direct-loan completion record.
     bytes32 public constant DIRECT_COMPLETION_OPERATOR_ROLE = keccak256("DIRECT_COMPLETION_OPERATOR_ROLE");
     bytes32 public constant P2P_COMPLETION_OPERATOR_ROLE = keccak256("P2P_COMPLETION_OPERATOR_ROLE");
+    bytes32 public constant VALUATION_CONFIG_ROLE = keccak256("VALUATION_CONFIG_ROLE");
     uint256 private constant BPS = 10_000;
+    uint8 public constant COMPLETION_VALUE_FORMULA_VERSION = 1;
 
     // Appended value preserves legacy status values consumed by prior indexed events.
     enum Status { ACTIVE, REPAID, GRACE_PERIOD, DEFAULTED, LIQUIDATED, CLOSED, COMPLETED }
@@ -34,6 +37,11 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
         uint48 completedAt;
         uint64 completionBlock;
         bool isP2P;
+        address valuationFeed;
+        uint80 valuationRoundId;
+        uint48 valuationUpdatedAt;
+        uint256 completionABCDUSDPrice;
+        uint8 formulaVersion;
     }
     struct Certificate {
         uint256 loanId;
@@ -56,10 +64,17 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
         CertificateRole role;
         bool isP2P;
         bytes32 metadataHash;
+        address valuationFeed;
+        uint80 valuationRoundId;
+        uint48 valuationUpdatedAt;
+        uint256 completionABCDUSDPrice;
+        uint8 formulaVersion;
     }
 
     LoanManagerV2 public immutable loanManager;
     address public immutable platformRecipient;
+    OracleAdapterV2 public valuationOracle;
+    address public valuationAsset;
     uint256 private _nextId = 1;
     mapping(uint256 => Certificate) private _certificates;
     /// @notice Legacy borrower-certificate lookup retained for compatibility.
@@ -77,6 +92,16 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
         bytes32 metadataHash
     );
     event CertificateStatusUpdated(uint256 indexed loanId, uint256 indexed tokenId, Status status);
+    event CompletionValuationConfigured(address indexed oracle, address indexed asset, address indexed configuredBy);
+    event LoanCertificateValuationRecorded(
+        uint256 indexed loanId,
+        address indexed feed,
+        uint80 roundId,
+        uint48 updatedAt,
+        uint256 completionABCDUSDPrice,
+        uint256 certificateValueUSD,
+        uint8 formulaVersion
+    );
 
     constructor(address admin, address manager_, address platformRecipient_)
         ERC721("ABCDeFi Loan Completion Certificate V2", "ABCD-LOAN-COMP-V2")
@@ -88,6 +113,18 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
         _grantRole(MINTER_ROLE, admin);
         _grantRole(DIRECT_COMPLETION_OPERATOR_ROLE, admin);
         _grantRole(P2P_COMPLETION_OPERATOR_ROLE, admin);
+        _grantRole(VALUATION_CONFIG_ROLE, admin);
+    }
+
+    /// @notice Configures the approved Chainlink-compatible ABCD/USD source
+    /// once. No certificate can be minted until the configuration exists and
+    /// the OracleAdapter has a fresh valid deviation policy.
+    function setCompletionValuationOracle(address oracle_, address asset_) external onlyRole(VALUATION_CONFIG_ROLE) {
+        require(address(valuationOracle) == address(0) && oracle_ != address(0) && asset_ != address(0), "valuation already configured");
+        require(oracle_.code.length != 0, "valuation oracle has no code");
+        valuationOracle = OracleAdapterV2(oracle_);
+        valuationAsset = asset_;
+        emit CompletionValuationConfigured(oracle_, asset_, msg.sender);
     }
 
     /// @notice Creates lender, borrower, and platform certificates atomically
@@ -105,19 +142,41 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
         require(loan.principalOutstanding == 0 && loan.accruedInterest == 0 && loan.fees == 0, "debt remains");
         require(isP2P ? requestId != 0 : requestId == 0, "invalid request association");
 
+        require(address(valuationOracle) != address(0) && valuationAsset != address(0), "completion valuation not configured");
         uint256 agreedInterest = uint256(loan.principal) * loan.aprBps * (loan.maturity - loan.start) / (BPS * 365 days);
         uint256 totalScheduledRepayment = uint256(loan.principal) + agreedInterest;
-        // The whitepaper describes a USD-denominated completion value but
-        // does not define its valuation timestamp or oracle rule. Do not
-        // mislabel an ABCD-unit calculation as that USD value for either
-        // direct or P2P loans; it remains zero until that policy is approved.
-        uint256 certificateValue = 0;
+        OracleAdapterV2.PriceSnapshot memory snapshot = valuationOracle.snapshotPriceUSD(valuationAsset);
+        uint256 totalLoanUSD = Math.mulDiv(totalScheduledRepayment, snapshot.priceUSD, 1e18);
+        uint256 certificateValue = Math.mulDiv(totalLoanUSD, 1, 100);
         require(agreedInterest <= type(uint128).max && totalScheduledRepayment <= type(uint128).max && certificateValue <= type(uint128).max, "valuation overflow");
         completionCreated[loanId] = true;
         uint48 completedAt = uint48(block.timestamp);
         require(block.number <= type(uint64).max, "completion block overflow");
 
-        CompletionValues memory values = CompletionValues(loanId, requestId, uint128(agreedInterest), uint128(totalScheduledRepayment), uint128(certificateValue), completedAt, uint64(block.number), isP2P);
+        CompletionValues memory values = CompletionValues(
+            loanId,
+            requestId,
+            uint128(agreedInterest),
+            uint128(totalScheduledRepayment),
+            uint128(certificateValue),
+            completedAt,
+            uint64(block.number),
+            isP2P,
+            snapshot.aggregator,
+            snapshot.roundId,
+            snapshot.updatedAt,
+            snapshot.priceUSD,
+            COMPLETION_VALUE_FORMULA_VERSION
+        );
+        emit LoanCertificateValuationRecorded(
+            loanId,
+            snapshot.aggregator,
+            snapshot.roundId,
+            snapshot.updatedAt,
+            snapshot.priceUSD,
+            certificateValue,
+            COMPLETION_VALUE_FORMULA_VERSION
+        );
         lenderId = _mintCertificate(loan, values, CertificateRole.LENDER, loan.lender, metadata.lender);
         borrowerId = _mintCertificate(loan, values, CertificateRole.BORROWER, loan.borrower, metadata.borrower);
         platformId = _mintCertificate(loan, values, CertificateRole.PLATFORM, platformRecipient, metadata.platform);
@@ -164,6 +223,11 @@ contract LoanNFTV2 is ERC721URIStorage, AccessControl {
         certificate.role = role;
         certificate.isP2P = values.isP2P;
         certificate.metadataHash = metadata.hash;
+        certificate.valuationFeed = values.valuationFeed;
+        certificate.valuationRoundId = values.valuationRoundId;
+        certificate.valuationUpdatedAt = values.valuationUpdatedAt;
+        certificate.completionABCDUSDPrice = values.completionABCDUSDPrice;
+        certificate.formulaVersion = values.formulaVersion;
         // `_mint` deliberately avoids an ERC721Receiver callback while a
         // repayment transaction atomically settles a loan. Once minted these
         // are standard ERC-721 assets, consistent with the whitepaper's

@@ -1,0 +1,26 @@
+{
+  "chainId": 31337,
+  "network": "localhost",
+  "rpcUrl": "http://127.0.0.1:8545",
+  "localOnly": true,
+  "deploymentVersion": "legion-nft-v2-local-0x3adb8ab61ebc84c533acaa0e55899fab9e70a83272699c41341132509ae9230f",
+  "deploymentBlock": 92,
+  "contracts": {
+    "LegionNFTV2": {
+      "address": "0x46b142DD1E924FAb83eCc3c08e4D46E82f005e0E",
+      "deploymentTransactionHash": "0xb39bad3a88a48fdc21112d1bc603792067fa5e02024f4c511325a40397e031ef",
+      "deploymentBlock": 92,
+      "constructorArgs": [
+        "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+      ]
+    }
+  },
+  "roles": {
+    "defaultAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "legionAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "legionMinter": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "pauser": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+  }
+}

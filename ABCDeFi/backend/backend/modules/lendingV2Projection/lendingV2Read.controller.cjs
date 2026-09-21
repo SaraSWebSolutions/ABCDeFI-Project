@@ -5,10 +5,53 @@ const lower = (value) => value.toLowerCase();
 const normalizeWallet = (value) => typeof value === 'string' && isAddress(value) ? getAddress(value).toLowerCase() : null;
 const toJson = (value) => typeof value === 'bigint' ? value.toString() : Array.isArray(value) ? value.map(toJson) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toJson(item)])) : value;
 const boundedLimit = (value, fallback = 50) => Math.min(100, Math.max(1, Number.isInteger(Number(value)) ? Number(value) : fallback));
-const loanJson = (loan) => toJson({ borrower: loan.borrower, lender: loan.lender, collateralETH: loan.collateralETH, principal: loan.principal, principalOutstanding: loan.principalOutstanding, accruedInterest: loan.accruedInterest, aprBps: loan.aprBps, start: loan.start, lastAccrual: loan.lastAccrual, maturity: loan.maturity, graceEnd: loan.graceEnd, marginCallAt: loan.marginCallAt, marginCallCureEnd: loan.marginCallCureEnd, state: loan.state, reserveContribution: loan.reserveContribution, badDebt: loan.badDebt, totalRepaid: loan.totalRepaid });
+const loanJson = (loan, currentVaultCollateralETH) => toJson({
+  borrower: loan.borrower,
+  lender: loan.lender,
+  // `collateralETH` remains the immutable LoanManager value for compatibility
+  // and historical provenance. Consumers needing a current balance must use
+  // `currentVaultCollateralETH`, which is read from CollateralVaultV2.
+  collateralETH: loan.collateralETH,
+  originalCollateralETH: loan.collateralETH,
+  currentVaultCollateralETH,
+  principal: loan.principal,
+  principalOutstanding: loan.principalOutstanding,
+  accruedInterest: loan.accruedInterest,
+  fees: loan.fees,
+  aprBps: loan.aprBps,
+  start: loan.start,
+  lastAccrual: loan.lastAccrual,
+  maturity: loan.maturity,
+  graceEnd: loan.graceEnd,
+  marginCallAt: loan.marginCallAt,
+  marginCallCureEnd: loan.marginCallCureEnd,
+  state: loan.state,
+  reserveContribution: loan.reserveContribution,
+  badDebt: loan.badDebt,
+  totalRepaid: loan.totalRepaid,
+  isP2P: loan.isP2P,
+});
 const requestJson = (request) => toJson({ borrower: request.borrower, principal: request.principal, collateral: request.collateral, term: request.term, state: request.state, lender: request.lender, loanId: request.loanId, initialLtvBps: request.initialLtvBps });
-const certificateJson = (certificate) => toJson({ loanId: certificate.loanId, requestId: certificate.requestId, borrower: certificate.borrower, lender: certificate.lender, platform: certificate.platform, principal: certificate.principal, collateral: certificate.collateral, agreedInterest: certificate.agreedInterest, totalScheduledRepayment: certificate.totalScheduledRepayment, actualRepayment: certificate.actualRepayment, certificateValue: certificate.certificateValue, aprBps: certificate.aprBps, start: certificate.start, maturity: certificate.maturity, completedAt: certificate.completedAt, completionBlock: certificate.completionBlock, status: certificate.status, role: certificate.role, isP2P: certificate.isP2P, metadataHash: certificate.metadataHash });
-const scheduleJson = (schedule) => schedule.map((item) => toJson({ dueAt: item.dueAt, amount: item.amount, paid: item.paid }));
+const certificateJson = (certificate) => toJson({ loanId: certificate.loanId, requestId: certificate.requestId, borrower: certificate.borrower, lender: certificate.lender, platform: certificate.platform, principal: certificate.principal, collateral: certificate.collateral, agreedInterest: certificate.agreedInterest, totalScheduledRepayment: certificate.totalScheduledRepayment, actualRepayment: certificate.actualRepayment, certificateValue: certificate.certificateValue, aprBps: certificate.aprBps, start: certificate.start, maturity: certificate.maturity, completedAt: certificate.completedAt, completionBlock: certificate.completionBlock, status: certificate.status, role: certificate.role, isP2P: certificate.isP2P, metadataHash: certificate.metadataHash, valuationFeed: certificate.valuationFeed, valuationRoundId: certificate.valuationRoundId, valuationUpdatedAt: certificate.valuationUpdatedAt, completionABCDUSDPrice: certificate.completionABCDUSDPrice, formulaVersion: certificate.formulaVersion });
+const scheduleJson = (schedule) => schedule.map((item) => toJson({ dueAt: item.dueAt, amount: item.amount, paid: item.paid, amountApplied: item.amountApplied, remainingDue: item.amount - item.amountApplied, state: item.state }));
+const eventTuple = (event) => [BigInt(event.blockNumber), Number(event.transactionIndex), Number(event.logIndex)];
+const compareEvents = (left, right) => {
+  const [leftBlock, leftTransaction, leftLog] = eventTuple(left); const [rightBlock, rightTransaction, rightLog] = eventTuple(right);
+  return leftBlock < rightBlock ? -1 : leftBlock > rightBlock ? 1 : leftTransaction - rightTransaction || leftLog - rightLog;
+};
+const encodeCursor = (event, deploymentVersion) => Buffer.from(JSON.stringify({ deploymentVersion, blockNumber: String(event.blockNumber), transactionIndex: Number(event.transactionIndex), logIndex: Number(event.logIndex) })).toString('base64url');
+const decodeCursor = (value, deploymentVersion) => {
+  if (!value) return null;
+  try {
+    const cursor = JSON.parse(Buffer.from(String(value), 'base64url').toString('utf8'));
+    if (cursor.deploymentVersion !== deploymentVersion || !UINT.test(String(cursor.blockNumber)) || !Number.isSafeInteger(cursor.transactionIndex) || !Number.isSafeInteger(cursor.logIndex)) throw new Error('invalid cursor');
+    return { blockNumber: BigInt(cursor.blockNumber), transactionIndex: cursor.transactionIndex, logIndex: cursor.logIndex };
+  } catch (_) { throw new Error('History cursor is invalid for the canonical Lending V2 deployment.'); }
+};
+const afterCursor = (event, cursor) => !cursor || (() => {
+  const [blockNumber, transactionIndex, logIndex] = eventTuple(event);
+  return blockNumber > cursor.blockNumber || (blockNumber === cursor.blockNumber && (transactionIndex > cursor.transactionIndex || (transactionIndex === cursor.transactionIndex && logIndex > cursor.logIndex)));
+})();
 
 function createLendingV2ReadController({ manifest, artifacts, models, provider = new JsonRpcProvider(manifest.rpcUrl) }) {
   const pool = new Contract(manifest.contracts.LendingPoolV2.address, artifacts.LendingPoolV2.abi, provider);
@@ -42,8 +85,8 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
     // Debt, state, and schedule remain authoritative even when a production
     // oracle correctly rejects a stale price. Do not let an unavailable risk
     // quote hide a real loan or block repayment/read reconciliation.
-    const [accruedInterest, outstanding, totalRepayment, state, schedule] = await Promise.all([
-      manager.previewAccruedInterest(loanId), manager.previewOutstanding(loanId), manager.previewTotalRepayment(loanId), manager.previewLoanStatus(loanId), emi.getSchedule(loanId),
+    const [accruedInterest, outstanding, totalRepayment, state, schedule, currentVaultCollateralETH] = await Promise.all([
+      manager.previewAccruedInterest(loanId), manager.previewOutstanding(loanId), manager.previewTotalRepayment(loanId), manager.previewLoanStatus(loanId), emi.getSchedule(loanId), vault.loanCollateral(loanId),
     ]);
     let currentLtvBps = null; let healthFactor = null; let liquidatable = null; let riskError = null;
     // Terminal zero-debt loans have no risk position. Avoid exposing the
@@ -80,13 +123,18 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
       return { role: roleNames[role], tokenId: certificateTokenId, owner, tokenURI, certificate: certificateJson(certificate) };
     }))).filter(Boolean);
     const borrowerCertificate = certificates.find((certificate) => certificate.role === 'BORROWER') || null;
-    return toJson({ loan: loanJson(record), previews: { accruedInterest, outstanding, totalRepayment, state, currentLtvBps, healthFactor, liquidatable, riskError, partialLiquidationExecution }, schedule: scheduleJson(schedule), certificate: borrowerCertificate, certificates });
+    return toJson({ loan: loanJson(record, currentVaultCollateralETH), previews: { accruedInterest, outstanding, totalRepayment, state, currentLtvBps, healthFactor, liquidatable, riskError, partialLiquidationExecution }, schedule: scheduleJson(schedule), certificate: borrowerCertificate, certificates });
   };
   const includesWallet = (value, wallet) => typeof value === 'string'
     ? value.toLowerCase() === wallet
     : Array.isArray(value) ? value.some((item) => includesWallet(item, wallet))
       : value && typeof value === 'object' ? Object.values(value).some((item) => includesWallet(item, wallet)) : false;
-  const eventList = (filter, count) => models.V2ChainEvent.find({ chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, ...filter }).sort({ blockNumber: 1, logIndex: 1 }).limit(count).lean();
+  const eventList = async (filter, count) => (await models.V2ChainEvent.find({ chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, ...filter }).lean()).sort(compareEvents).slice(0, count);
+  const eventPage = async (filter, limit, cursor, predicate = () => true) => {
+    const all = (await eventList(filter, Number.MAX_SAFE_INTEGER)).filter(predicate).filter((event) => afterCursor(event, cursor));
+    const data = all.slice(0, limit);
+    return { data, nextCursor: all.length > data.length ? encodeCursor(data[data.length - 1], manifest.deploymentVersion) : null };
+  };
   const readRequest = async (requestId) => {
     const request = await marketplace.requests(requestId);
     if (lower(request.borrower) === '0x0000000000000000000000000000000000000000') return null;
@@ -171,15 +219,16 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
     status: async (_req, res, next) => { try { res.json({ source: source(), ...(await availability()) }); } catch (error) { next(error); } },
     reserve: async (_req, res, next) => { try {
       const state = await requireAvailable(res, { balance: '0', fundingEvents: [], payoutEvents: [], accountingEvents: [] }); if (!state) return;
-      const [balance, fundingEvents, payoutEvents, accountingEvents] = await Promise.all([
+      const [balance, reserveCoverCapABCD, fundingEvents, payoutEvents, accountingEvents] = await Promise.all([
         reserve.availableBalance(),
+        reserve.reserveCoverCapABCD(),
         eventList({ contractName: 'InsuranceReserveV2', eventName: 'ReserveFunded' }, 100),
         eventList({ contractName: 'InsuranceReserveV2', eventName: 'ReserveUsed' }, 100),
         eventList({ contractName: 'InsuranceReserveV2', eventName: 'ReserveBalanceUpdated' }, 100),
       ]);
       // The balance is read directly from InsuranceReserveV2. Events are an
       // indexed audit projection, never a source of financial authority.
-      res.json({ source: source(), ...state, data: { balance: balance.toString(), fundingEvents, payoutEvents, accountingEvents } });
+      res.json({ source: source(), ...state, data: { balance: balance.toString(), reserveCoverCapABCD: reserveCoverCapABCD.toString(), fundingEvents, payoutEvents, accountingEvents } });
     } catch (error) { next(error); } },
     openRequests: async (req, res, next) => { try {
       const state = await requireAvailable(res); if (!state) return;
@@ -194,10 +243,10 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
       res.json({ source: source(), ...state, wallet, data });
     } catch (error) { next(error); } },
     loan: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readLoan(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); res.json({ source: source(), ...state, data }); } } catch (error) { next(error); } },
-    history: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res, []); if (state) { const all = await eventList({}, 500); res.json({ source: source(), ...state, data: all.filter((event) => String(event.args.loanId || '') === id).slice(-100) }); } } catch (error) { next(error); } },
+    history: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res, []); if (state) { const page = await eventPage({}, boundedLimit(req.query.limit), decodeCursor(req.query.cursor, manifest.deploymentVersion), (event) => String(event.args.loanId || '') === id); res.json({ source: source(), ...state, data: page.data, page: { limit: boundedLimit(req.query.limit), nextCursor: page.nextCursor } }); } } catch (error) { if (/History cursor is invalid/.test(error.message)) return res.status(400).json({ status: 'INVALID_REQUEST', message: error.message }); next(error); } },
     preview: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readLoan(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); res.json({ source: source(), ...state, data: data.previews }); } } catch (error) { next(error); } },
     request: async (req, res, next) => { try { const id = req.params.requestId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Request ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readRequest(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); const history = (await eventList({}, 1_000)).filter((event) => String(event.args.requestId || '') === id); res.json({ source: source(), ...state, data: { requestId: id, request: data, history } }); } } catch (error) { next(error); } },
     referral: async (req, res, next) => { try { const wallet = normalizeWallet(req.params.address); if (!wallet) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Wallet address must be a valid Ethereum address.' }); const state = await requireAvailable(res); if (state) res.json({ source: source(), ...state, data: await readReferral(wallet) }); } catch (error) { next(error); } },
   };
 }
-module.exports = { createLendingV2ReadController, normalizeWallet };
+module.exports = { createLendingV2ReadController, loanJson, normalizeWallet };

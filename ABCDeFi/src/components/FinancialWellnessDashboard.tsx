@@ -6,11 +6,9 @@ import {
   CreditCard,
   GraduationCap,
   Target,
-  Vote,
   CheckCircle2,
   AlertCircle,
   Sparkles,
-  Loader2,
   ShieldCheck,
   Award,
   ChevronRight,
@@ -18,33 +16,12 @@ import {
   Zap,
 } from 'lucide-react';
 import {
-  COMMUNITY_PROPOSALS,
-  DAOProposal,
-  voteOnProposal,
-} from '../Services/governance';
-import {
   USER_WELLNESS_DATA,
   FinancialGoal,
 } from '../Services/financialWellness';
 
 export const FinancialWellnessDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'wellness' | 'governance'>('wellness');
-  const [proposals, setProposals] = useState<DAOProposal[]>(COMMUNITY_PROPOSALS);
   const [goals] = useState<FinancialGoal[]>(USER_WELLNESS_DATA.goals);
-  const [voting, setVoting] = useState(false);
-  const [feedbackMsg, setFeedbackMsg] = useState('');
-
-  const handleVote = async (proposalId: string, support: boolean) => {
-    setVoting(true);
-    setFeedbackMsg(`Casting vote on ${proposalId}...`);
-    try {
-      await voteOnProposal(proposalId, support);
-      setProposals([...COMMUNITY_PROPOSALS]);
-      setFeedbackMsg(`✓ Vote cast successfully on ${proposalId}!`);
-    } finally {
-      setVoting(false);
-    }
-  };
 
   return (
     <div id="financial-wellness-dashboard" className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 font-mono">
@@ -55,56 +32,23 @@ export const FinancialWellnessDashboard: React.FC = () => {
           <div className="text-xs font-semibold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
             <span>Protocol Ecosystem</span>
             <span className="text-slate-600">↓</span>
-            <span>Financial Health & Governance</span>
+            <span>Financial Health</span>
           </div>
           <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2 mt-1">
             <HeartPulse className="w-6 h-6 text-emerald-400" />
-            Financial Wellness & ABCDeFi Governance Portal
+            Financial Wellness
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Track Savings, Investments, Loans, Learning Progress, and participate in Community DAO Proposals & Upgrades.
+            Track Savings, Investments, Loans, and Learning Progress.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab('wellness')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-              activeTab === 'wellness'
-                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/25 border border-emerald-500/40'
-                : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
-            }`}
-          >
-            <HeartPulse className="w-3.5 h-3.5" /> Financial Wellness
-          </button>
-          <button
-            onClick={() => setActiveTab('governance')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
-              activeTab === 'governance'
-                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 border border-indigo-500/40'
-                : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
-            }`}
-          >
-            <Vote className="w-3.5 h-3.5" /> DAO Governance
-          </button>
-        </div>
       </div>
-
-      {/* FEEDBACK BANNER */}
-      {feedbackMsg && (
-        <div className="p-3.5 bg-emerald-950/40 border border-emerald-800/50 rounded-xl text-xs text-emerald-300 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {voting ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" /> : <Sparkles className="w-4 h-4 text-emerald-400" />}
-            <span>{feedbackMsg}</span>
-          </div>
-          <button onClick={() => setFeedbackMsg('')} className="text-slate-500 hover:text-white cursor-pointer">✕</button>
-        </div>
-      )}
 
       {/* ========================================================================= */}
       {/* 1. FINANCIAL WELLNESS DASHBOARD                                           */}
       {/* ========================================================================= */}
-      {activeTab === 'wellness' && (
+      <div className="space-y-6">
         <div className="space-y-6">
           {/* WELLNESS SCORE BANNER */}
           <div className="bg-slate-950 border border-emerald-500/40 p-6 rounded-3xl space-y-4 shadow-xl">
@@ -206,72 +150,7 @@ export const FinancialWellnessDashboard: React.FC = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 2. ABCDeFi GOVERNANCE & DAO VOTING                                         */}
-      {/* ========================================================================= */}
-      {activeTab === 'governance' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div>
-              <h3 className="text-sm font-bold text-white uppercase flex items-center gap-2">
-                <Vote className="w-4 h-4 text-indigo-400" /> Active Community DAO Proposals & Decision Making
-              </h3>
-              <p className="text-xs text-slate-400 mt-0.5">Vote with ABCD Tokens on protocol upgrades, fee rates, and treasury grants.</p>
-            </div>
-            <span className="px-3 py-1 rounded-xl bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold">
-              DAO Governance Active
-            </span>
-          </div>
-
-          <div className="space-y-4 text-xs">
-            {proposals.map((prop) => (
-              <div key={prop.id} className="p-5 bg-slate-950 border border-slate-800 rounded-3xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-extrabold text-white text-sm">{prop.title}</span>
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                      {prop.category}
-                    </span>
-                  </div>
-                  <span className="text-[10px] text-slate-500">Ends: {prop.endTime}</span>
-                </div>
-
-                <p className="text-xs text-slate-400">{prop.description}</p>
-
-                <div className="flex items-center justify-between pt-3 border-t border-slate-800">
-                  <div className="flex items-center gap-4 text-[11px]">
-                    <span className="text-emerald-400 font-bold">For: {prop.forVotes.toLocaleString()} ABCD</span>
-                    <span className="text-rose-400 font-bold">Against: {prop.againstVotes.toLocaleString()} ABCD</span>
-                  </div>
-
-                  {!prop.voted ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleVote(prop.id, true)}
-                        disabled={voting}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition cursor-pointer"
-                      >
-                        Vote FOR
-                      </button>
-                      <button
-                        onClick={() => handleVote(prop.id, false)}
-                        disabled={voting}
-                        className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition cursor-pointer"
-                      >
-                        Vote AGAINST
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-emerald-400 font-bold text-xs">Vote Cast ✓</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      </div>
 
     </div>
   );

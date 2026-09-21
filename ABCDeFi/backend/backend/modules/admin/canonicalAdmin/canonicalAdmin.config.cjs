@@ -58,11 +58,6 @@ function canonicalAdminModules() {
       reason: 'No independent canonical Phase 12 fee/referral administration surface is approved.',
       source: { kind: 'locked-phase-boundary' }, capabilities: [],
     },
-    {
-      name: 'Governance', available: false, status: 'OUT_OF_SCOPE',
-      reason: 'Governance is deferred and has no Phase 12 authority.',
-      source: { kind: 'phase-13-boundary' }, capabilities: [],
-    },
   ];
 }
 

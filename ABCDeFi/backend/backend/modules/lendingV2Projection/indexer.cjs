@@ -5,6 +5,9 @@ const optionalNames = ['LendingReferralManagerV2', 'LiquidationSaleAdapterV2'];
 const namesFor = (manifest) => [...requiredNames, ...optionalNames.filter((name) => manifest.contracts[name])];
 const lower = (value) => typeof value === 'string' ? value.toLowerCase() : value;
 const decimal = (value) => typeof value === 'bigint' ? value.toString() : Array.isArray(value) ? value.map(decimal) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, decimal(item)])) : value;
+const compareLogs = (left, right) => Number(left.blockNumber) - Number(right.blockNumber)
+  || Number(left.transactionIndex) - Number(right.transactionIndex)
+  || Number(left.index) - Number(right.index);
 
 function registry(manifest, artifacts) {
   const result = new Map();
@@ -21,6 +24,11 @@ class LendingV2Indexer {
     this.manifest = manifest; this.provider = provider; this.models = models; this.logger = logger; this.confirmations = confirmations; this.blockRange = blockRange; this.names = namesFor(manifest); this.registry = registry(manifest, artifacts); this.timer = null;
   }
   identity() { return { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, scope: SCOPE }; }
+  async rebuildDivergentProjection() {
+    const projectionIdentity = { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion };
+    await this.models.V2ChainEvent.deleteMany(projectionIdentity);
+    await this.models.V2BlockCheckpoint.deleteOne(this.identity());
+  }
   async assertDeployment() {
     const network = await this.provider.getNetwork();
     if (Number(network.chainId) !== this.manifest.chainId) throw new Error(`V2 RPC chain ${network.chainId} does not match 31337.`);
@@ -30,26 +38,43 @@ class LendingV2Indexer {
     await this.assertDeployment();
     const latest = await this.provider.getBlockNumber(); const confirmed = latest - this.confirmations;
     if (confirmed < this.manifest.deploymentBlock) return null;
-    const checkpoint = await this.models.V2BlockCheckpoint.findOne(this.identity()).lean();
-    let from = checkpoint?.lastProcessedBlock == null ? this.manifest.deploymentBlock : Number(checkpoint.lastProcessedBlock) + 1;
+    let checkpoint = await this.models.V2BlockCheckpoint.findOne(this.identity()).lean();
     if (checkpoint?.lastProcessedBlockHash) {
       const block = await this.provider.getBlock(Number(checkpoint.lastProcessedBlock));
-      if (!block || lower(block.hash) !== lower(checkpoint.lastProcessedBlockHash)) throw new Error('V2 checkpoint does not match the active chain; manual review is required before reindexing.');
+      if (!block || lower(block.hash) !== lower(checkpoint.lastProcessedBlockHash)) {
+        // A deployment-version scoped rebuild is the only safe response to a
+        // divergent canonical chain: stale raw events must not survive or be
+        // merged with the replacement chain's transaction/log identities.
+        await this.rebuildDivergentProjection();
+        checkpoint = null;
+      }
     }
+    let from = checkpoint?.lastProcessedBlock == null ? this.manifest.deploymentBlock : Number(checkpoint.lastProcessedBlock) + 1;
     const addresses = this.names.map((name) => this.manifest.contracts[name].address);
+    const blockCache = new Map();
+    const blockAt = async (number) => {
+      const key = Number(number);
+      if (!blockCache.has(key)) blockCache.set(key, await this.provider.getBlock(key));
+      const block = blockCache.get(key);
+      if (!block) throw new Error(`Canonical Lending V2 block ${key} is unavailable during indexing.`);
+      return block;
+    };
     while (from <= confirmed) {
       const to = Math.min(confirmed, from + this.blockRange - 1);
       const logs = await this.provider.getLogs({ address: addresses, fromBlock: from, toBlock: to });
+      logs.sort(compareLogs);
       for (const log of logs) {
         const def = this.registry.get(`${lower(log.address)}:${lower(log.topics[0])}`); if (!def) continue;
         const parsed = def.iface.parseLog(log); if (!parsed) continue;
         const args = {}; parsed.fragment.inputs.forEach((input, index) => { args[input.name || String(index)] = decimal(parsed.args[index]); });
+        const block = await blockAt(log.blockNumber);
         await this.models.V2ChainEvent.updateOne({ chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, transactionHash: lower(log.transactionHash), logIndex: Number(log.index) }, { $setOnInsert: {
           chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, contractAddress: lower(log.address), contractName: def.name,
-          transactionHash: lower(log.transactionHash), blockNumber: String(log.blockNumber), transactionIndex: Number(log.transactionIndex), logIndex: Number(log.index), blockHash: lower(log.blockHash), eventName: parsed.name, args,
+          transactionHash: lower(log.transactionHash), blockNumber: String(log.blockNumber), blockNumberNumeric: Number(log.blockNumber), blockTimestamp: String(block.timestamp),
+          transactionIndex: Number(log.transactionIndex), logIndex: Number(log.index), blockHash: lower(log.blockHash), eventName: parsed.name, args,
         } }, { upsert: true });
       }
-      const block = await this.provider.getBlock(to);
+      const block = await blockAt(to);
       await this.models.V2BlockCheckpoint.updateOne(this.identity(), { $set: { lastProcessedBlock: String(to), lastProcessedBlockHash: lower(block.hash), indexedAt: new Date() } }, { upsert: true });
       from = to + 1;
     }

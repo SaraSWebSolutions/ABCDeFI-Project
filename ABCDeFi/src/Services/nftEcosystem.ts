@@ -441,20 +441,14 @@ export async function updateNftListingPrice(listingIdInput: string, newPriceEth:
   return waitForNftMarketplaceReceipt(await transaction.wait(), 'Listing price update');
 }
 
-// Compatibility exports for the inactive governance portal. They are legacy
-// display policy data, not inputs to the active on-chain NFT route above.
+// Legacy marketplace display policy data. These are not inputs to the active
+// on-chain NFT route above.
 export interface FeeDiscountTier { tierName: string; minReputationScore: number; feeDiscountPercent: number; effectiveTradingFeeBps: number; badge: string; }
 export const MARKETPLACE_FEE_TIERS: FeeDiscountTier[] = [
   { tierName: 'Standard User', minReputationScore: 300, feeDiscountPercent: 0, effectiveTradingFeeBps: 250, badge: 'Bronze' },
   { tierName: 'Silver Member', minReputationScore: 580, feeDiscountPercent: 15, effectiveTradingFeeBps: 212, badge: 'Silver' },
   { tierName: 'Gold Supporter', minReputationScore: 670, feeDiscountPercent: 50, effectiveTradingFeeBps: 125, badge: 'Gold' },
   { tierName: 'Platinum / Diamond VIP', minReputationScore: 800, feeDiscountPercent: 100, effectiveTradingFeeBps: 0, badge: 'VIP' },
-];
-export interface AirdropCampaign { id: string; title: string; description: string; rewardType: 'NFT' | 'Tokens' | 'Dual NFT + Token'; rewardAmount: string; snapshotDate: string; eligibilityCriteria: string; totalPoolAllocated: string; totalClaimed: string; status: 'Active' | 'Scheduled' | 'Ended'; icon: string; }
-export const AIRDROP_CAMPAIGNS: AirdropCampaign[] = [
-  { id: 'AIRDROP-GENESIS-01', title: 'Legion Genesis Founder NFT Drop', description: 'Legacy governance display content.', rewardType: 'Dual NFT + Token', rewardAmount: '1x Genesis Legion NFT + 2,500 ABCD', snapshotDate: 'Jul 01, 2026', eligibilityCriteria: 'Unavailable — no current eligibility rule is configured', totalPoolAllocated: '1,000 NFTs + 2.5M ABCD', totalClaimed: '420 / 1,000 (42%)', status: 'Active', icon: '🪂' },
-  { id: 'AIRDROP-GOV-02', title: 'Governance Pioneer Loyalty Token Airdrop', description: 'Legacy governance display content.', rewardType: 'Tokens', rewardAmount: '1,000 ABCD', snapshotDate: 'Jul 15, 2026', eligibilityCriteria: 'Voted on at least two proposals', totalPoolAllocated: '500,000 ABCD', totalClaimed: '185,000 / 500,000 (37%)', status: 'Active', icon: '🗳️' },
-  { id: 'AIRDROP-SEASON-03', title: 'Season 2 Financial Education Mastery Drop', description: 'Legacy governance display content.', rewardType: 'NFT', rewardAmount: '1x Scholar Master NFT Certificate', snapshotDate: 'Aug 15, 2026', eligibilityCriteria: '100% score on quiz exams', totalPoolAllocated: '500 Certificates', totalClaimed: '0 / 500 (0%)', status: 'Scheduled', icon: '🎓' },
 ];
 export interface GiftAndBarterRulesConfig { giftMinLockDays: number; giftYieldApyPct: number; barterMaxValuationSpreadPct: number; barterEscrowLockHours: number; antiScamEscrowRequired: boolean; }
 export const PROTOCOL_GIFT_BARTER_RULES: GiftAndBarterRulesConfig = { giftMinLockDays: 7, giftYieldApyPct: 8.5, barterMaxValuationSpreadPct: 10, barterEscrowLockHours: 24, antiScamEscrowRequired: true };

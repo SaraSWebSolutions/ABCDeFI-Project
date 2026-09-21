@@ -1,13 +1,30 @@
 import deploymentManifest from '../../deployments.json';
 
-type DeploymentContractName = keyof typeof deploymentManifest.contracts;
+type DeploymentContractName = keyof typeof deploymentManifest.contracts | 'FranchiseNFT';
+type DeploymentContract = { address?: unknown; deploymentBlock?: unknown };
+
+const rootContracts = deploymentManifest.contracts as Record<string, DeploymentContract>;
+
+function isDeploymentAddress(value: unknown): value is string {
+  return typeof value === 'string' && /^0x[a-fA-F0-9]{40}$/.test(value);
+}
 
 function address(name: DeploymentContractName): string {
-  const value = deploymentManifest.contracts[name]?.address;
-  if (typeof value !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(value)) {
+  const value = rootContracts[name]?.address;
+  if (!isDeploymentAddress(value)) {
     throw new Error(`Canonical deployment manifest is missing a valid ${name} address.`);
   }
   return value;
+}
+
+/**
+ * A phase-specific contract may be deliberately absent from the active
+ * canonical manifest. Its feature must fail closed when invoked, without
+ * preventing independent deployed modules from loading at application start.
+ */
+function optionalAddress(name: DeploymentContractName): string | null {
+  const value = rootContracts[name]?.address;
+  return isDeploymentAddress(value) ? value : null;
 }
 
 /**
@@ -27,7 +44,7 @@ export const CONTRACTS = Object.freeze({
   loanNFT: address('LoanNFT'), reputationNFT: address('ReputationNFT'),
   guruNFT: address('GuruNFT'), bonusManager: address('BonusManager'),
   legionNFT: address('LegionNFT'),
-  franchiseNFT: address('FranchiseNFT'),
+  franchiseNFT: optionalAddress('FranchiseNFT'),
 });
 
 export const DEPLOYMENT_CHAIN_ID = BigInt(deploymentManifest.chainId);
@@ -100,6 +117,12 @@ export function getIcoV2Contract(): string | null {
 
 export const ICO_V2_CONTRACT = getIcoV2Contract();
 
+/** Returns a manifest deployment block only when it is explicitly recorded. */
+export function getContractDeploymentBlock(name: DeploymentContractName): number | null {
+  const value = rootContracts[name]?.deploymentBlock;
+  return Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : null;
+}
+
 /** Deployment-time V2 facts that are not exposed as Solidity public getters. */
 export function getLendingV2Configuration() {
   const v2 = (deploymentManifest as typeof deploymentManifest & { lendingV2?: LendingV2Manifest }).lendingV2;
@@ -114,7 +137,7 @@ export function getLendingV2DeploymentBlock(): number | null {
 
 export function requireContractAddress(name: keyof typeof CONTRACTS): string {
   const value = CONTRACTS[name];
-  if (!/^0x[a-fA-F0-9]{40}$/.test(value)) {
+  if (!isDeploymentAddress(value)) {
     throw new Error(`Missing or invalid deployment address for ${name}. Deploy the canonical ecosystem and provide its manifest.`);
   }
   return value;

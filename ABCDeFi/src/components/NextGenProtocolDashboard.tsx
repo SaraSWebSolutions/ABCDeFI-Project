@@ -91,10 +91,10 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
         healthFactor: lending.status === 'fulfilled' ? lending.value.healthFactor : null,
       });
       if ([nfts, treasury, lending].some((result) => result.status === 'rejected')) {
-        setOnChainError('Some on-chain dashboard data is unavailable.');
+        setOnChainError('Some account data could not be loaded. Check your wallet network and try again.');
       }
     }).catch(() => {
-      if (active) setOnChainError('On-chain dashboard data is unavailable.');
+      if (active) setOnChainError('Account data could not be loaded. Check your wallet network and try again.');
     }).finally(() => {
       if (active) setOnChainLoading(false);
     });
@@ -104,7 +104,7 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
   return (
     <div className="space-y-6 font-sans antialiased text-slate-100">
 
-      {/* 1. TOP PROTOCOL ROLE SWITCHER & STATUS BAR */}
+      {/* Account summary */}
       <div className="bg-slate-900/90 backdrop-blur-xl border border-indigo-500/25 rounded-3xl p-4 sm:p-6 shadow-2xl space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
           <div className="flex items-center gap-3.5">
@@ -117,12 +117,12 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 shadow-sm">
                   <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  Canonical local contract reads
+                  Account summary
                 </span>
-                <span className="text-xs text-slate-400 font-mono font-semibold">Hardhat Local · chain 31337</span>
+                <span className="text-xs text-slate-400 font-semibold">{networkName}</span>
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mt-0.5 bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-indigo-200">
-                ABCDeFi Web3 Financial Operating System
+                Your ABCDeFi dashboard
               </h1>
             </div>
           </div>
@@ -250,62 +250,62 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
         </div>
       </div>
 
-      {/* 3. FINANCE CARDS GRID (6 CARDS) */}
+      {/* Position summary */}
       <div className="space-y-3">
         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest font-sans">
-          💰 Protocol Capital & Lending Financials
+          Your positions
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 font-sans">
           {/* Card 1: Portfolio Value */}
           <div className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Portfolio</span>
-            <div className="text-2xl font-black text-white">Unavailable</div>
-            <span className="text-[9px] text-slate-400 font-bold block">No canonical price oracle</span>
+            <div className="text-2xl font-black text-white">Not available</div>
+            <span className="text-[9px] text-slate-400 font-bold block">A portfolio valuation is not available.</span>
           </div>
 
           {/* Card 2: Borrowed */}
           <div className="bg-slate-900 border border-slate-800 hover:border-rose-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Borrowed</span>
             <div className="text-2xl font-black text-rose-400">{onChainLoading ? 'Loading…' : formatAbcdWithUnit(onChainData.borrowedAbcd)}</div>
-            <span className="text-[9px] text-slate-400 block">Canonical Lending V2 contract read</span>
+            <span className="text-[9px] text-slate-400 block">Your current direct lending position</span>
           </div>
 
           {/* Card 3: Lent */}
           <div className="bg-slate-900 border border-slate-800 hover:border-indigo-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Lent</span>
-            <div className="text-2xl font-black text-indigo-400">Unavailable</div>
-            <span className="text-[9px] text-slate-400 font-bold block">No lender-history getter in deployed ABI</span>
+            <div className="text-2xl font-black text-indigo-400">Not available</div>
+            <span className="text-[9px] text-slate-400 font-bold block">A lending total is not available.</span>
           </div>
 
           {/* Card 4: Interest Earned */}
           <div className="bg-slate-900 border border-slate-800 hover:border-cyan-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Interest Earned</span>
-            <div className="text-2xl font-black text-cyan-400">Unavailable</div>
-            <span className="text-[9px] text-slate-400 block">No canonical aggregate interest read</span>
+            <div className="text-2xl font-black text-cyan-400">Not available</div>
+            <span className="text-[9px] text-slate-400 block">An interest total is not available.</span>
           </div>
 
           {/* Card 5: EMI Due */}
           <div className="bg-slate-900 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">EMI Due</span>
-            <div className="text-2xl font-black text-amber-400">Unavailable</div>
-            <span className="text-[9px] text-slate-400 font-bold block">Schedule summary not loaded</span>
+            <div className="text-2xl font-black text-amber-400">Not available</div>
+            <span className="text-[9px] text-slate-400 font-bold block">Repayment information is not available.</span>
           </div>
 
           {/* Card 6: Health Factor */}
           <div className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Health Factor</span>
             <div className="text-2xl font-black text-emerald-400">{onChainLoading ? 'Loading…' : onChainData.healthFactor ?? 'Unavailable'}</div>
-            <span className="text-[9px] text-slate-400 font-bold block">Liquidation.checkLiquidationEligibility</span>
+            <span className="text-[9px] text-slate-400 font-bold block">Current position risk</span>
           </div>
         </div>
       </div>
 
       {onChainError && <p className="text-xs text-amber-300">{onChainError}</p>}
 
-      {/* 4. QUICK ACTIONS PANEL */}
+      {/* Lending shortcuts */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl font-sans">
         <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
-          <Zap className="w-4 h-4 text-emerald-400 animate-pulse" /> Operational Quick Actions
+          <Zap className="w-4 h-4 text-emerald-400 animate-pulse" /> Lending shortcuts
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <button

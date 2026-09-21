@@ -105,3 +105,27 @@ test('Pinata V3 network failures expose a safe availability message', async () =
     if (oldJwt === undefined) delete process.env.PINATA_JWT; else process.env.PINATA_JWT = oldJwt;
   }
 });
+
+test('a hanging Pinata upload is aborted at the configured timeout and fails closed', async () => {
+  const oldEnvironment = process.env.NODE_ENV; const oldProvider = process.env.NFT_STORAGE_PROVIDER; const oldJwt = process.env.PINATA_JWT; const oldTimeout = process.env.PINATA_UPLOAD_TIMEOUT_MS; const originalFetch = global.fetch;
+  let aborted = false;
+  try {
+    process.env.NODE_ENV = 'development'; process.env.NFT_STORAGE_PROVIDER = 'pinata'; process.env.PINATA_JWT = 'test-only-pinata-jwt'; process.env.PINATA_UPLOAD_TIMEOUT_MS = '100';
+    global.fetch = async (_url, options) => new Promise((_, reject) => {
+      options.signal.addEventListener('abort', () => {
+        aborted = true;
+        reject(new DOMException('The operation was aborted.', 'AbortError'));
+      }, { once: true });
+    });
+    const startedAt = Date.now();
+    await assert.rejects(() => storeNftAsset({ buffer: PNG }, metadata), /NFT storage provider is temporarily unavailable\./);
+    assert.equal(aborted, true);
+    assert.ok(Date.now() - startedAt < 1_000, 'the mocked provider must be aborted instead of waiting indefinitely');
+  } finally {
+    global.fetch = originalFetch;
+    if (oldEnvironment === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = oldEnvironment;
+    if (oldProvider === undefined) delete process.env.NFT_STORAGE_PROVIDER; else process.env.NFT_STORAGE_PROVIDER = oldProvider;
+    if (oldJwt === undefined) delete process.env.PINATA_JWT; else process.env.PINATA_JWT = oldJwt;
+    if (oldTimeout === undefined) delete process.env.PINATA_UPLOAD_TIMEOUT_MS; else process.env.PINATA_UPLOAD_TIMEOUT_MS = oldTimeout;
+  }
+});

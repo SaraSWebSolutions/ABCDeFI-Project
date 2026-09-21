@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   FileText, Activity, AlertTriangle, Flame, BarChart3, Coins,
-  Award, Users, Bot, BookOpen, Vote, PieChart as PieIcon, Download,
+  Award, Users, Bot, BookOpen, PieChart as PieIcon, Download,
   Sliders, ShieldCheck, CheckCircle2, Search, Filter, RefreshCw, ArrowUpRight, Lock, Clock, User
 } from 'lucide-react';
 import Web3ActionModal from './Web3ActionModal';
@@ -99,7 +99,6 @@ export const MasterProtocolManager: React.FC<MasterProtocolManagerProps> = ({
     { id: 'nft-management', label: 'NFT Management', icon: Award, category: 'Protocol Modules' },
     { id: 'franchise-management', label: 'Franchise Hub', icon: Users, category: 'Protocol Modules' },
     // { id: 'education-management', label: 'Education Academy', icon: BookOpen, category: 'Protocol Modules' },
-    // { id: 'governance', label: 'DAO Governance', icon: Vote, category: 'Governance & Analytics' },
     // { id: 'analytics', label: 'Analytics', icon: PieIcon, category: 'Governance & Analytics' },
     // { id: 'reports', label: 'Audit Reports', icon: Download, category: 'Governance & Analytics' },
     { id: 'platform-settings', label: 'Platform Settings', icon: Sliders, category: 'Governance & Analytics' },
@@ -541,34 +540,6 @@ export const MasterProtocolManager: React.FC<MasterProtocolManagerProps> = ({
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition cursor-pointer shadow-lg shadow-emerald-600/20"
             >
               Claim 50 ABCD Reward 🎓
-            </button>
-          </div>
-        </div>
-      )} */}
-
-      {/* SECTION 11: DAO GOVERNANCE */}
-      {/* {activeTab === 'governance' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-          <div className="flex justify-between items-center border-b border-slate-800 pb-4">
-            <div className="flex items-center gap-3">
-              <Vote className="w-6 h-6 text-indigo-400" />
-              <div>
-                <h3 className="text-base font-bold text-white uppercase tracking-wider">DAO Governance Proposals & Timelock Parameter Control</h3>
-                <p className="text-xs text-slate-400">Vote on protocol parameter upgrades, interest rate curves, and collateral thresholds.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-slate-950 p-4 rounded-2xl border border-indigo-500/40 flex items-center justify-between text-xs">
-            <div className="space-y-1">
-              <div className="font-bold text-indigo-300">Proposal #106: Lower Minimum Collateral Ratio to 135%</div>
-              <div className="text-[11px] text-slate-400">Voting Ends in: 48 Hours • Votes FOR: 84.2%</div>
-            </div>
-            <button
-              onClick={() => triggerAction('Cast DAO Governance Vote (FOR)', 'DAOGovernance', 'castVote', '0.00 ETH', '🗳️')}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition cursor-pointer shadow-lg shadow-indigo-600/20"
-            >
-              Cast Vote (FOR) 🗳️
             </button>
           </div>
         </div>

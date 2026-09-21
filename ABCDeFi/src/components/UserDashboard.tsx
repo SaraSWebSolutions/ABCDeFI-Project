@@ -72,16 +72,84 @@ import { useAuth } from '../Context/AuthContext';
 import { CollateralDepositForm } from './CollateralDepositForm';
 import { WalletSection } from './WalletSection';
 
+const USER_NAVIGATION_GROUPS = [
+  {
+    id: 'overview',
+    label: 'Overview',
+    icon: Activity,
+    items: [
+      { id: 'overview', label: 'Overview' },
+      { id: 'treasury-v2', label: 'Treasury Transparency' },
+    ],
+  },
+  {
+    id: 'wallet',
+    label: 'Wallet',
+    icon: Wallet,
+    items: [{ id: 'wallet', label: 'Wallet' }],
+  },
+  {
+    id: 'portfolio',
+    label: 'Portfolio',
+    icon: PieChart,
+    items: [
+      { id: 'portfolio', label: 'Portfolio' },
+      { id: 'ico', label: 'ICO Participation' },
+    ],
+  },
+  {
+    id: 'lending',
+    label: 'Lending',
+    icon: Repeat,
+    items: [
+      { id: 'lending', label: 'Direct Lending & Borrow' },
+      { id: 'deposit', label: 'Collateral' },
+      { id: 'view-all-loans', label: 'My Loans' },
+      { id: 'p2p-loans', label: 'P2P Loans' },
+      { id: 'emi', label: 'Repayment & EMI' },
+      { id: 'liquidation', label: 'Position Risk' },
+    ],
+  },
+  {
+    id: 'nft-ecosystem',
+    label: 'NFT Ecosystem',
+    icon: Layers,
+    items: [
+      { id: 'nft-ecosystem', label: 'Owned NFTs' },
+      { id: 'legion', label: 'Legion Territories' },
+      { id: 'franchise', label: 'Franchise Assignments' },
+      { id: 'abcd-nft-marketplace', label: 'ABCD NFT Marketplace' },
+      { id: 'legion-marketplace', label: 'Legion Settlement' },
+    ],
+  },
+  {
+    id: 'history',
+    label: 'Activity / History',
+    icon: History,
+    items: [{ id: 'history', label: 'Transaction History' }],
+  },
+  {
+    id: 'account',
+    label: 'Account',
+    icon: User,
+    items: [
+      { id: 'profile', label: 'Profile' },
+      { id: 'referral', label: 'Referrals' },
+    ],
+  },
+] as const;
+
+const LENDING_VIEW_DESCRIPTIONS: Record<string, string> = {
+  lending: 'Review direct lending, borrowing capacity, and your active direct position.',
+  'view-all-loans': 'Review your canonical lending positions and their current state.',
+  'p2p-loans': 'Review peer-to-peer requests, funded loans, and their EMI schedule.',
+  emi: 'Review repayment status and submit an eligible repayment from the lending workspace.',
+  liquidation: 'Review position risk and any on-chain cure action available to your own position.',
+};
+
 export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActiveTab, canAccessAdmin = false, onOpenAdminDashboard, ...props }) => {
   const wallet = useWallet();
   const { user } = useAuth();
-
-  console.log("[UserDashboard] user:", user);
-  console.log(
-    "[UserDashboard] KYC:",
-    user?.kycStatus,
-    user?.isKycVerified
-  );
   const [depositSubTab, setDepositSubTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [walletConnectError, setWalletConnectError] = useState('');
 
@@ -112,50 +180,12 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
         ? 'Verified'
         : 'Verification rejected';
 
-  console.log(
-    "[UserDashboard] activeTab:",
-    activeTab,
-    "kycStatus:",
-    kycStatus
-  );
-  const USER_MODULES = [
-    { id: 'overview', label: '🚀 Operating System Hub', icon: Activity },
-    { id: 'wallet', label: 'Wallet', icon: Wallet },
-    { id: 'portfolio', label: 'Portfolio', icon: PieChart },
-    { id: 'lending', label: 'Lending', icon: Repeat },
-    { id: 'lending-v2', label: 'Lending V2', icon: Repeat },
-    { id: 'p2p-loans', label: 'P2P Loans', icon: Coins },
-    { id: 'deposit', label: 'Deposit / Withdraw', icon: ArrowDownToLine },
-    { id: 'borrow', label: 'Borrow', icon: Coins },
-    // { id: 'repay', label: 'Repay Loan', icon: RefreshCcw },
-    { id: 'emi', label: 'EMI Payments', icon: CalendarClock },
-    { id: 'view-all-loans', label: 'View All Loans', icon: Coins },
-    // { id: 'loan-monitoring', label: 'Loan Monitoring', icon: Activity },
-    // { id: 'defaulted-loans', label: 'Defaulted Loans', icon: AlertTriangle }, // hidden
-    { id: 'liquidation', label: 'Liquidation', icon: Coins },
-    // { id: 'loan-reports', label: 'Loan Reports', icon: PieChart },
-    { id: 'history', label: 'Transaction History', icon: History },
-    // { id: 'rewards', label: 'Rewards', icon: Gift },
-    { id: 'nft-ecosystem', label: 'NFT Ecosystem', icon: Layers },
-    { id: 'legion', label: 'Legion Territories', icon: MapPinned },
-    { id: 'franchise', label: 'Franchise NFTs', icon: Building2 },
-    { id: 'abcd-nft-marketplace', label: 'ABCD NFT Marketplace', icon: ShoppingCart },
-    { id: 'legion-marketplace', label: 'Legion Settlement', icon: ShoppingCart },
-    { id: 'treasury-v2', label: 'Treasury', icon: ShieldCheck },
-    // { id: 'ai-59c', label: '🤖 59C AI Games & Learning', icon: Bot },
-    { id: 'ico', label: 'ICO Participation', icon: Rocket },
-    { id: 'referral', label: 'Referrals', icon: Users },
-    { id: 'security', label: 'Security 2FA', icon: ShieldCheck },
-    { id: 'ai-copilot', label: 'AI Copilot', icon: Bot },
-    // { id: 'vesting', label: 'Claim Vesting', icon: Download },
-    { id: 'credit', label: 'Credit Score', icon: ShieldCheck },
-    // { id: 'notifications', label: 'Notifications', icon: Bell },
-    // { id: 'settings', label: 'Settings', icon: Settings },
-    // { id: 'profile', label: 'Profile', icon: User },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'profile', label: 'Profile', icon: User },
-  ];
+  const activeGroup = USER_NAVIGATION_GROUPS.find((group) =>
+    group.items.some((item) => item.id === activeTab),
+  ) || USER_NAVIGATION_GROUPS[0];
+  const activeLendingLabel = USER_NAVIGATION_GROUPS
+    .find((group) => group.id === 'lending')
+    ?.items.find((item) => item.id === activeTab)?.label;
 
   return (
     <div className="space-y-6">
@@ -165,7 +195,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
           <div>
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
-                Financial Protocol Hub
+                Account overview
               </span>
 
               {wallet.isConnected && (
@@ -191,7 +221,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
               })()} 👋
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-1">
-              Wallet state and lending metrics are shown from configured local services when available.
+              Review your wallet, positions, and approved ABCDeFi product activity.
             </p>
           </div>
 
@@ -259,34 +289,50 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
         </div>
       </div>
 
-      {/* MASTER USER NAVIGATION MENU BAR */}
+      {/* Canonical user navigation: groups reduce duplicate product entries. */}
       <div className="bg-slate-900/80 backdrop-blur-xl border border-indigo-500/20 rounded-2xl p-2.5 shadow-xl shadow-slate-950/40">
-        <div className="grid grid-cols-1 gap-2 p-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {USER_MODULES.map((tab) => {
-            const IconComp = tab.icon;
-            const isSelected = activeTab === tab.id;
+        <div aria-label="User dashboard navigation" className="grid grid-cols-2 gap-2 p-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+          {USER_NAVIGATION_GROUPS.map((group) => {
+            const IconComp = group.icon;
+            const isSelected = activeGroup.id === group.id;
             return (
               <button
-                key={tab.id}
+                key={group.id}
                 onClick={() => {
-                  console.log(
-                    '[UserDashboard] clicked tab:',
-                    tab.id,
-                    tab.label
-                  );
-                  setActiveTab(tab.id);
+                  setActiveTab(group.items[0].id);
                 }}
+                aria-current={isSelected ? 'page' : undefined}
                 className={`w-full px-3.5 py-2 rounded-xl text-left text-xs font-black transition-all duration-200 flex items-center gap-2 cursor-pointer ${isSelected
                   ? 'bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-500 text-slate-950 font-black shadow-lg shadow-emerald-500/30 scale-[1.03] border border-emerald-200'
                   : 'bg-slate-950/90 text-slate-400 hover:text-white hover:bg-slate-800/90 border border-slate-800/80'
                   }`}
               >
                 <IconComp className={`w-4 h-4 ${isSelected ? 'text-slate-950' : 'text-emerald-400'}`} />
-                <span>{tab.label}</span>
+                <span>{group.label}</span>
               </button>
             );
           })}
         </div>
+        {activeGroup.items.length > 1 && (
+          <div aria-label={`${activeGroup.label} navigation`} className="mt-2 flex flex-wrap gap-2 border-t border-slate-800/80 p-2 pt-3">
+            {activeGroup.items.map((item) => {
+              const isSelected = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  aria-current={isSelected ? 'page' : undefined}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${isSelected
+                    ? 'bg-indigo-500/20 text-indigo-100 border border-indigo-400/50'
+                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:bg-slate-800 hover:text-white'
+                    }`}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* DYNAMIC CONTENT RENDERING BASED ON ACTIVE TAB */}
@@ -310,7 +356,12 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
       {activeTab === 'ico' && <ICOv2Dashboard />}
       {activeTab === 'lending' && <LendingV2 />}
       {activeTab === 'lending-v2' && <LendingV2 />}
-      {activeTab === 'p2p-loans' && <LendingV2 />}
+      {activeTab === 'p2p-loans' && (
+        <section aria-label="P2P lending workspace" className="space-y-4">
+          <p className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">{LENDING_VIEW_DESCRIPTIONS['p2p-loans']}</p>
+          <LendingV2 />
+        </section>
+      )}
       {(activeTab === 'deposit' || activeTab === 'withdraw') && (
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 max-w-3xl mx-auto font-mono">
           {/* Sub-Tab Navigation Header */}
@@ -347,7 +398,12 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
           {depositSubTab === 'withdraw' && <CollateralDepositForm mode="withdraw" />}
         </div>
       )}
-      {['borrow', 'repay', 'emi', 'view-all-loans', 'loan-monitoring', 'defaulted-loans', 'liquidation', 'loan-reports'].includes(activeTab) && <LendingV2 />}
+      {['borrow', 'repay', 'emi', 'view-all-loans', 'loan-monitoring', 'defaulted-loans', 'liquidation', 'loan-reports'].includes(activeTab) && (
+        <section aria-label="Lending workspace" className="space-y-4">
+          {activeLendingLabel && <p className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">{LENDING_VIEW_DESCRIPTIONS[activeTab] || `Review ${activeLendingLabel.toLowerCase()} in the lending workspace.`}</p>}
+          <LendingV2 />
+        </section>
+      )}
 
       {activeTab === 'history' && <TransactionHistory />}
       {activeTab === 'ai-59c' && <AIGamesDashboard />}
@@ -477,12 +533,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
               <div className="text-lg font-bold text-white">{wallet.address || "Wallet not connected"}</div>
               <div className="text-sm text-emerald-400 font-bold mt-1">KYC Status: {kycStatusLabel}</div>
             </div>
-            <button
-              onClick={() => window.location.assign('/profile')}
-              className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition cursor-pointer"
-            >
-              Edit Profile
-            </button>
+            <p className="text-xs text-slate-400">Profile information remains available in this authenticated dashboard.</p>
           </div>
         </div>
       )}

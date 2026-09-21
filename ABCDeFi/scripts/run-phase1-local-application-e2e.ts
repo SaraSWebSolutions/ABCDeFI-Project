@@ -229,8 +229,8 @@ async function main() {
   assert.equal(await emi.nextInstallment(loanOne), 1n);
   assert.equal(await token.balanceOf(lenderAddress), lenderBeforeEmi + scheduleOne[0].amount);
 
-  // Request 2: prove the UI-service boundary is fail-closed instead of
-  // carrying out a whitepaper-undefined overdue collateral deduction.
+  // Request 2: the approved Phase 2 recovery path still fails closed before
+  // the exact on-chain due time and must not move collateral or lender funds.
   await setOraclePrices(2_000n);
   await switchAccount(borrowerAddress);
   const requestTwo = await createOrReuseOpenRequest("create overdue request");
@@ -240,8 +240,8 @@ async function main() {
   const loanTwo = fundTwoTx.loanId!;
   await switchAccount(keeperAddress);
   await assert.rejects(
-    () => executeV2OverdueEmi(loanTwo, noCompletionMetadata, progress("early overdue attempt")),
-    /overdue collateral settlement is blocked/i,
+    () => executeV2OverdueEmi(loanTwo, progress("early overdue attempt")),
+    /installment not due/i,
   );
   const lenderBeforeOverdue = await token.balanceOf(lenderAddress);
   const collateralBeforeOverdue = await vault.loanCollateral(loanTwo);

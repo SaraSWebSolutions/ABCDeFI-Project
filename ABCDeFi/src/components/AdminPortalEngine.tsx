@@ -187,10 +187,6 @@ const LegacyAdminPortalEngine: React.FC = () => {
     { id: 'TCK-801', user: 'dinesh@abcdefi.com', subject: 'KYC Document Verification Delay', priority: 'High', assignee: 'Compliance Support', status: 'Open' },
   ]);
 
-  const [daoProposalsList, setDaoProposalsList] = useState([
-    { id: 'PROP-106', title: 'Lower Minimum Collateral Ratio from 150% to 135%', proposer: 'dinesh.eth', votesFor: '84.2% (1.2M ABCD)', votesAgainst: '15.8% (225k ABCD)', status: 'Active', timelock: '24 Hours' },
-  ]);
-
   const [contractsList, setContractsList] = useState([
     { name: 'LendingPoolCore', address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8', network: 'Sepolia', version: 'v2.4', tvl: '$18.2M', status: 'Active ✅' },
     { name: 'NFTMarketplace', address: '0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc', network: 'Sepolia', version: 'v1.8', tvl: '$2.4M', status: 'Active ✅' },
@@ -348,7 +344,6 @@ const LegacyAdminPortalEngine: React.FC = () => {
     { id: 'credit-mgmt',  label: 'Credit Score Mgmt',     icon: Star },
     { id: 'ipfs-storage', label: 'IPFS Storage',          icon: HardDrive },
     { id: 'risk',         label: 'Risk Management',       icon: AlertTriangle },
-    // { id: 'governance',   label: 'DAO Governance',        icon: Key },
     { id: 'support',      label: 'Support Center',        icon: MessageSquare },
     { id: 'analytics',    label: 'Analytics',             icon: Activity },
     { id: 'notifications',label: 'Notifications',         icon: Bell },
@@ -819,37 +814,6 @@ const LegacyAdminPortalEngine: React.FC = () => {
               </div>
             </div>
           )}
-
-          {/* 8. DAO GOVERNANCE */}
-          {/* {activeRoute === 'governance' && (
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 shadow-xl">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-white uppercase tracking-wider">DAO Timelock & Governance Proposals</h2>
-                  <p className="text-xs text-slate-400">Approve, execute, or veto active DAO governance proposals.</p>
-                </div>
-              </div>
-
-              <div className="space-y-3 text-xs">
-                {daoProposalsList.map((p) => (
-                  <div key={p.id} className="p-4 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div>
-                      <div className="font-bold text-white text-sm">{p.id}: {p.title}</div>
-                      <div className="text-[10px] text-slate-400">Proposer: {p.proposer} • For: {p.votesFor} • Against: {p.votesAgainst}</div>
-                    </div>
-                    <button
-                      onClick={() => triggerSecurityAction(`Execute Proposal ${p.id}`, `Execute proposal ${p.id} via DAO timelock.`, () => {
-                        setDaoProposalsList((prev) => prev.map((item) => item.id === p.id ? { ...item, status: 'Executed ⚡' } : item));
-                      })}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs cursor-pointer"
-                    >
-                      Execute Proposal ⚡
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )} */}
 
           {/* 9. SUPPORT CENTER */}
           {activeRoute === 'support' && (

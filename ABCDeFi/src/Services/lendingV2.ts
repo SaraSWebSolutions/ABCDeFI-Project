@@ -98,11 +98,18 @@ async function confirmedTransaction(action: string, send: () => Promise<any>, pr
 
 export type V2Tx = { hash: string; blockNumber: string; loanId: string | null; requestId: string | null; depositId: string | null; approvalHashes: string[] };
 export type V2Read = {
-  loan: Record<string, unknown>; aprBps: string; start: string; isDirect: boolean; principal: string; collateralETH: string; borrower: string; lender: string; maturity: string; marginCallAt: string; marginCallCureEnd: string;
+  loan: Record<string, unknown>; aprBps: string; start: string; isDirect: boolean; principal: string;
+  /** Compatibility alias for the live CollateralVaultV2 balance. */
+  collateralETH: string;
+  /** Immutable LoanManagerV2 origination collateral, for historical provenance. */
+  originalCollateralETH: string;
+  /** Current collateral held by CollateralVaultV2 and used by live risk reads. */
+  currentVaultCollateralETH: string;
+  borrower: string; lender: string; maturity: string; marginCallAt: string; marginCallCureEnd: string;
   accruedInterest: string; outstanding: string; totalRepayment: string; state: number; ltvBps: string | null; healthFactor: string | null; liquidatable: boolean | null; riskError: string | null;
   metadata: { tokenId: string; owner: string; uri: string; hash: string; loanId: string } | null;
-  certificates: Array<{ tokenId: string; role: 'Lender' | 'Borrower' | 'Platform'; owner: string; uri: string; hash: string; loanId: string; valuation: string; completedAt: string; completionBlock: string }>;
-  schedule: { installmentAmount: string; installmentCount: string; paidInstallments: string; nextDueAt: string; chainTimestamp: string; due: boolean; completed: boolean } | null;
+  certificates: Array<{ tokenId: string; role: 'Lender' | 'Borrower' | 'Platform'; owner: string; uri: string; hash: string; loanId: string; valuation: string; valuationFeed: string; valuationRoundId: string; valuationUpdatedAt: string; completionABCDUSDPrice: string; formulaVersion: string; completedAt: string; completionBlock: string }>;
+  schedule: { installmentAmount: string; amountApplied: string; remainingDue: string; state: 'DUE' | 'PARTIALLY_SETTLED' | 'SETTLED'; installmentCount: string; paidInstallments: string; nextDueAt: string; chainTimestamp: string; due: boolean; completed: boolean } | null;
 };
 export type V2PendingDeposit = { depositId: string; borrower: string; collateralETH: string; maxBorrowable: string; collateralUSD: string; active: boolean };
 export type V2Request = { requestId: string; borrower: string; lender: string; principal: string; collateralETH: string; termSeconds: string; state: number; loanId: string; initialLtvBps: string };
@@ -125,7 +132,7 @@ export type V2ProtocolState = {
   ethUsd: string; abcdUsd: string; supportedTermsDays: string[] | null; gracePeriodDays: string | null;
 };
 
-type V2Installment = { amount: bigint; dueAt: bigint };
+type V2Installment = { amount: bigint; dueAt: bigint; paid?: boolean; amountApplied?: bigint; state?: bigint };
 
 /** Converts the canonical on-chain schedule without indexing an empty Result. */
 export function v2EmiSchedule(installments: ArrayLike<V2Installment>, nextInstallment: bigint, chainTimestamp: bigint, settled = false): V2Read['schedule'] {
@@ -133,9 +140,23 @@ export function v2EmiSchedule(installments: ArrayLike<V2Installment>, nextInstal
   if (!Number.isSafeInteger(installmentCount) || installmentCount === 0) return null;
   const nextIndex = Number(nextInstallment);
   if (!Number.isSafeInteger(nextIndex) || nextIndex < 0) throw new Error('Canonical EMI schedule returned an invalid next-installment index.');
-  const currentInstallment = !settled && nextIndex < installmentCount ? installments[nextIndex] : null;
+  // A terminal recovery can advance nextInstallment beyond the last entry while
+  // retaining the paid entry as the canonical evidence of what was settled.
+  // Keep that real final entry for display; do not replace it with a synthetic
+  // DUE/zero schedule row.
+  const currentInstallment = !settled && nextIndex < installmentCount
+    ? installments[nextIndex]
+    : settled && nextIndex > 0
+      ? installments[Math.min(nextIndex - 1, installmentCount - 1)]
+      : null;
+  const amountApplied = currentInstallment?.amountApplied ?? 0n;
+  const remainingDue = currentInstallment ? currentInstallment.amount - amountApplied : 0n;
+  const installmentState = currentInstallment?.state === 1n ? 'PARTIALLY_SETTLED' : currentInstallment?.state === 2n || currentInstallment?.paid ? 'SETTLED' : 'DUE';
   return {
     installmentAmount: currentInstallment ? formatEther(currentInstallment.amount) : '0.0',
+    amountApplied: formatEther(amountApplied),
+    remainingDue: formatEther(remainingDue),
+    state: installmentState,
     installmentCount: String(installmentCount),
     paidInstallments: nextInstallment.toString(),
     nextDueAt: currentInstallment ? currentInstallment.dueAt.toString() : '0',
@@ -271,7 +292,10 @@ async function approveIfNeeded(spender: string, amount: bigint, progress?: V2Pro
   return tx.hash;
 }
 async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(path);
+  // Indexed state changes independently of the browser session as the
+  // canonical indexer advances. Never reuse a prior wallet-history response
+  // after a confirmed receipt or an explicit dashboard refresh.
+  const response = await fetch(path, { cache: 'no-store' });
   const body = await response.json().catch(() => ({}));
   if (!response.ok || body.status === 'UNAVAILABLE') throw new Error(body.reason || body.message || 'Lending V2 indexed data is unavailable for the current deployment.');
   return body as T;
@@ -300,15 +324,19 @@ export async function getV2Loan(loanId: string): Promise<V2Read> {
   const certificates = (await Promise.all(certificatesByRole.map(async (certificate: bigint, index: number) => {
     if (certificate === 0n) return null;
     const [owner, uri, info] = await Promise.all([nft.ownerOf(certificate), nft.tokenURI(certificate), nft.getCertificate(certificate)]);
-    return { tokenId: certificate.toString(), role: certificateRoles[index], owner, uri, hash: info.metadataHash, loanId, valuation: formatEther(info.certificateValue), completedAt: info.completedAt.toString(), completionBlock: info.completionBlock.toString() };
+    return {
+      tokenId: certificate.toString(), role: certificateRoles[index], owner, uri, hash: info.metadataHash, loanId,
+      valuation: formatEther(info.certificateValue), valuationFeed: info.valuationFeed, valuationRoundId: info.valuationRoundId.toString(), valuationUpdatedAt: info.valuationUpdatedAt.toString(), completionABCDUSDPrice: formatEther(info.completionABCDUSDPrice), formulaVersion: info.formulaVersion.toString(),
+      completedAt: info.completedAt.toString(), completionBlock: info.completionBlock.toString(),
+    };
   }))).filter((certificate): certificate is NonNullable<typeof certificate> => certificate !== null);
   const metadata = certificates.find(certificate => certificate.role === 'Borrower') ?? null;
   const vault = new Contract(v2Contracts().vault, VaultArtifact.abi, canonicalProvider);
   const liveCollateral = await vault.loanCollateral(loanId);
   if (!latestBlock) throw new Error('Unable to read the latest canonical block for EMI due-state verification.');
-  const schedule = v2EmiSchedule(installments, nextInstallment, BigInt(latestBlock.timestamp), Number(state) === 1 || Number(state) === 5);
+  const schedule = v2EmiSchedule(installments, nextInstallment, BigInt(latestBlock.timestamp), [1, 4, 5].includes(Number(state)));
   return {
-    loan, aprBps: loan.aprBps.toString(), start: loan.start.toString(), isDirect: loan.lender.toLowerCase() === v2Contracts().pool.toLowerCase(), principal: formatEther(loan.principal), collateralETH: formatEther(liveCollateral), borrower: loan.borrower, lender: loan.lender, maturity: loan.maturity.toString(), marginCallAt: loan.marginCallAt.toString(), marginCallCureEnd: loan.marginCallCureEnd.toString(),
+    loan, aprBps: loan.aprBps.toString(), start: loan.start.toString(), isDirect: loan.lender.toLowerCase() === v2Contracts().pool.toLowerCase(), principal: formatEther(loan.principal), collateralETH: formatEther(liveCollateral), originalCollateralETH: formatEther(loan.collateralETH), currentVaultCollateralETH: formatEther(liveCollateral), borrower: loan.borrower, lender: loan.lender, maturity: loan.maturity.toString(), marginCallAt: loan.marginCallAt.toString(), marginCallCureEnd: loan.marginCallCureEnd.toString(),
     accruedInterest: formatEther(accruedInterest), outstanding: formatEther(outstanding), totalRepayment: formatEther(totalRepayment), state: Number(state), ltvBps: risk?.ltvBps ?? null, healthFactor: risk?.healthFactor ?? null, liquidatable: risk?.liquidatable ?? null, riskError, metadata, certificates, schedule,
   };
 }
@@ -619,17 +647,20 @@ export async function payV2Emi(loanId: string, prepareCompletionMetadata: Comple
   return receipt('EMI payment', async () => completion ? emi.payInstallmentWithCompletionMetadata(loanId, completion, await walletTransactionOverrides(signer, gas)) : emi.payInstallment(loanId, await walletTransactionOverrides(signer, gas)), new Interface(EMIArtifact.abi), approval ? [approval] : [], progress);
 }
 /**
- * Permissionless P2P overdue-installment execution. The contract—not React—
- * reads the next due schedule item, rejects an early/duplicate call, routes
- * the exact ABCD amount to the lender, and seizes only the live-oracle
- * P2P overdue collateral deduction, sale, and settlement are not implementable
- * until their whitepaper-undefined policy is explicitly approved. Keep this
- * public helper fail-closed so a stale UI cannot imply that an on-chain action
- * is available.
+ * Permissionless canonical overdue-installment recovery. The protocol reads
+ * the exact next schedule remainder, validates the current oracle snapshots
+ * and configured route, then records the immutable DUE -> PARTIALLY_SETTLED
+ * -> SETTLED transition. It is intentionally separate from the blocked P2P
+ * partial-liquidation and terminal-default paths.
  */
-export async function executeV2OverdueEmi(loanId: string, _prepareCompletionMetadata: CompletionMetadataPreparer, _progress?: V2ProgressListener): Promise<never> {
-  requireId(loanId, 'Loan ID');
-  throw new Error('P2P overdue collateral settlement is blocked until the whitepaper-undefined deduction, sale, and settlement policy is approved.');
+export async function executeV2OverdueEmi(loanId: string, progress?: V2ProgressListener): Promise<V2Tx> {
+  progress?.({ stage: 'preparing', action: 'executeV2OverdueEmi' });
+  requireId(loanId, 'Loan ID'); await assertV2Write();
+  const signer = await getSigner(); const liquidation = new Contract(v2Contracts().liquidation, LiquidationArtifact.abi, signer);
+  const gas = await liquidation.executeOverdueInstallment.estimateGas(loanId); await assertGasBalance(signer, gas);
+  return receipt('Due-installment collateral recovery', async () => liquidation.executeOverdueInstallment(
+    loanId, await walletTransactionOverrides(signer, gas),
+  ), new Interface(LiquidationArtifact.abi), [], progress);
 }
 export async function payV2OutstandingEmi(loanId: string, amount: string, prepareCompletionMetadata: CompletionMetadataPreparer, progress?: V2ProgressListener) {
   progress?.({ stage: 'preparing', action: 'payV2OutstandingEmi' });

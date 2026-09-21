@@ -69,6 +69,16 @@ test('Direct Lending UI and service do not expose a removed crypto late-fee char
   assert.doesNotMatch(service, /previewLateFee|LATE_FEE_BPS|lateFeeBps|lateFee/);
 });
 
+test('Direct Lending displays the canonical partial-sale execution read without treating local configuration as production policy', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(service, /partialLiquidationExecution = saleAdapter === ZeroAddress/);
+  assert.match(source, /p\.partialLiquidationExecution === 'CONFIGURED'/);
+  assert.match(source, /Configured — local test-only; not production policy/);
+  assert.match(source, /Not configured — fail closed/);
+  assert.doesNotMatch(source, /label="Partial-sale execution" value="Not configured — fail closed"/);
+});
+
 test('terminal zero-debt V2 reads do not show a contract risk sentinel as an active LTV', () => {
   const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
   assert.match(service, /if \(outstanding !== 0n\) \{/);
@@ -289,6 +299,12 @@ test('V2 confirmed receipt remains visible when an indexer refresh fails', () =>
   assert.match(html, /do not resubmit/); assert.doesNotMatch(html, /Failed/);
 });
 
+test('canonical indexed wallet-history reads bypass browser HTTP cache after an explicit reload', () => {
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(service, /async function apiGet<T>\(path: string\)[\s\S]*fetch\(path, \{ cache: 'no-store' \}\)/);
+  assert.match(service, /getV2WalletHistory\(wallet: string\)[\s\S]*\/api\/lending-v2\/wallet\/\$\{wallet\}\?limit=100/);
+});
+
 test('direct Loan #1-style reads never index an empty canonical EMI result', () => {
   const { service } = serviceHarness();
   const emptySchedule = new Proxy([], { get(target, property, receiver) {
@@ -297,8 +313,19 @@ test('direct Loan #1-style reads never index an empty canonical EMI result', () 
   } });
   assert.equal(service.v2EmiSchedule(emptySchedule, 0n, 0n), null);
   const p2pSchedule = service.v2EmiSchedule([{ amount: ethers.parseEther('50'), dueAt: 1234n }], 0n, 1200n);
-  assert.deepEqual(p2pSchedule, { installmentAmount: '50.0', installmentCount: '1', paidInstallments: '0', nextDueAt: '1234', chainTimestamp: '1200', due: false, completed: false });
+  assert.deepEqual(p2pSchedule, {
+    installmentAmount: '50.0', amountApplied: '0.0', remainingDue: '50.0', state: 'DUE',
+    installmentCount: '1', paidInstallments: '0', nextDueAt: '1234', chainTimestamp: '1200', due: false, completed: false,
+  });
   assert.equal(service.v2EmiSchedule([{ amount: ethers.parseEther('50'), dueAt: 1234n }], 0n, 1234n)?.due, true);
+  const terminalRecovery = service.v2EmiSchedule([{
+    amount: ethers.parseEther('50'), dueAt: 1234n, paid: true,
+    amountApplied: ethers.parseEther('50'), state: 2n,
+  }], 1n, 1300n, true);
+  assert.deepEqual(terminalRecovery, {
+    installmentAmount: '50.0', amountApplied: '50.0', remainingDue: '0.0', state: 'SETTLED',
+    installmentCount: '1', paidInstallments: '1', nextDueAt: '1234', chainTimestamp: '1300', due: true, completed: true,
+  });
 });
 
 test('fresh Loan #1 recovery uses canonical DirectLoanOpened evidence without waiting for the indexer', async () => {
@@ -378,14 +405,15 @@ test('P2P request capacity is read from LoanMarketplaceV2 and blocks an over-cap
   assert.match(source, /!p2pWithinCapacity/);
 });
 
-test('P2P overdue settlement is visibly blocked until the whitepaper-undefined policy is approved', () => {
+test('due-installment recovery uses the approved canonical path while P2P partial/default settlement stays fail-closed', () => {
   const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
   const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
-  assert.match(source, /P2P overdue collateral seizure, partial liquidation, and default settlement are unavailable/);
-  assert.doesNotMatch(source, /Approve ABCD & execute overdue EMI/);
-  assert.match(service, /P2P overdue collateral settlement is blocked/);
-  assert.match(service, /P2P overdue collateral settlement is blocked/);
+  assert.match(source, /Execute due collateral recovery/);
+  assert.match(source, /DUE → PARTIALLY_SETTLED → SETTLED/);
+  assert.match(service, /liquidation\.executeOverdueInstallment\.estimateGas\(loanId\)/);
+  assert.match(service, /Due-installment collateral recovery/);
   assert.match(service, /P2P default settlement is blocked/);
+  assert.match(source, /P2P partial liquidation, reserve\/bad-debt settlement, and terminal default recovery remain fail-closed/);
   assert.doesNotMatch(service, /Math\.random\(\)|mock.*overdue|fake.*overdue/i);
 });
 
@@ -396,6 +424,28 @@ test('Direct partial-liquidation UI reports eligibility and exposes only a confi
   assert.match(source, /Execute configured partial liquidation/);
   assert.match(source, /liquidateV2\(loanId, progress\)/);
   assert.doesNotMatch(source, /Direct liquidation bonus/);
+});
+
+test('lending UI renders only canonical recovery and completion-valuation provenance', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  assert.match(source, /Recovery state/);
+  assert.match(source, /Amount applied/);
+  assert.match(source, /Remaining scheduled due/);
+  assert.match(source, /Informational 1% USD valuation/);
+  assert.match(source, /Valuation feed/);
+  assert.match(source, /Valuation round/);
+  assert.doesNotMatch(source, /Blocked: USD valuation policy required/);
+  assert.match(source, /A normal partial liquidation never uses Reserve coverage or creates bad debt/);
+});
+
+test('lending UI labels immutable origination collateral separately from the current vault balance', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(source, /label="Original collateral" value=\{`\$\{loan\.originalCollateralETH\} ETH`\}/);
+  assert.match(source, /label="Current vault collateral" value=\{`\$\{loan\.currentVaultCollateralETH\} ETH`\}/);
+  assert.doesNotMatch(source, /label="Remaining collateral \(vault\)" value=\{`\$\{loan\.collateralETH\} ETH`\}/);
+  assert.match(service, /originalCollateralETH: formatEther\(loan\.collateralETH\), currentVaultCollateralETH: formatEther\(liveCollateral\)/);
+  assert.match(service, /const liveCollateral = await vault\.loanCollateral\(loanId\)/);
 });
 
 test('the local Phase 1 harness has no environment-gated legacy P2P liquidation path', () => {

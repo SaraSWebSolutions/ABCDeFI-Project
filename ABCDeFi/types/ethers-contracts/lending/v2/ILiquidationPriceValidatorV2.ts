@@ -6,13 +6,15 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface ILiquidationPriceValidatorV2Interface extends Interface {
-    getFunction(nameOrSignature: "quoteSale"): FunctionFragment;
+    getFunction(nameOrSignature: "quoteInstallmentSale" | "quoteSale"): FunctionFragment;
 
     
 
-    encodeFunctionData(functionFragment: 'quoteSale', values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
+    encodeFunctionData(functionFragment: 'quoteInstallmentSale', values: [BigNumberish, BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'quoteSale', values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
 
-    decodeFunctionResult(functionFragment: 'quoteSale', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'quoteInstallmentSale', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'quoteSale', data: BytesLike): Result;
   }
 
   
@@ -51,6 +53,14 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
 
     
     
+    quoteInstallmentSale: TypedContractMethod<
+      [loanId: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
+      [[bigint, bigint, bigint] & {collateralAmount: bigint, oracleExpectedRecovery: bigint, deadline: bigint }],
+      'view'
+    >
+    
+
+    
     quoteSale: TypedContractMethod<
       [loanId: BigNumberish, debt: BigNumberish, collateral: BigNumberish, targetLtvBps: BigNumberish, ],
       [[bigint, bigint, bigint] & {collateralAmount: bigint, minOut: bigint, deadline: bigint }],
@@ -61,7 +71,12 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
-    getFunction(nameOrSignature: 'quoteSale'): TypedContractMethod<
+    getFunction(nameOrSignature: 'quoteInstallmentSale'): TypedContractMethod<
+      [loanId: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
+      [[bigint, bigint, bigint] & {collateralAmount: bigint, oracleExpectedRecovery: bigint, deadline: bigint }],
+      'view'
+    >;
+getFunction(nameOrSignature: 'quoteSale'): TypedContractMethod<
       [loanId: BigNumberish, debt: BigNumberish, collateral: BigNumberish, targetLtvBps: BigNumberish, ],
       [[bigint, bigint, bigint] & {collateralAmount: bigint, minOut: bigint, deadline: bigint }],
       'view'

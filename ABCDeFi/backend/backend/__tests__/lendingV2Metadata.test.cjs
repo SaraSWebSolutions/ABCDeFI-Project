@@ -16,7 +16,7 @@ function successStore(index) {
   const cid = `${metadataCid}${index}`;
   return { provider: 'pinata', cid, metadataCid: cid, imageCid: `bafkimage${index}`, imageUri: `ipfs://bafkimage${index}`, metadataUri: `ipfs://${cid}`, uri: `ipfs://${cid}` };
 }
-function controller({ linkedWallet = borrower, loan = { borrower, lender, principal: 100000000000000000000n, principalOutstanding: 100000000000000000000n, collateralETH: 100000000000000000n, aprBps: 1200n, start: 1000n, maturity: 1000n + 30n * 86_400n, state: 0n }, store, provider } = {}) {
+function controller({ linkedWallet = borrower, loan = { borrower, lender, principal: 100000000000000000000n, principalOutstanding: 100000000000000000000n, collateralETH: 100000000000000000n, aprBps: 1200n, start: 1000n, maturity: 1000n + 30n * 86_400n, state: 0n }, store, provider, readMetadata, auditModel } = {}) {
   let stores = 0;
   return createLoanMetadataController({
     manifest,
@@ -28,6 +28,8 @@ function controller({ linkedWallet = borrower, loan = { borrower, lender, princi
     walletModel: { findOne: () => ({ lean: async () => ({ walletAddress: linkedWallet }) }) },
     platformArtwork: async () => ({ buffer: png, mimetype: 'image/png', originalname: 'platform-certificate.png' }),
     store: store || (async (_asset, metadata) => { stores += 1; return { ...successStore(stores), metadata }; }),
+    readMetadata: readMetadata || (async (cid) => ({ attributes: [{ trait_type: 'Loan ID', value: '7' }, { trait_type: 'Chain ID', value: '31337' }, { trait_type: 'Borrower', value: borrower }, { trait_type: 'Certificate role', value: cid.endsWith('1') ? 'Lender' : cid.endsWith('2') ? 'Borrower' : 'Platform' }] })),
+    auditModel,
   });
 }
 async function invoke(handler, req) {
@@ -83,9 +85,104 @@ test('completion certificate metadata records the canonical loan and explicitly 
   const metadata = completionCertificateMetadata('7', loan, 0n, platform, 'Borrower');
   assert.match(metadata.name, /Borrower Loan Completion Certificate V2/);
   assert.ok(metadata.attributes.some(value => value.trait_type === 'Loan ID' && value.value === '7'));
+  assert.ok(metadata.attributes.some(value => value.trait_type === 'Original collateral wei' && value.value === '100000000000000000'));
   const lifecycle = metadata.attributes.find(value => value.trait_type === 'Certificate lifecycle');
   assert.equal(lifecycle?.value, 'Minted only after successful on-chain settlement');
   assert.equal(metadata.attributes.some(value => value.trait_type === 'Certificate state' && /pending/i.test(value.value)), false);
   assert.ok(metadata.attributes.some(value => value.trait_type === 'USD valuation status' && /requires approval/i.test(value.value)));
   assert.match(metadata.description, /intentionally not recorded/i);
 });
+
+function auditStore() {
+  const entries = [];
+  const matching = (criteria) => entries.filter((entry) => Object.entries(criteria).every(([key, value]) => {
+    if (key === 'status' && value?.$in) return value.$in.includes(entry.status);
+    return entry[key] === value;
+  }));
+  return {
+    entries,
+    findOne(criteria) {
+      const found = matching(criteria).at(-1) || null;
+      return { sort() { return this; }, async lean() { return found; } };
+    },
+    async create(document) {
+      const entry = { ...document, records: document.records.map((record) => ({ ...record })) };
+      entry.save = async () => {
+        const index = entries.findIndex((value) => value.correlationId === entry.correlationId);
+        const stored = { ...entry, records: entry.records.map((record) => ({ ...record })) };
+        delete stored.save;
+        if (index >= 0) entries[index] = stored; else entries.push(stored);
+      };
+      await entry.save();
+      return entry;
+    },
+  };
+}
+
+test('requested Loan #1 preparation cannot produce Loan #2 metadata and persists the validated request correlation', withPinata(async () => {
+  const audits = auditStore(); const published = [];
+  const instance = controller({
+    loan: { borrower, lender, principal: 100000000000000000000n, principalOutstanding: 100000000000000000000n, collateralETH: 100000000000000000n, aprBps: 1200n, start: 1000n, maturity: 1000n + 30n * 86_400n, state: 0n },
+    auditModel: audits,
+    store: async (_asset, metadata) => {
+      published.push(metadata);
+      const role = metadata.attributes.find((attribute) => attribute.trait_type === 'Certificate role').value;
+      const stored = successStore({ Lender: 1, Borrower: 2, Platform: 3 }[role]);
+      return stored;
+    },
+    readMetadata: async (cid) => published.find((metadata) => {
+      const role = metadata.attributes.find((attribute) => attribute.trait_type === 'Certificate role').value;
+      return cid.endsWith(String({ Lender: 1, Borrower: 2, Platform: 3 }[role]));
+    }),
+  });
+  const res = await invoke(instance.prepareCompletion, request({ loanId: '1' }));
+  assert.equal(res.statusCode, 201); assert.equal(published.length, 3);
+  for (const metadata of published) assert.equal(metadata.attributes.find((attribute) => attribute.trait_type === 'Loan ID').value, '1');
+  assert.equal(audits.entries.length, 1); assert.equal(audits.entries[0].loanId, '1'); assert.equal(audits.entries[0].status, 'VALIDATED');
+  assert.deepEqual(audits.entries[0].records.map((record) => record.validationStatus), ['VALIDATED', 'VALIDATED', 'VALIDATED']);
+}));
+
+test('a mismatched returned provider document is rejected and prevents later automatic retry', withPinata(async () => {
+  const audits = auditStore(); let uploads = 0;
+  const instance = controller({
+    auditModel: audits,
+    store: async () => { uploads += 1; return successStore(uploads); },
+    readMetadata: async () => ({ attributes: [{ trait_type: 'Loan ID', value: '2' }, { trait_type: 'Chain ID', value: '31337' }, { trait_type: 'Borrower', value: borrower }, { trait_type: 'Certificate role', value: 'Lender' }] }),
+  });
+  await assert.rejects(invoke(instance.prepareCompletion, request()), /canonical loan validation/i);
+  assert.equal(uploads, 1); assert.equal(audits.entries[0].status, 'POST_UPLOAD_VALIDATION_FAILED');
+  await assert.rejects(invoke(instance.prepareCompletion, request()), /outcome is unresolved/i);
+  assert.equal(uploads, 1, 'an unresolved public upload is never blindly retried');
+}));
+
+test('an existing exact Loan #1-style public record triple can be associated without calling the upload provider', withPinata(async () => {
+  const audits = auditStore(); let uploads = 0;
+  const documents = Object.fromEntries(['Lender', 'Borrower', 'Platform'].map((role) => [role, completionCertificateMetadata('7', {
+    borrower, lender, principal: 100000000000000000000n, principalOutstanding: 100000000000000000000n, collateralETH: 100000000000000000n, aprBps: 1200n, start: 1000n, maturity: 1000n + 30n * 86_400n, state: 0n,
+  }, 0n, platform, role, 31337)]));
+  const cids = { lender: 'bafkreidassociate1', borrower: 'bafkreidassociate2', platform: 'bafkreidassociate3' };
+  const instance = controller({
+    auditModel: audits,
+    store: async () => { uploads += 1; throw new Error('association must never upload'); },
+    readMetadata: async (cid) => {
+      const key = Object.entries(cids).find(([, value]) => value === cid)?.[0];
+      const role = key && `${key[0].toUpperCase()}${key.slice(1)}`;
+      return { ...documents[role], image: `ipfs://bafkreidimage${role}` };
+    },
+  });
+  const res = await invoke(instance.associateCompletion, request({
+    completion: Object.fromEntries(Object.entries(cids).map(([role, cid]) => [role, { metadataUri: `ipfs://${cid}` }])),
+  }));
+  assert.equal(res.statusCode, 201); assert.equal(uploads, 0);
+  assert.equal(res.body.data.loan.loanId, '7'); assert.equal(audits.entries.length, 1);
+  assert.equal(audits.entries[0].status, 'VALIDATED'); assert.deepEqual(audits.entries[0].records.map((record) => record.role), ['Lender', 'Borrower', 'Platform']);
+}));
+
+test('a provider timeout leaves an unresolved audit record and a retry cannot upload a duplicate public record', withPinata(async () => {
+  const audits = auditStore(); let attempts = 0;
+  const instance = controller({ auditModel: audits, store: async () => { attempts += 1; throw new Error('NFT storage provider is temporarily unavailable.'); } });
+  await assert.rejects(invoke(instance.prepareCompletion, request()), /temporarily unavailable/i);
+  assert.equal(audits.entries[0].status, 'OUTCOME_UNKNOWN');
+  await assert.rejects(invoke(instance.prepareCompletion, request()), /outcome is unresolved/i);
+  assert.equal(attempts, 1);
+}));

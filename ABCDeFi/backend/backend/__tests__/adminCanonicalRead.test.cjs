@@ -6,14 +6,13 @@ function response() { return { body: null, json(value) { this.body = value; retu
 
 test('canonical Admin status reports only registry-backed module capabilities', async () => {
   const controller = createCanonicalAdminController({
-    moduleRegistry: () => [{ name: 'Treasury', available: true, status: 'CONFIGURED', source: { chainId: '31337' }, capabilities: ['TREASURY_OPERATOR_ROLE'] }, { name: 'Governance', available: false, status: 'OUT_OF_SCOPE', source: {}, capabilities: [] }],
+    moduleRegistry: () => [{ name: 'Treasury', available: true, status: 'CONFIGURED', source: { chainId: '31337' }, capabilities: ['TREASURY_OPERATOR_ROLE'] }],
     checkpointSources: [{ module: 'Treasury', read: async () => ({ lastProcessedBlock: '41', indexedAt: new Date('2026-01-01') }) }],
   });
   const res = response();
   await controller.status({}, res, (error) => { throw error; });
   assert.equal(res.body.available, true);
   assert.equal(res.body.modules[0].name, 'Treasury');
-  assert.equal(res.body.modules[1].status, 'OUT_OF_SCOPE');
   assert.equal(res.body.modules[0].indexer.available, true);
   assert.equal(res.body.modules[0].indexer.checkpoint.lastProcessedBlock, '41');
 });

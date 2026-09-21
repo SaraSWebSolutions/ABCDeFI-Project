@@ -5,6 +5,7 @@ const test = require('node:test');
 
 const source = fs.readFileSync(path.resolve(__dirname, '..', 'modules', 'lendingV2Projection', 'lendingV2Read.controller.cjs'), 'utf8');
 const routes = fs.readFileSync(path.resolve(__dirname, '..', 'modules', 'lendingV2Projection', 'lendingV2Read.routes.cjs'), 'utf8');
+const { loanJson } = require('../modules/lendingV2Projection/lendingV2Read.controller.cjs');
 
 test('V2 loan reads load the three completion-certificate role slots directly from LoanNFTV2', () => {
   assert.match(source, /nft\.loanCertificates\(loanId, role\)/);
@@ -22,6 +23,20 @@ test('V2 API serializes named loan, request, certificate, and schedule fields', 
     assert.match(source, new RegExp(`const ${helper}`));
   }
   assert.match(source, /initialLtvBps/);
+  assert.match(source, /valuationFeed/);
+  assert.match(source, /completionABCDUSDPrice/);
+  assert.match(source, /amountApplied/);
+  assert.match(source, /remainingDue/);
+});
+
+test('V2 API keeps immutable original collateral distinct from current vault collateral', () => {
+  const serialized = loanJson({ collateralETH: 100000000000000000n }, 101000000000000000n);
+  assert.equal(serialized.collateralETH, '100000000000000000');
+  assert.equal(serialized.originalCollateralETH, '100000000000000000');
+  assert.equal(serialized.currentVaultCollateralETH, '101000000000000000');
+  assert.match(source, /vault\.loanCollateral\(loanId\)/);
+  assert.match(source, /liquidation\.currentLtvBps\(loanId\)/);
+  assert.match(source, /deploymentVersion: manifest\.deploymentVersion/);
 });
 
 test('V2 loan detail retains debt and EMI reads when a canonical risk quote is unavailable', () => {
@@ -61,7 +76,18 @@ test('V2 lending referral reads use canonical referral events and live LendingRe
 
 test('V2 reserve API reads its balance from InsuranceReserveV2 and returns indexed audit evidence separately', () => {
   assert.match(source, /reserve\.availableBalance\(\)/);
+  assert.match(source, /reserve\.reserveCoverCapABCD\(\)/);
   assert.match(source, /contractName: 'InsuranceReserveV2', eventName: 'ReserveFunded'/);
   assert.match(source, /contractName: 'InsuranceReserveV2', eventName: 'ReserveUsed'/);
   assert.match(source, /contractName: 'InsuranceReserveV2', eventName: 'ReserveBalanceUpdated'/);
+});
+
+test('V2 history is deployment-version-scoped, numerically ordered, and cursor-paginated without synthetic records', () => {
+  assert.match(source, /const eventTuple = \(event\) => \[BigInt\(event\.blockNumber\), Number\(event\.transactionIndex\), Number\(event\.logIndex\)\]/);
+  assert.match(source, /const compareEvents/);
+  assert.match(source, /const encodeCursor/);
+  assert.match(source, /const decodeCursor/);
+  assert.match(source, /const eventPage/);
+  assert.match(source, /page: \{ limit: boundedLimit\(req\.query\.limit\), nextCursor: page\.nextCursor \}/);
+  assert.doesNotMatch(source, /sort\(\{ blockNumber: 1, logIndex: 1 \}\)/);
 });
