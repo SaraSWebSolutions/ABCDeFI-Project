@@ -1,0 +1,103 @@
+{
+  "chainId": "31337",
+  "deploymentVersion": "franchise-v2-local-0xa0a7c768043c123f262ecc8a2df857cbbc3dedc225ca6cbd70f2d7197f6a7c66",
+  "legionAddress": "0xA4899D35897033b927acFCf422bc745916139776",
+  "franchiseNFTAddress": "0xf953b3A269d80e3eB0F2947630Da976B896A8C5b",
+  "franchiseRegistryAddress": "0xAA292E8611aDF267e563f334Ee42320aC96D0463",
+  "territoryTokenIds": {
+    "country": "1",
+    "state": "2",
+    "district": "3"
+  },
+  "franchiseTokenId": "1",
+  "finalOwner": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+  "finalOperator": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+  "status": "ACTIVE",
+  "transactions": [
+    {
+      "label": "Country mint",
+      "transactionHash": "0x7fa013a13d59dce2d3f2c7e0481bdba06407f30dfa20e5ba21efd59c53165c95",
+      "blockNumber": 113,
+      "gasUsed": "256640",
+      "logCount": 2
+    },
+    {
+      "label": "State mint",
+      "transactionHash": "0x0e10021941f8da5481e4a6a1067e221b4baa77f755159af13c6bff978f337300",
+      "blockNumber": 114,
+      "gasUsed": "283387",
+      "logCount": 2
+    },
+    {
+      "label": "District mint",
+      "transactionHash": "0x1d90dc5485aa1ee43ed1a475d1e160544df80f0726897a3a24bee369d5acc9fb",
+      "blockNumber": 115,
+      "gasUsed": "308014",
+      "logCount": 2
+    },
+    {
+      "label": "Legion transfer request",
+      "transactionHash": "0x6b628488ff93ea15323cf4257c3f94d085de2c8af4459211b1955ceb87b2028f",
+      "blockNumber": 116,
+      "gasUsed": "131106",
+      "logCount": 1,
+      "requestId": "1"
+    },
+    {
+      "label": "Legion transfer approval",
+      "transactionHash": "0x15661ddeb53c26f13ae727c5ff3f0038c0b52f237e8c55225593f0432730ec6d",
+      "blockNumber": 117,
+      "gasUsed": "42458",
+      "logCount": 1
+    },
+    {
+      "label": "Legion transfer execution",
+      "transactionHash": "0xf766dff582e53355c2f99a040275d525ca2fe1ad7dcfa7da8efa7a4373694c59",
+      "blockNumber": 118,
+      "gasUsed": "133645",
+      "logCount": 2
+    },
+    {
+      "label": "Franchise application",
+      "transactionHash": "0x7a885d9954c886e6198aae4a055414c40cc38d59211136c127295ba9f21dd287",
+      "blockNumber": 119,
+      "gasUsed": "208073",
+      "logCount": 1
+    },
+    {
+      "label": "Franchise application approval",
+      "transactionHash": "0x06577e464547f7f11560ccc65abe0f178c33aa4ca0837c9502623ba3cf0e46d0",
+      "blockNumber": 120,
+      "gasUsed": "34599",
+      "logCount": 1
+    },
+    {
+      "label": "Franchise mint",
+      "transactionHash": "0x387595e23b01f578300348156d69a369c9f8c50502e53c7e613030b40c8bb551",
+      "blockNumber": 121,
+      "gasUsed": "386909",
+      "logCount": 4
+    },
+    {
+      "label": "Franchise transfer request",
+      "transactionHash": "0x92b1ef6819ed7fdab856626c0d7327961f7eb34605807c62cec583a25266a3ee",
+      "blockNumber": 122,
+      "gasUsed": "143186",
+      "logCount": 1
+    },
+    {
+      "label": "Franchise transfer approval",
+      "transactionHash": "0xdcc5651b7c5cbd83129ea1681281b516697b6507f4f816da6d73b857f3eaf6d7",
+      "blockNumber": 123,
+      "gasUsed": "49537",
+      "logCount": 1
+    },
+    {
+      "label": "Franchise transfer execution",
+      "transactionHash": "0xbcba8bcb194570e0b048ee383c4105ba43033922b6fb0793a5aa296dd8814489",
+      "blockNumber": 124,
+      "gasUsed": "109845",
+      "logCount": 3
+    }
+  ]
+}

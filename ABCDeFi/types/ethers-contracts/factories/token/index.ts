@@ -2,3 +2,4 @@
 /* tslint:disable */
 /* eslint-disable */
 export { ABCDToken__factory } from './ABCDToken__factory.js';
+export { ABCDTokenV2__factory } from './ABCDTokenV2__factory.js';

@@ -14,6 +14,22 @@ canonical implementation, and then legacy/non-canonical code.
 Whitepaper references use the printed page number. The supplied scan's source
 page offset is +15.
 
+## Historical reconciliation — P2-GAP-02
+
+The P2-GAP-02 classification below records the decision state at the time of
+the original gap-closure audit. For the approved **Direct Lending** scope only,
+its earlier `OWNER DECISION REQUIRED` status has been superseded by the later
+owner-approved [Phase 2 Lending Protocol Amendment](PHASE2-LENDING-PROTOCOL-AMENDMENT.md).
+
+The canonical current behavior is the amendment's strictly partial Direct
+liquidation: it requires the approved risk/oracle/cure conditions, sells only
+the calculated collateral needed to restore LTV to `<=70%`, preserves remaining
+debt and collateral, restores `ACTIVE`, and uses no reserve. The separate
+reserve/bad-debt waterfall remains limited to its explicitly approved recovery
+path. This reconciliation does not extend the approval to P2P liquidation,
+production feeds/routes, Fiat Lending, or any otherwise deferred item in this
+historical disposition register.
+
 ## Preserved canonical boundary
 
 The following remain unchanged:
@@ -109,21 +125,27 @@ test-only and is not a production economic authorization.
 
 ### P2-GAP-04 — LoanNFT 1% USD valuation
 
-- **Classification:** DEFERRED — WHITEPAPER UNDERSPECIFIED
+- **Historical classification at the original audit:** DEFERRED — WHITEPAPER
+  UNDERSPECIFIED.
+- **Current canonical disposition:** IMPLEMENTED — OWNER-APPROVED for Direct
+  Lending completion certificates. The later approval in
+  `docs/PHASE2-LENDING-PROTOCOL-AMENDMENT.md` supersedes the original
+  disposition for this limited scope; this entry preserves the earlier review
+  history.
 - **Whitepaper requirement/page:** printed page 20 describes three completion
   NFTs with an initial value of 1% of total loan amount (principal plus
   interest) in USD.
 - **Current implementation:** three role-specific completion certificates are
-  minted after successful settlement. `LoanNFTV2.certificateValue` is zero by
-  design; no ABCD-unit number is misrepresented as a USD value.
-- **Exact gap:** USD source, observation timestamp, total-loan definition,
-  decimals/rounding, storage/provenance, accounting treatment, redemption or
-  other economic-right semantics.
-- **Why implementation cannot safely proceed:** the whitepaper does not define
-  a valuation or accounting methodology.
-- **Required owner decision:** valuation source/timestamp/formula/rounding;
-  whether it is informational only or creates a right; immutable provenance and
-  metadata disclosure.
+  minted after successful settlement. `LoanNFTV2` stores the approved 1% value
+  of principal plus agreed interest in USD using a completion-time validated
+  ABCD/USD oracle snapshot and immutable feed/round/timestamp/formula
+  provenance. The value is informational only.
+- **Remaining boundary:** no redemption, collateral, payout, reward, fee,
+  Treasury claim, or other economic right is created. Any such mechanism is
+  WHITEPAPER UNSPECIFIED and requires a separate explicit specification.
+- **Required owner decision:** none for the approved informational completion
+  valuation. A separate decision is required only for any new utility or
+  financial-right request.
 - **Affected contracts:** `LoanNFTV2` and completion operators.
 - **Affected backend/indexer:** certificate valuation projection/history.
 - **Affected frontend:** completion certificate display.
@@ -247,7 +269,8 @@ test-only and is not a production economic authorization.
 - **Whitepaper requirement/page:** printed pages 19–22 describe historic
   external-lender lock/conversion, X-token, and X-Peat mechanics.
 - **Current implementation:** these mechanisms are legacy/non-canonical and
-  are excluded by the fixed 1B ABCD architecture and Phase 6 lock.
+  are excluded by the fixed 1B ABCD architecture and the canonical
+  owner-approved Phase 6 boundary; Phase 6 is currently active and unlocked.
 - **Exact gap:** intentionally absent.
 - **Why implementation cannot safely proceed:** the historic one-quadrillion
   allocation and token mechanics conflict with the current 1B ABCD model.
@@ -267,19 +290,21 @@ test-only and is not a production economic authorization.
   LoanNFT concept.
 - **Current implementation:** `LendingReferralManagerV2` records a referral
   certificate worth 0.5% of originated loan principal. `LoanNFTV2` completion
-  certificates have no fabricated USD valuation. They are deliberately
-  different artifacts with different stated bases.
+  certificates use the separately approved informational 1%-of-principal-plus-
+  agreed-interest USD valuation with completion-time provenance. They are
+  deliberately different artifacts with different stated bases.
 - **Exact gap:** none in the approved current convention. A shared USD value
   would be a new economic rule, not a consistency correction.
-- **Why implementation cannot safely proceed:** a common valuation would need
-  the unresolved LoanNFT valuation policy.
+- **Why implementation cannot safely proceed:** a common valuation would be a
+  new economic rule, not a consistency correction.
 - **Required owner decision:** only if a common USD valuation or redemption
   utility is requested.
 - **Affected contracts:** `LendingReferralManagerV2`, `LoanNFTV2`.
 - **Affected backend/indexer:** referral/certificate evidence.
 - **Affected frontend:** certificate labels and value-basis disclosure.
 - **Required tests/E2E:** retain principal-basis, default/liquidation
-  ineligibility, no-fabricated-USD-value, and display-label regressions.
+  ineligibility, informational-only LoanNFT valuation, and display-label
+  regressions.
 
 ### P2-GAP-12 — Twelve-month installments, other assets, recourse, and
 compliance narrative

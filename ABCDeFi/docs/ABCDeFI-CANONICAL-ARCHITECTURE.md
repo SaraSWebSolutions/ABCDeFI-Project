@@ -11,7 +11,12 @@ not part of the current 1B ABCD architecture.
 
 ## Locked product boundaries
 
-- Phases 1-4 lending/referral behavior remains locked.
+- Phase 1 P2P Settlement, Phase 2 Direct Lending, and Phase 3 Loan NFTs
+  remain locked. Phase 4 Fees + Referral is the active documentation and
+  specification workstream. Its current LendingReferralManagerV2 baseline does
+  not amend the locked phases; any change to their behavior requires the
+  applicable explicit change request, regression testing, re-audit, and lock
+  decision.
 - Phase 5 Reserve is independently controlled and has no automatic Treasury
   connection.
 - Phase 6 ICO V2 has its own finalized-proceeds rule; it is not general

@@ -73,6 +73,7 @@ contract InsuranceReserveV2 is AccessControl, Pausable, ReentrancyGuard {
     function cover(uint256 loanId, address recipient, uint256 requested)
         external
         onlyRole(RESERVE_OPERATOR_ROLE)
+        whenNotPaused
         nonReentrant
         returns (uint256 paid)
     {

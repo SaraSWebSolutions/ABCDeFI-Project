@@ -3,6 +3,8 @@
 /* eslint-disable */
 import type * as icoManagerV2Sol from './ICOManagerV2.sol/index.js';
 export type { icoManagerV2Sol };
+import type * as icoManagerV3Sol from './ICOManagerV3.sol/index.js';
+export type { icoManagerV3Sol };
 export type { AllocationManager } from './AllocationManager.js';
 export type { ICOManager } from './ICOManager.js';
 export type { Presale } from './Presale.js';

@@ -1,0 +1,1 @@
+const express = require('express'); const { createIcoV3Controller } = require('./icoV3.controller.cjs'); const router = express.Router(); const controller = createIcoV3Controller(); router.get('/status', controller.status); router.get('/buyers/:address', controller.buyer); router.get('/history', controller.history); module.exports = router;

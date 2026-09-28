@@ -29,7 +29,7 @@ The whitepaper's historic 2022 allocation and X-token/X-Peat material is not a s
 
 - ABCD maximum supply remains **1,000,000,000 ABCD**, with 18 decimals.
 - No X-token or X-Peat mechanics may be restored.
-- Phases 1–4 are locked; Phase 5 is locally complete with BSC Testnet deployment pending; Phase 6 is locally complete / locked with BSC deployment pending.
+- Phases 1–4 are locked; Phase 5 is locally complete with BSC Testnet deployment pending. The prior statement that Phase 6 was locally complete/locked is a historical snapshot; current Phase 6 status is ACTIVE — UNLOCKED.
 - No locked protocol economics, token allocation, or deployed manifest is changed by this audit.
 - A future staking implementation must not mint ABCD above the fixed cap, reallocate tokens, draw from the Reserve, or use Treasury funds without a separate owner-approved rule.
 
@@ -95,7 +95,7 @@ Every item below is **WHITEPAPER UNSPECIFIED — DO NOT INVENT**. Owner approval
 | Phase 3 Loan NFTs | Locked. No NFT valuation, collateralization, redemption, or reward rights may be inferred from staking. |
 | Phase 4 Fees + Referral | Locked. Lending referral rewards are separate; no referral-to-staking interaction is defined. |
 | Phase 5 Reserve | Do not use Reserve funds or activate reserve behavior for staking without a separately approved Reserve rule. BSC deployment remains pending. |
-| Phase 6 ICO | Locked locally. ICO inventory, claims, vesting, and Community allocation are not staking reward funding authority. BSC deployment remains pending. |
+| Phase 6 ICO | Historical versions of this gate described Phase 6 as locked locally. Current Phase 6 is ACTIVE — UNLOCKED; its ICO inventory, claims, vesting, and Community allocation are not staking reward funding authority. |
 
 ## 8. Proposed test strategy (after owner-approved specification)
 
@@ -127,7 +127,7 @@ Do not implement, activate, redeploy, or market the existing staking pool as Pha
 ---
 
 PHASE 6:
-**LOCALLY COMPLETE / LOCKED — BSC DEPLOYMENT PENDING**
+**HISTORICAL STATUS SUPERSEDED — CURRENTLY ACTIVE / UNLOCKED**
 
 PHASE 7:
 **SPECIFICATION / AUDIT ONLY — IMPLEMENTATION NOT STARTED**

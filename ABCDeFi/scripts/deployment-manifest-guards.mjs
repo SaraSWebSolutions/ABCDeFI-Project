@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 
 export const LOCAL_CHAIN_ID = 31337;
 
@@ -71,4 +72,14 @@ export function manifestContractAddress(manifest, contractName, label) {
 export async function assertDeployedBytecode(provider, address, label) {
   const bytecode = await provider.getCode(address);
   if (bytecode === "0x") throw new Error(`${label} has no deployed bytecode at ${address}.`);
+}
+
+/**
+ * Records a deterministic digest of the manifest payload before the digest is
+ * attached.  It makes a persisted fresh-local snapshot auditable without
+ * making the digest self-referential.
+ */
+export function sealManifest(manifest) {
+  const manifestHash = `sha256:${createHash("sha256").update(JSON.stringify(manifest)).digest("hex")}`;
+  return { ...manifest, manifestHash };
 }

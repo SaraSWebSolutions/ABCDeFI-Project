@@ -3,11 +3,13 @@
 /* eslint-disable */
 export type { IABCDNFTMarketplaceV2 } from './IABCDNFTMarketplaceV2.js';
 export type { IABCDToken } from './IABCDToken.js';
+export type { IABCDTokenV2 } from './IABCDTokenV2.js';
 export type { IBarterNFT } from './IBarterNFT.js';
 export type { IBonusManager } from './IBonusManager.js';
 export type { ICollateralVault } from './ICollateralVault.js';
 export type { IEMIManager } from './IEMIManager.js';
 export type { IFranchiseNFT } from './IFranchiseNFT.js';
+export type { IFranchiseNFTV2 } from './IFranchiseNFTV2.js';
 export type { IGuruNFT } from './IGuruNFT.js';
 export type { ILegionCredentialV2 } from './ILegionCredentialV2.js';
 export type { ILegionMarketplaceSettlementAdapterV2 } from './ILegionMarketplaceSettlementAdapterV2.js';

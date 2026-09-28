@@ -507,6 +507,37 @@ describe("Lending V2", function () {
     expect(await reserve.reserveSettlementProcessed(1)).false;
     expect((await manager.getLoan(1)).badDebt).eq(0);
   });
+  it("blocks an otherwise eligible Direct Reserve settlement while the Reserve is paused without partial state mutation", async () => {
+    await open("700", 30 * DAY);
+    const loan = await manager.getLoan(1);
+    await hh.provider.send("evm_setNextBlockTimestamp", [Number(loan.maturity)]);
+    await refreshFeeds(100n * 10n ** 8n);
+    await configureLocalSaleAdapter(100n);
+    const reserveFunding = ethers.parseEther("200");
+    await token.connect(admin).approve(await reserve.getAddress(), reserveFunding);
+    await reserve.fund(reserveFunding);
+
+    const [reserveBalanceBefore, collateralBefore, scheduleBefore, loanBefore] = await Promise.all([
+      reserve.availableBalance(), vault.loanCollateral(1), emi.getSchedule(1), manager.getLoan(1),
+    ]);
+    await reserve.pause();
+
+    await expect(liquidation.connect(liquidator).executeOverdueInstallment(1))
+      .to.be.revertedWithCustomError(reserve, "EnforcedPause");
+
+    const [reserveBalanceAfter, collateralAfter, scheduleAfter, loanAfter] = await Promise.all([
+      reserve.availableBalance(), vault.loanCollateral(1), emi.getSchedule(1), manager.getLoan(1),
+    ]);
+    expect(reserveBalanceAfter).eq(reserveBalanceBefore);
+    expect(await reserve.reserveUsedByLoan(1)).eq(0);
+    expect(await reserve.reserveSettlementProcessed(1)).false;
+    expect(collateralAfter).eq(collateralBefore);
+    expect(scheduleAfter.paid).eq(scheduleBefore.paid);
+    expect(scheduleAfter.amountApplied).eq(scheduleBefore.amountApplied);
+    expect(loanAfter.reserveContribution).eq(loanBefore.reserveContribution);
+    expect(loanAfter.badDebt).eq(loanBefore.badDebt);
+    expect(loanAfter.principalOutstanding).eq(loanBefore.principalOutstanding);
+  });
   it("bounds Direct reserve coverage by the explicit configured cap, not reserve balance", async () => {
     await deployDirect({ reserveCoverCap: "50" });
     await open("700", 30 * DAY);

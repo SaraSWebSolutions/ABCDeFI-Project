@@ -97,10 +97,20 @@ aggregated merely by borrower address.
 After successful full settlement, `LoanNFTV2` atomically creates exactly three
 transferable ERC-721 completion certificates: lender, borrower, and platform.
 Each carries a role-specific URI and hash provenance record, loan facts, and a
-completion block. The whitepaper's 1%-of-principal-plus-interest USD-worth
-concept remains blocked: it does not define a USD valuation source, timestamp,
-rounding, or accounting/redeemability semantics. The contract therefore records
-no fabricated USD certificate value.
+completion block. Under the owner-approved Phase 2 amendment, each certificate
+also records the informational 1%-of-principal-plus-agreed-interest USD value
+using a completion-time validated ABCD/USD oracle snapshot, including feed,
+round, timestamp, price, and formula provenance. It creates no redemption,
+collateral, payout, reward, fee, or Treasury claim.
+
+### Historical reconciliation
+
+The previous statement that the 1% concept was blocked and no certificate value
+was recorded reflects the pre-amendment decision state. It is superseded for
+canonical Direct Lending completion certificates by
+`docs/PHASE2-LENDING-PROTOCOL-AMENDMENT.md` and
+`docs/PHASE2-DIRECT-LENDING-LOCK.md`; it does not authorize any additional NFT
+utility or commercial mechanism.
 
 ## Lending referral boundaries
 
@@ -113,9 +123,9 @@ originated amount lent or borrowed** (the loan principal), not principal plus
 interest. Defaulted or liquidated loans cannot claim referral rewards.
 
 The whitepaper does not define a USD valuation, redemption, or additional
-economic utility for this referral certificate. Loan completion certificates'
-separate 1%-of-principal-plus-interest USD-worth concept remains blocked until
-valuation and accounting mechanics are approved.
+economic utility for this referral certificate. That referral boundary remains
+unchanged and does not alter the separately approved, informational
+LoanNFTV2 completion valuation described above.
 
 ## Explicit boundaries
 

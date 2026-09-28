@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { isAddress } = require('ethers');
+const { isOneQLocalSelected, loadBackendRuntimeFamily } = require('./runtimeFamily.cjs');
 
 const REQUIRED = Object.freeze([
   'OracleAdapterV2', 'CollateralVaultV2', 'LoanManagerV2', 'LendingPoolV2',
@@ -15,6 +16,30 @@ function manifestPath() {
 }
 
 function loadLendingV2Manifest() {
+  if (isOneQLocalSelected()) {
+    const runtime = loadBackendRuntimeFamily();
+    const v2 = runtime.children.lending;
+    const contracts = {};
+    for (const name of REQUIRED) {
+      const entry = v2.contracts?.[name];
+      if (!entry || !isAddress(entry.address) || !Number.isInteger(Number(entry.deploymentBlock))) {
+        throw new Error(`1Q_LOCAL Lending V2 manifest is missing a valid ${name} deployment.`);
+      }
+      contracts[name] = Object.freeze({ address: entry.address, deploymentBlock: Number(entry.deploymentBlock), deploymentTransactionHash: entry.deploymentTransactionHash });
+    }
+    for (const name of OPTIONAL) {
+      const entry = v2.contracts?.[name];
+      if (entry == null) continue;
+      if (!isAddress(entry.address) || !Number.isInteger(Number(entry.deploymentBlock))) throw new Error(`1Q_LOCAL Lending V2 manifest has an invalid optional ${name} entry.`);
+      contracts[name] = Object.freeze({ address: entry.address, deploymentBlock: Number(entry.deploymentBlock), deploymentTransactionHash: entry.deploymentTransactionHash });
+    }
+    return Object.freeze({
+      manifestPath: runtime.manifestPath, chainId: runtime.chainId, network: 'localhost', rpcUrl: runtime.rpcUrl,
+      deploymentBlock: Number(v2.deploymentBlock), deploymentVersion: v2.deploymentVersion,
+      abcdToken: runtime.contracts.ABCDTokenV2.address, contracts: Object.freeze(contracts), raw: v2,
+      runtimeFamily: runtime.family, deploymentIdentity: runtime.deploymentIdentity,
+    });
+  }
   const sourcePath = manifestPath();
   if (!fs.existsSync(sourcePath)) throw new Error(`Canonical V2 deployment manifest is missing: ${sourcePath}`);
   let root;

@@ -8,18 +8,44 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as ethers from 'ethers';
 
+// The browser runtime refuses implicit deployment selection. This isolated
+// renderer therefore supplies the same explicit 1Q selection as Vite.
+process.env.VITE_ABCDEFI_RUNTIME_FAMILY = '1Q_LOCAL';
+
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
+// Mirror Vite's explicit 1Q manifest aliases for this Node-only renderer.
+// It never falls back to a historical manifest or substitutes mock contracts.
+const selectedManifest = path.resolve(root, process.env.VITE_ABCDEFI_1Q_UNIFIED_MANIFEST_PATH || '.e2e-runtime/oneq-persistence-v1/manifests/unified.json');
+if (!fs.existsSync(selectedManifest)) throw new Error(`Canonical 1Q manifest is unavailable for Lending UX tests: ${selectedManifest}`);
+process.env.VITE_ABCDEFI_1Q_UNIFIED_MANIFEST_PATH = path.relative(root, selectedManifest).replace(/\\/g, '/');
+const unifiedManifest = JSON.parse(fs.readFileSync(selectedManifest, 'utf8'));
+const childManifest = name => {
+  const entry = unifiedManifest.childManifests?.[name];
+  if (!entry?.path) throw new Error(`Canonical 1Q ${name} manifest is unavailable for Lending UX tests.`);
+  return require(entry.path);
+};
+const manifestAliases = {
+  '@abcdefi/oneq-unified-manifest': unifiedManifest,
+  '@abcdefi/oneq-root-manifest': childManifest('root'),
+  '@abcdefi/oneq-ico-manifest': childManifest('ico'),
+  '@abcdefi/oneq-lending-manifest': childManifest('lending'),
+  '@abcdefi/oneq-legion-manifest': childManifest('legion'),
+  '@abcdefi/oneq-franchise-manifest': childManifest('franchise'),
+  '@abcdefi/oneq-marketplace10A-manifest': childManifest('marketplace10A'),
+  '@abcdefi/oneq-marketplace10B-manifest': childManifest('marketplace10B'),
+};
 function load(relative, overrides = {}, expose = '') {
   const absolute = path.resolve(root, relative);
   const code = ts.transpileModule(fs.readFileSync(absolute, 'utf8') + expose, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   const module = { exports: {} };
   const localRequire = spec => {
     if (Object.hasOwn(overrides, spec)) return overrides[spec];
+    if (Object.hasOwn(manifestAliases, spec)) return manifestAliases[spec];
     if (!spec.startsWith('.')) return require(spec);
     const base = path.resolve(path.dirname(absolute), spec);
     if (base.endsWith('.json')) return require(base);
-    const file = ['.ts', '.tsx', '.js', ''].map(ext => base + ext).find(file => fs.existsSync(file));
+    const file = ['.ts', '.tsx', '.js', '.mjs', ''].map(ext => base + ext).find(file => fs.existsSync(file));
     return load(path.relative(root, file), overrides);
   };
   new Function('require', 'module', 'exports', code)(localRequire, module, module.exports);
@@ -111,6 +137,20 @@ test('top-level dashboard referrals render the canonical Lending V2 referral exp
   assert.doesNotMatch(referralDashboard, /contracts\/ico\/ReferralManager/);
 });
 
+test('Lending referral dashboard renders the neutral non-claimable residual-debt status', () => {
+  const referralDashboard = fs.readFileSync(new URL('../src/components/LendingReferralDashboard.tsx', import.meta.url), 'utf8');
+  assert.match(referralDashboard, /NON_CLAIMABLE_CURRENT_STATE/);
+  assert.match(referralDashboard, /Not claimable in current loan state/);
+  assert.match(referralDashboard, /value=\{referralStatusLabel\(record\.status\)\}/);
+});
+
+test('Lending referral dashboard renders a recorded aggregate reward payment accurately', () => {
+  const referralDashboard = fs.readFileSync(new URL('../src/components/LendingReferralDashboard.tsx', import.meta.url), 'utf8');
+  assert.match(referralDashboard, /status === 'PAID'/);
+  assert.match(referralDashboard, /Reward paid/);
+  assert.match(referralDashboard, /Claimable aggregate amount/);
+});
+
 test('V2 borrow controls stay rendered during loading and empty states', () => {
   for (const blocker of [null, 'Reading capacity', 'Connect wallet']) {
     const html = renderToStaticMarkup(React.createElement(component.V2BorrowForm, { deposit, principal: '50', setPrincipal() {}, term: '90', setTerm() {}, blocker, busy: false, onBorrow() {}, apr: '925', ltv: '3500' }));
@@ -150,11 +190,17 @@ test('V2 loan actions reject empty, foreign, terminal or unsettled loans', () =>
 });
 test('V2 initial dashboard separates P2P and retains useful inactive steps', () => {
   const html = renderToStaticMarkup(React.createElement(component.LendingV2));
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
   assert.match(html, /Direct Lending/); assert.match(html, /P2P Lending/);
   assert.match(html, /Repayment becomes available after a loan is created/);
   assert.match(html, /Collateral top-ups become available/);
   assert.match(html, /Collateral can be withdrawn after the loan is fully settled/);
   assert.match(html, /Advanced Protocol Details/);
+  assert.match(source, /Canonical Reserve evidence/);
+  assert.match(source, /Reserve cover cap/);
+  assert.match(source, /ReserveUsed/);
+  assert.match(source, /Reserve contribution/);
+  assert.match(source, /Bad debt/);
   assert.doesNotMatch(html, /Approve ABCD &amp; fund request/);
   assert.match(html, /sm:grid-cols-2/);
 });
@@ -169,6 +215,79 @@ test('P2P funding loads an explicitly selected canonical request before exposing
   assert.match(source, /fundV2Request\(requestId, progress\)/);
   assert.match(service, /const request = await getV2Request\(requestId\)/);
   assert.match(service, /market\.fundRequest\.estimateGas\(requestId\)/);
+});
+
+test('P2P recovered requests retain the canonical marketplace state label', () => {
+  assert.equal(component.p2pRequestStateLabel(0), 'Open');
+  assert.equal(component.p2pRequestStateLabel(4), 'Recovered');
+  assert.equal(component.p2pRequestStateLabel(5), 'Unknown (5)');
+});
+
+test('P2P request history uses only canonical lifecycle events with deterministic cursor continuation', async () => {
+  const originalFetch = global.fetch;
+  const calls = [];
+  let responseNumber = 0;
+  global.fetch = async url => {
+    calls.push(String(url));
+    responseNumber += 1;
+    const history = responseNumber === 1
+      ? [
+        { eventName: 'RequestCreated', blockNumber: '104', transactionHash: '0xcreated', logIndex: 0, args: { requestId: '1' } },
+        { eventName: 'RequestFunded', blockNumber: '106', transactionHash: '0xfunded', logIndex: 1, args: { requestId: '1' } },
+      ]
+      : [{ eventName: 'RequestRepaid', blockNumber: '109', transactionHash: '0xrepaid', logIndex: 0, args: { requestId: '1' } }];
+    return {
+      ok: true,
+      json: async () => ({
+        status: 'AVAILABLE',
+        source: { kind: 'canonical-v2-indexed-on-chain', chainId: '31337', deploymentVersion: 'lending-v2-test' },
+        data: { requestId: '1', request: { borrower, lender: other, principal: ethers.parseEther('70').toString(), collateral: ethers.parseEther('0.1').toString(), term: '7776000', state: '1', loanId: '4', initialLtvBps: '3500' }, history },
+        page: { nextCursor: responseNumber === 1 ? 'cursor-106' : null },
+      }),
+    };
+  };
+  try {
+    const service = load('src/Services/lendingV2.ts', {
+      '../Config/contracts': { DEPLOYMENT_CHAIN_ID: 31337n, CONTRACTS: {}, LENDING_V2_CONTRACTS: {}, getLendingV2DeploymentBlock: () => 1, getLendingV2DeploymentVersion: () => 'lending-v2-test' },
+      './contractProvider': { provider: {} }, './wallet': { getProvider: async () => ({}) },
+    });
+    const first = await service.getV2P2PRequestHistory('1', { limit: 2 });
+    const second = await service.getV2P2PRequestHistory('1', { limit: 2, cursor: first.nextCursor });
+    assert.match(calls[0], /\/api\/lending-v2\/requests\/1\?limit=2$/);
+    assert.match(calls[1], /\/api\/lending-v2\/requests\/1\?limit=2&cursor=cursor-106$/);
+    assert.deepEqual(first.history.map(event => event.eventName), ['RequestCreated', 'RequestFunded']);
+    assert.equal(first.nextCursor, 'cursor-106');
+    assert.deepEqual(second.history.map(event => event.eventName), ['RequestRepaid']);
+    assert.equal(second.nextCursor, null);
+  } finally { global.fetch = originalFetch; }
+});
+
+test('P2P request history rejects unrelated Direct Lending events instead of presenting them as P2P history', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      status: 'AVAILABLE',
+      source: { kind: 'canonical-v2-indexed-on-chain', chainId: '31337', deploymentVersion: 'lending-v2-test' },
+      data: { requestId: '1', request: { borrower, lender: other, principal: '0', collateral: '0', term: '0', state: '0', loanId: '0', initialLtvBps: '3500' }, history: [{ eventName: 'CollateralLocked', blockNumber: '80', transactionHash: '0xdirect', logIndex: 0, args: { requestId: '1' } }] },
+      page: { nextCursor: null },
+    }),
+  });
+  try {
+    const service = load('src/Services/lendingV2.ts', {
+      '../Config/contracts': { DEPLOYMENT_CHAIN_ID: 31337n, CONTRACTS: {}, LENDING_V2_CONTRACTS: {}, getLendingV2DeploymentBlock: () => 1, getLendingV2DeploymentVersion: () => 'lending-v2-test' },
+      './contractProvider': { provider: {} }, './wallet': { getProvider: async () => ({}) },
+    });
+    await assert.rejects(service.getV2P2PRequestHistory('1'), /invalid lifecycle event/);
+  } finally { global.fetch = originalFetch; }
+});
+
+test('P2P history UI consumes the canonical endpoint without reconstructing generic lending events', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  assert.match(source, /Canonical P2P request history/);
+  assert.match(source, /getV2P2PRequestHistory\(requestId, \{ limit: 20, cursor \}\)/);
+  assert.match(source, /Load more history/);
+  assert.doesNotMatch(source, /CollateralLocked.*P2P request history/);
 });
 
 function serviceHarness() {

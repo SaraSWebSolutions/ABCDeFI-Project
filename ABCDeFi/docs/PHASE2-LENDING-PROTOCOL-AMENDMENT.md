@@ -430,3 +430,32 @@ implementation retains the current fail-closed behavior.
 This owner-approved specification authorizes future implementation within its
 express scope. This documentation-only task authorizes no Solidity change,
 backend behavior change, deployment, blockchain transaction, commit, or push.
+
+## 13. Historical security/integration amendment — Reserve pause coverage
+
+**OWNER-APPROVED SECURITY AMENDMENT — REVALIDATED LOCALLY**
+
+The Phase 5 Reserve review identified a narrow integration defect in a Phase 2
+component: `InsuranceReserveV2.fund()` respected the existing Reserve pause
+state, but `InsuranceReserveV2.cover()` did not. That allowed an otherwise
+eligible Direct overdue-settlement path to attempt a Reserve payout while the
+Reserve was paused. This conflicted with the existing pause-security boundary;
+it did not reveal an economic or lifecycle ambiguity.
+
+The minimum correction is the existing `whenNotPaused` modifier on
+`InsuranceReserveV2.cover()`. It changes no Reserve formula, cover cap,
+funding amount, recipient rule, authorization role, loan state transition,
+LiquidationV2 behavior, token supply, fee, referral rule, or Treasury
+boundary. It only makes both Reserve funding and Reserve payout fail closed
+while paused.
+
+Regression revalidation proves an otherwise eligible Direct overdue settlement
+reverts while paused without a Reserve transfer, Reserve event, collateral
+change, `reserveContribution` change, `badDebt` change, schedule mutation, or
+settlement-marker mutation. The full Lending V2 Solidity suite, focused
+Reserve/Liquidation matrix, indexer/read-model tests, Lending UX tests, full
+application tests, TypeScript check, production build, and fresh local
+collateral-first Reserve E2E were re-run successfully after this correction.
+
+This is a historical security record for the narrow Phase 2/Phase 5 integration
+surface. It does not reopen or amend unrelated locked Phase 2 mechanics.

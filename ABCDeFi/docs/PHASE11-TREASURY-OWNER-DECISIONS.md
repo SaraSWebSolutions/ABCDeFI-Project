@@ -42,8 +42,8 @@ recorded as a documentation gap; it is not a basis to infer Treasury rules.
 
 ## Canonical Treasury boundary
 
-The only Treasury-adjacent behavior presently preserved by a locked phase is
-the **Phase 6 ICO V2** rule that its configured Treasury recipient receives
+The only Treasury-adjacent behavior presently preserved by an approved phase
+boundary is the **Phase 6 ICO V2** rule that its configured Treasury recipient receives
 BNB only after successful finalization. It does not define a Treasury contract,
 general asset custody, any withdrawal right, allocation, distribution,
 beneficiary, or module-wide routing.

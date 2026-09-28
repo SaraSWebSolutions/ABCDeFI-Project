@@ -8,6 +8,7 @@ import {
   manifestContractAddress,
   readJsonManifest,
   resolveManifestPath,
+  sealManifest,
 } from "./deployment-manifest-guards.mjs";
 
 const ROOT_MANIFEST_PATH = process.env.LEGION_MARKETPLACE_ROOT_MANIFEST_PATH || process.env.ROOT_DEPLOYMENT_MANIFEST_PATH;
@@ -82,19 +83,19 @@ async function main() {
   const deploymentBlockHash = (await ethers.provider.getBlock(deploymentBlock))?.hash;
   if (!deploymentBlockHash) throw new Error("Local Legion marketplace deployment block hash is unavailable.");
 
-  const manifest = {
+  const manifest = sealManifest({
     deploymentVersion: `legion-marketplace-v2-local-v2-${deploymentBlockHash}`,
     network: "hardhat-local",
     chainId: 31337,
     rpcUrl: "http://127.0.0.1:8545",
     deploymentBlock,
     contracts: {
-      ABCDToken: { address: abcdAddress, reusedFromManifest: rootManifestPath },
-      LegionNFTV2: { address: legionAddress, reusedFromManifest: legionManifestPath },
-      LegionMarketplaceSettlementAdapterV2: { address: adapterAddress, deploymentBlock, settlementRoleGrantTransaction: grant.hash },
+      ABCDToken: { address: abcdAddress, reusedFromManifest: rootManifestPath, runtimeBytecodeHash: ethers.keccak256(await ethers.provider.getCode(abcdAddress)) },
+      LegionNFTV2: { address: legionAddress, reusedFromManifest: legionManifestPath, artifactIdentity: "contracts/nft/LegionNFTV2.sol:LegionNFTV2", runtimeBytecodeHash: ethers.keccak256(await ethers.provider.getCode(legionAddress)) },
+      LegionMarketplaceSettlementAdapterV2: { address: adapterAddress, deploymentBlock, settlementRoleGrantTransaction: grant.hash, artifactIdentity: "contracts/marketplace/LegionMarketplaceSettlementAdapterV2.sol:LegionMarketplaceSettlementAdapterV2", runtimeBytecodeHash: ethers.keccak256(await ethers.provider.getCode(adapterAddress)) },
     },
     roles: { defaultAdmin: defaultAdmin.address, legionAdmin: legionAdmin.address, settlementAdmin: settlementAdmin.address, pauser: pauser.address },
-  };
+  });
   writeManifestAtomically(outputManifestPath, manifest);
   console.log(JSON.stringify({ manifestPath: outputManifestPath, ...manifest }, null, 2));
 }

@@ -5,4 +5,5 @@ const router = express.Router();
 const controller = createIcoV2Controller();
 router.get('/status', controller.status);
 router.get('/buyers/:address', controller.buyer);
+router.get('/history', controller.history);
 module.exports = router;

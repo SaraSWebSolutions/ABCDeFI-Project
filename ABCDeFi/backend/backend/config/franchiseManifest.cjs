@@ -1,8 +1,12 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { isAddress } = require('ethers');
+const { isOneQLocalSelected } = require('./runtimeFamily.cjs');
 
 function loadFranchiseManifest() {
+  if (isOneQLocalSelected()) {
+    throw new Error('Legacy Franchise manifest is not migrated to 1Q_LOCAL; use the canonical Franchise V2 read path.');
+  }
   const manifestPath = process.env.FRANCHISE_MANIFEST_PATH
     ? path.resolve(process.env.FRANCHISE_MANIFEST_PATH)
     : path.resolve(__dirname, '../../..', 'deployments.json');

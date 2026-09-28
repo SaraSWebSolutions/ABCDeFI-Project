@@ -1,4 +1,5 @@
 const { Contract, Interface } = require('ethers');
+const { projectionRuntimeFields, checkpointRuntimeFields } = require('../../config/projectionRuntimeContext.cjs');
 const ADAPTER_EVENTS = ['SaleCreated', 'SaleRequestLinked', 'SaleCancelled', 'SaleMarkedNotSettleable', 'SaleSettled', 'Paused', 'Unpaused'];
 const LEGION_EVENTS = ['TransferRequested', 'TransferApproved', 'TransferCancelled', 'TransferExecuted', 'MarketplaceTransferExecuted'];
 const lower = (value) => typeof value === 'string' ? value.toLowerCase() : value;
@@ -14,7 +15,7 @@ class LegionMarketplaceIndexer {
     this.adapterTopics = ADAPTER_EVENTS.map((name) => this.adapterIface.getEvent(name).topicHash);
     this.legionTopics = LEGION_EVENTS.map((name) => this.legionIface.getEvent(name).topicHash);
   }
-  identity() { return { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, settlementAddress: this.manifest.settlementAddress }; }
+  identity() { return { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, ...projectionRuntimeFields(this.manifest), settlementAddress: this.manifest.settlementAddress }; }
   async assertDeployment() {
     const [network, adapterCode, legionCode, legion, abcd] = await Promise.all([this.provider.getNetwork(), this.provider.getCode(this.manifest.settlementAddress), this.provider.getCode(this.manifest.legionAddress), this.settlement.legion(), this.settlement.abcdToken()]);
     if (Number(network.chainId) !== this.manifest.chainId) throw new Error('Legion marketplace RPC chain does not match manifest.');
@@ -61,7 +62,7 @@ class LegionMarketplaceIndexer {
     const [adapterLogs, legionLogs] = await Promise.all([this.provider.getLogs({ address: this.manifest.settlementAddress, topics: [this.adapterTopics], fromBlock: from, toBlock: target }), this.provider.getLogs({ address: this.manifest.legionAddress, topics: [this.legionTopics], fromBlock: from, toBlock: target })]);
     const logs = [...adapterLogs, ...legionLogs].sort((a,b) => Number(a.blockNumber)-Number(b.blockNumber) || Number(a.index ?? a.logIndex)-Number(b.index ?? b.logIndex));
     for (const log of logs) await this.process(log);
-    const block = await this.provider.getBlock(target); await this.models.LegionMarketplaceCheckpoint.updateOne(identity, { $set: { ...identity, lastProcessedBlock: String(target), lastProcessedBlockHash: lower(block.hash), indexedAt: new Date() } }, { upsert: true });
+    const block = await this.provider.getBlock(target); const runtime = await checkpointRuntimeFields(this.manifest, this.provider, [this.manifest.settlementAddress, this.manifest.legionAddress, this.manifest.abcdAddress]); await this.models.LegionMarketplaceCheckpoint.updateOne(identity, { $set: { ...identity, ...runtime, lastProcessedBlock: String(target), lastProcessedBlockHash: lower(block.hash), indexedAt: new Date() } }, { upsert: true });
     return { checkpoint: String(target), processed: logs.length };
   }
 }

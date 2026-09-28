@@ -1,5 +1,15 @@
+/**
+ * Historical/non-canonical NFT V1 service.
+ *
+ * It remains only as preserved implementation evidence for the legacy
+ * Participant/Guru/Reputation/NFTMarketplace stack. Canonical User and Admin
+ * surfaces must use LoanNFTV2, LegionNFTV2, Franchise V2, Phase 10A, and
+ * Phase 10B deployment-scoped APIs instead; do not import this service into a
+ * canonical dashboard or read model.
+ */
 import { Contract, formatEther, Interface, isAddress, parseEther, Signer } from 'ethers';
 import { CONTRACTS, DEPLOYMENT_CHAIN_ID, requireContractAddress } from '../Config/contracts';
+import { canonicalDeploymentContext } from '../Config/canonicalDeploymentContext';
 import { getSigner } from './wallet';
 import { provider as canonicalProvider } from './contractProvider';
 import ParticipantArtifact from '../../artifacts/contracts/nft/ParticipantNFT.sol/ParticipantNFT.json';
@@ -7,7 +17,6 @@ import ReputationArtifact from '../../artifacts/contracts/nft/ReputationNFT.sol/
 import GuruArtifact from '../../artifacts/contracts/nft/GuruNFT.sol/GuruNFT.json';
 import LoanArtifact from '../../artifacts/contracts/nft/LoanNFT.sol/LoanNFT.json';
 import MarketplaceArtifact from '../../artifacts/contracts/marketplace/NFTMarketplace.sol/NFTMarketplace.json';
-import deploymentManifest from '../../deployments.json';
 
 export interface MarketplaceListing { listingId: string; nftAddress: string; tokenId: string; seller: string; priceEth: string; active: boolean; }
 export interface ReputationSnapshot { tokenId: string; creditScore: string; totalLoansCount: string; totalDefaultsCount: string; metadataUri: string; }
@@ -74,7 +83,7 @@ export async function assertNftMarketplaceBytecode(
   const address = marketplaceAddress();
   const bytecode = await deploymentProvider.getCode(address);
   if (!isDeployedBytecode(bytecode)) {
-    throw new Error(`No NFTMarketplace bytecode exists at ${address} on Hardhat Local (31337). The active local chain does not match deployments.json.`);
+    throw new Error(`No NFTMarketplace bytecode exists at ${address} on Hardhat Local (31337). The active local chain does not match the selected canonical deployment.`);
   }
 }
 
@@ -89,7 +98,7 @@ export async function assertLoanNftDeployment(
   const address = loanAddress();
   const bytecode = await deploymentProvider.getCode(address);
   if (!isDeployedBytecode(bytecode)) {
-    throw new Error(`No LoanNFT bytecode exists at ${address} on Hardhat Local (31337). The active local chain does not match deployments.json.`);
+    throw new Error(`No LoanNFT bytecode exists at ${address} on Hardhat Local (31337). The active local chain does not match the selected canonical deployment.`);
   }
 }
 
@@ -198,8 +207,8 @@ export async function getNftEcosystemSnapshot(walletAddress: string): Promise<Nf
     participant.balanceOf(walletAddress), reputation.getUserTokenId(walletAddress), guru.balanceOf(walletAddress), marketplace.getAllActiveListings(), marketplace.marketplaceFeeBps(),
     participant.MINTER_NFT_ROLE(), guru.MINTER_NFT_ROLE(),
   ]);
-  const participantBlock = Number(deploymentManifest.contracts.ParticipantNFT.deploymentBlock);
-  const guruBlock = Number(deploymentManifest.contracts.GuruNFT.deploymentBlock);
+  const participantBlock = canonicalDeploymentContext.root.deploymentBlock;
+  const guruBlock = canonicalDeploymentContext.root.deploymentBlock;
   const ownedTokenIds = async (contract: Contract, deploymentBlock: number) => {
     const received = await contract.queryFilter(contract.filters.Transfer(null, walletAddress), deploymentBlock, 'latest');
     const ids = [...new Set(received.map((event: any) => BigInt(event.args?.tokenId ?? event.args?.[2]).toString()))].map(BigInt);

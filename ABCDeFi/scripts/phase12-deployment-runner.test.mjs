@@ -49,10 +49,10 @@ test("composed runner has the approved narrow order and does not start a Hardhat
     "scripts/deploy-ecosystem.ts",
     "scripts/deploy-lending-v2-local.ts",
     "scripts/deploy-legion-nft-v2-local.ts",
+    "scripts/deploy-franchise-v2-local.ts",
     "scripts/deploy-legion-marketplace-local.ts",
     "scripts/deploy-treasury-v2-local.ts",
     "scripts/deploy-abcd-nft-marketplace-local.ts",
-    "scripts/migrate-franchise-local.ts",
   ];
   let lastIndex = -1;
   for (const script of orderedScripts) {

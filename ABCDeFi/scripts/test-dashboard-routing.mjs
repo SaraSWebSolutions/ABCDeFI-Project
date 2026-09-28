@@ -193,22 +193,23 @@ test('Profile stays inside the canonical dashboard and no longer targets a dead 
   assert.doesNotMatch(navbarSource, /Security & 2FA Settings/);
 });
 
-test('active summary and NFT surfaces do not query legacy V1 lending or LoanNFT state', () => {
+test('active summary and NFT surfaces use canonical V2 sources rather than the legacy NFT marketplace service', () => {
   const overviewSource = fs.readFileSync(new URL('../src/components/NextGenProtocolDashboard.tsx', import.meta.url), 'utf8');
   const portfolioSource = fs.readFileSync(new URL('../src/components/PortfolioDashboard.tsx', import.meta.url), 'utf8');
-  const ecosystemSource = fs.readFileSync(new URL('../src/components/NFTEcosystem.tsx', import.meta.url), 'utf8');
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
   const ecosystemServiceSource = fs.readFileSync(new URL('../src/Services/nftEcosystem.ts', import.meta.url), 'utf8');
-  const activeSnapshotSource = ecosystemServiceSource.slice(
-    ecosystemServiceSource.indexOf('export async function getNftEcosystemSnapshot'),
-    ecosystemServiceSource.indexOf('interface IndexedEvidence'),
-  );
 
   assert.match(overviewSource, /getV2WalletSummary/);
   assert.match(portfolioSource, /getV2WalletSummary/);
   assert.doesNotMatch(overviewSource, /getCanonicalLendingReadState/);
   assert.doesNotMatch(portfolioSource, /getLendingPoolState/);
-  assert.doesNotMatch(ecosystemSource, /getLoanNftCertificateSnapshot|LoanNFT certificates/);
-  assert.doesNotMatch(activeSnapshotSource, /assertLoanNftDeployment|loan\.balanceOf/);
+  assert.doesNotMatch(overviewSource, /getNftEcosystemSnapshot/);
+  assert.doesNotMatch(portfolioSource, /getNftEcosystemSnapshot/);
+  assert.doesNotMatch(userDashboardSource, /from ['"]\.\/NFTEcosystem['"]/);
+  assert.doesNotMatch(userDashboardSource, /id: 'nft-ecosystem', label: 'Owned NFTs'/);
+  assert.match(userDashboardSource, /id: 'loan-nft-certificates', label: 'Loan Completion NFTs'/);
+  assert.match(userDashboardSource, /LoanNftV2Certificates/);
+  assert.match(ecosystemServiceSource, /Historical\/non-canonical NFT V1 service/);
 });
 
 test('the active dashboard does not route through the retired Treasury mock while Treasury reads remain canonical', () => {

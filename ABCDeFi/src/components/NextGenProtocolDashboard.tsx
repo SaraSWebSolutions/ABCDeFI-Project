@@ -9,7 +9,6 @@ import {
   CreditCard,
   Image as ImageIcon
 } from 'lucide-react';
-import { getNftEcosystemSnapshot } from '../Services/nftEcosystem';
 import { getBalanceOf } from '../Services/token';
 import { getV2WalletSummary } from '../Services/lendingV2';
 import { CONTRACTS } from '../Config/contracts';
@@ -26,7 +25,7 @@ function formatAbcdWithUnit(value: string | null | undefined) {
 }
 
 interface OnChainDashboardData {
-  supportedNftCount: string | null;
+  completionCertificateCount: string | null;
   treasuryAbcd: string | null;
   borrowedAbcd: string | null;
   availableToBorrowAbcd: string | null;
@@ -34,7 +33,7 @@ interface OnChainDashboardData {
 }
 
 const EMPTY_ON_CHAIN_DATA: OnChainDashboardData = {
-  supportedNftCount: null,
+  completionCertificateCount: null,
   treasuryAbcd: null,
   borrowedAbcd: null,
   availableToBorrowAbcd: null,
@@ -75,22 +74,20 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
     setOnChainLoading(true);
     setOnChainError('');
     void Promise.allSettled([
-      getNftEcosystemSnapshot(wallet.address),
       getBalanceOf(CONTRACTS.treasury),
       getV2WalletSummary(wallet.address),
-    ]).then(([nfts, treasury, lending]) => {
+    ]).then(([treasury, lending]) => {
       if (!active) return;
       setOnChainData({
-        supportedNftCount: nfts.status === 'fulfilled'
-          && lending.status === 'fulfilled'
-          ? (BigInt(nfts.value.participantBalance) + BigInt(nfts.value.guruBalance) + BigInt(lending.value.completionCertificateCount) + (nfts.value.reputation ? 1n : 0n)).toString()
+        completionCertificateCount: lending.status === 'fulfilled'
+          ? lending.value.completionCertificateCount
           : null,
         treasuryAbcd: treasury.status === 'fulfilled' ? treasury.value : null,
         borrowedAbcd: lending.status === 'fulfilled' ? lending.value.outstanding : null,
         availableToBorrowAbcd: lending.status === 'fulfilled' ? lending.value.availableToBorrow : null,
         healthFactor: lending.status === 'fulfilled' ? lending.value.healthFactor : null,
       });
-      if ([nfts, treasury, lending].some((result) => result.status === 'rejected')) {
+      if ([treasury, lending].some((result) => result.status === 'rejected')) {
         setOnChainError('Some account data could not be loaded. Check your wallet network and try again.');
       }
     }).catch(() => {
@@ -136,8 +133,8 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
             <div className="text-sm font-black text-emerald-400 mt-0.5">{onChainLoading ? 'Loading…' : formatAbcdWithUnit(onChainData.borrowedAbcd)}</div>
           </div>
           <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
-            <div className="text-[10px] text-slate-400 uppercase font-bold">Supported NFT Holdings</div>
-            <div className="text-sm font-black text-slate-300 mt-0.5">{onChainLoading ? 'Loading…' : onChainData.supportedNftCount === null ? 'Unavailable' : onChainData.supportedNftCount}</div>
+            <div className="text-[10px] text-slate-400 uppercase font-bold">Loan completion certificates</div>
+            <div className="text-sm font-black text-slate-300 mt-0.5">{onChainLoading ? 'Loading…' : onChainData.completionCertificateCount === null ? 'Unavailable' : onChainData.completionCertificateCount}</div>
           </div>
           <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
             <div className="text-[10px] text-slate-400 uppercase font-bold">Treasury ABCD</div>

@@ -32,11 +32,11 @@ import {
 // Import existing components that will be embedded in this dashboard
 import { PortfolioDashboard } from './PortfolioDashboard';
 import { TransactionHistory } from './TransactionHistory';
-import { NFTEcosystem } from './NFTEcosystem';
 import { LegionNFTV2Dashboard } from './LegionNFTV2Dashboard';
 import { ABCDNFTMarketplaceV2Dashboard } from './ABCDNFTMarketplaceV2Dashboard';
 import { LegionMarketplaceV2Dashboard } from './LegionMarketplaceV2Dashboard';
 import { FranchiseRegistryDashboard } from './FranchiseRegistryDashboard';
+import { LoanNftV2Certificates } from './LoanNftV2Certificates';
 import { ICOv2Dashboard } from './ICOv2Dashboard';
 import { ClaimPortal } from './ClaimPortal';
 import { LendingReferralDashboard } from './LendingReferralDashboard';
@@ -115,7 +115,7 @@ const USER_NAVIGATION_GROUPS = [
     label: 'NFT Ecosystem',
     icon: Layers,
     items: [
-      { id: 'nft-ecosystem', label: 'Owned NFTs' },
+      { id: 'loan-nft-certificates', label: 'Loan Completion NFTs' },
       { id: 'legion', label: 'Legion Territories' },
       { id: 'franchise', label: 'Franchise Assignments' },
       { id: 'abcd-nft-marketplace', label: 'ABCD NFT Marketplace' },
@@ -445,9 +445,17 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
         <MasterProtocolManager initialTab={activeTab} userAddress={selectedAccount?.address} />
       )} */}
 
-      {/* NFT Ecosystem — Unified Legion / Franchise / Loan NFT Portal */}
-      {activeTab === 'nft-ecosystem' && (
-        <NFTEcosystem connectedWallet={wallet.address || undefined} />
+      {/* Canonical NFT read path: LoanNFTV2 certificates are API/indexer-backed.
+          Historical ETH marketplace and educational NFT surfaces remain isolated. */}
+      {activeTab === 'loan-nft-certificates' && (
+        <section aria-label="Canonical LoanNFTV2 certificates" className="mx-auto max-w-5xl space-y-4">
+          <header className="rounded-3xl border border-violet-500/30 bg-slate-900 p-6">
+            <p className="text-xs font-black uppercase tracking-wide text-violet-300">Canonical Phase 3 records</p>
+            <h2 className="mt-1 text-2xl font-black text-white">Loan completion certificates</h2>
+            <p className="mt-1 text-sm text-slate-400">These read-only certificates use the canonical Lending V2 indexer and API. Marketplace access is limited to the separate ABCD NFT Marketplace and controlled Legion Settlement entries in this navigation.</p>
+          </header>
+          <LoanNftV2Certificates wallet={wallet.address || null} />
+        </section>
       )}
 
       {/* Canonical Phase 8 hierarchy: Country → State → District only. The

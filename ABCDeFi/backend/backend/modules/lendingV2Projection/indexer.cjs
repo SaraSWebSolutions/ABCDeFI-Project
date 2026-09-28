@@ -1,4 +1,5 @@
 const { Interface } = require('ethers');
+const { projectionRuntimeFields, checkpointRuntimeFields, checkpointRuntimeMatches } = require('../../config/projectionRuntimeContext.cjs');
 const SCOPE = 'canonical-lending-v2';
 const requiredNames = ['OracleAdapterV2', 'CollateralVaultV2', 'LoanManagerV2', 'LendingPoolV2', 'LiquidationV2', 'InsuranceReserveV2', 'LoanMarketplaceV2', 'EMIManagerV2', 'LoanNFTV2'];
 const optionalNames = ['LendingReferralManagerV2', 'LiquidationSaleAdapterV2'];
@@ -23,9 +24,10 @@ class LendingV2Indexer {
   constructor({ manifest, artifacts, provider, models, logger = console, confirmations = 2, blockRange = 250 }) {
     this.manifest = manifest; this.provider = provider; this.models = models; this.logger = logger; this.confirmations = confirmations; this.blockRange = blockRange; this.names = namesFor(manifest); this.registry = registry(manifest, artifacts); this.timer = null;
   }
-  identity() { return { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, scope: SCOPE }; }
+  identity() { return { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, ...projectionRuntimeFields(this.manifest), scope: SCOPE }; }
+  eventIdentity() { const value = this.identity(); delete value.scope; return value; }
   async rebuildDivergentProjection() {
-    const projectionIdentity = { chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion };
+    const projectionIdentity = this.eventIdentity();
     await this.models.V2ChainEvent.deleteMany(projectionIdentity);
     await this.models.V2BlockCheckpoint.deleteOne(this.identity());
   }
@@ -38,7 +40,9 @@ class LendingV2Indexer {
     await this.assertDeployment();
     const latest = await this.provider.getBlockNumber(); const confirmed = latest - this.confirmations;
     if (confirmed < this.manifest.deploymentBlock) return null;
+    const runtime = await checkpointRuntimeFields(this.manifest, this.provider, this.names.map((name) => this.manifest.contracts[name].address));
     let checkpoint = await this.models.V2BlockCheckpoint.findOne(this.identity()).lean();
+    if (checkpoint && !checkpointRuntimeMatches(checkpoint, runtime)) { await this.rebuildDivergentProjection(); checkpoint = null; }
     if (checkpoint?.lastProcessedBlockHash) {
       const block = await this.provider.getBlock(Number(checkpoint.lastProcessedBlock));
       if (!block || lower(block.hash) !== lower(checkpoint.lastProcessedBlockHash)) {
@@ -68,14 +72,14 @@ class LendingV2Indexer {
         const parsed = def.iface.parseLog(log); if (!parsed) continue;
         const args = {}; parsed.fragment.inputs.forEach((input, index) => { args[input.name || String(index)] = decimal(parsed.args[index]); });
         const block = await blockAt(log.blockNumber);
-        await this.models.V2ChainEvent.updateOne({ chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, transactionHash: lower(log.transactionHash), logIndex: Number(log.index) }, { $setOnInsert: {
-          chainId: String(this.manifest.chainId), deploymentVersion: this.manifest.deploymentVersion, contractAddress: lower(log.address), contractName: def.name,
+        await this.models.V2ChainEvent.updateOne({ ...this.eventIdentity(), transactionHash: lower(log.transactionHash), logIndex: Number(log.index) }, { $setOnInsert: {
+          ...this.eventIdentity(), contractAddress: lower(log.address), contractName: def.name,
           transactionHash: lower(log.transactionHash), blockNumber: String(log.blockNumber), blockNumberNumeric: Number(log.blockNumber), blockTimestamp: String(block.timestamp),
           transactionIndex: Number(log.transactionIndex), logIndex: Number(log.index), blockHash: lower(log.blockHash), eventName: parsed.name, args,
         } }, { upsert: true });
       }
       const block = await blockAt(to);
-      await this.models.V2BlockCheckpoint.updateOne(this.identity(), { $set: { lastProcessedBlock: String(to), lastProcessedBlockHash: lower(block.hash), indexedAt: new Date() } }, { upsert: true });
+      await this.models.V2BlockCheckpoint.updateOne(this.identity(), { $set: { ...runtime, lastProcessedBlock: String(to), lastProcessedBlockHash: lower(block.hash), indexedAt: new Date() } }, { upsert: true });
       from = to + 1;
     }
     return this.models.V2BlockCheckpoint.findOne(this.identity()).lean();

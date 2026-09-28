@@ -1,4 +1,4 @@
-import { CONTRACTS } from "./contracts";
+import { CONTRACTS, DEPLOYMENT_RPC_URL } from "./contracts";
 
 const metaEnv: Record<string, string | undefined> = typeof import.meta !== 'undefined' && (import.meta as any).env ? (import.meta as any).env : {};
 const getEnv = (key: string, fallback = ''): string => metaEnv[key] ?? fallback;
@@ -30,13 +30,13 @@ export const NETWORKS: Record<string, NetworkConfig> = {
       symbol: "ETH",
       decimals: 18,
     },
-    rpcUrl: "http://127.0.0.1:8545",
-    blockExplorerUrl: "http://localhost:8545",
+    rpcUrl: DEPLOYMENT_RPC_URL,
+    blockExplorerUrl: DEPLOYMENT_RPC_URL,
     contracts: {
       ABCDToken: CONTRACTS.token,
       Treasury: CONTRACTS.treasury,
-      TokenVesting: CONTRACTS.vesting,
-      Presale: CONTRACTS.presale,
+      TokenVesting: '',
+      Presale: '',
     },
   },
   sepolia: {

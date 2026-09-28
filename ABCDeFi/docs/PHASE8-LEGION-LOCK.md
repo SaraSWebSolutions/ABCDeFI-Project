@@ -78,3 +78,39 @@ onboarding, commercial minting, generic purchase/pricing/payment,
 Marketplace/resale/royalty behavior, production IPFS mapping, a Continent
 hierarchy, or any other expansion. The extension remains an owner-approved
 product rule, not a whitepaper-defined commercial requirement.
+
+## 2026-09-22 lock-readiness reconfirmation
+
+This pre-existing lock was re-audited against the current canonical
+implementation, owner decision register, projection/API/UI surfaces, and
+isolated local runtime.  The result is **PASS**: this remains the formal record
+that **PHASE 8 — LEGION: COMPLETED AND LOCKED**.
+
+- The whitepaper-reconciliation record remains historical evidence that Legion
+  is not a whitepaper-derived product.  The owner-approved LEG-01 through
+  LEG-44 boundary remains the authority for this implementation; no owner rule
+  is represented as a whitepaper rule.
+- Fresh local evidence used chain `31337`, deployment version
+  `legion-nft-v2-local-0xb4cb61194ad62228ffaea6b3faa0450328e6856dd9799bbcd5f0db4e20359e08`,
+  `LegionNFTV2` at `0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9`, and an
+  indexer/API checkpoint of `32`.  It verified real mint, controlled-transfer,
+  pause, provenance, MongoDB projection, API, and Admin UI behavior.
+- The Admin aggregate checkpoint-scope identity was corrected from the generic
+  scope to `canonical-legion-nft-v2`; this was a read-model integration fix
+  only.  It did not change Solidity, roles, economics, events, or the approved
+  boundary.
+- Focused Legion and Phase 10B settlement tests passed (21), canonical
+  Legion/settlement read-model tests passed (9), user/admin UX checks passed,
+  TypeScript passed, and the production build passed.
+- No BSC Testnet/Mainnet deployment occurred.  The audit deployment used a
+  temporary local-only manifest and did not overwrite historical repository
+  manifests.
+
+Production role custody, IPFS publication/privacy/versioning, BSC deployment
+configuration, and monitoring/incident-response operations remain separate
+owner/production-readiness decisions.  They do not authorize any new
+economics, generic marketplace functionality, or financial/legal territory
+rights.
+# Phase 8 Franchise-reference amendment
+
+The existing Phase 8 Legion lock remains in force. `FranchiseRegistryV2` may reference a real `LegionNFTV2` token without modifying LegionNFTV2 behavior, hierarchy, transfer restrictions, or economics. See `PHASE8-LEGION-OWNER-AMENDMENT.md` and `ABCDEFI-NFT-PHASE-IMPACT.md`.

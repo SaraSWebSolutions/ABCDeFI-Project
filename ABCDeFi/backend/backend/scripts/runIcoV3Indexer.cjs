@@ -1,0 +1,4 @@
+const path = require('node:path'); require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
+const { JsonRpcProvider } = require('ethers'); const connectDb = require('../config/db'); const { loadIcoV3Manifest } = require('../config/icoV3Manifest.cjs'); const models = require('../modules/icoV3Projection/models.cjs'); const { IcoV3Indexer } = require('../modules/icoV3Projection/indexer.cjs');
+async function main() { const manifest = loadIcoV3Manifest(); const artifact = require(path.resolve(__dirname, '../../../artifacts/contracts/ico/ICOManagerV3.sol/ICOManagerV3.json')); await connectDb(); console.log(JSON.stringify({ source: 'canonical-indexed-on-chain', ...(await new IcoV3Indexer({ manifest, artifact, provider: new JsonRpcProvider(manifest.rpcUrl), models }).syncOnce()) })); }
+main().catch((error) => { console.error(error); process.exitCode = 1; });

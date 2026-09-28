@@ -1,10 +1,24 @@
 const { Contract, JsonRpcProvider, getAddress, isAddress } = require('ethers');
 const { SCOPE } = require('./indexer.cjs');
+const { projectionRuntimeFields, checkpointRuntimeFields, checkpointRuntimeMatches } = require('../../config/projectionRuntimeContext.cjs');
 const UINT = /^\d+$/;
 const lower = (value) => value.toLowerCase();
 const normalizeWallet = (value) => typeof value === 'string' && isAddress(value) ? getAddress(value).toLowerCase() : null;
+const validUintId = (value) => UINT.test(String(value)) && BigInt(value) > 0n;
 const toJson = (value) => typeof value === 'bigint' ? value.toString() : Array.isArray(value) ? value.map(toJson) : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, toJson(item)])) : value;
 const boundedLimit = (value, fallback = 50) => Math.min(100, Math.max(1, Number.isInteger(Number(value)) ? Number(value) : fallback));
+// This is deliberately a neutral read-model status. The whitepaper does not
+// define whether RESIDUAL_DEBT should be described as cancelled or stopped,
+// but LendingReferralManagerV2 rejects a claim in that state.
+const REFERRAL_NON_CLAIMABLE_CURRENT_STATE = 'NON_CLAIMABLE_CURRENT_STATE';
+const REFERRAL_PAID = 'PAID';
+const referralNonClaimableState = (state) => state === 3 || state === 4 || state === 7;
+const referralStatus = (state, claimable, totalRewards = 0n) => {
+  if (state === 3 || state === 4) return 'STOPPED';
+  if (state === 7) return REFERRAL_NON_CLAIMABLE_CURRENT_STATE;
+  if (BigInt(totalRewards) > 0n) return REFERRAL_PAID;
+  return claimable ? 'CLAIMABLE' : 'ACCRUING_OR_AWAITING_PAYOUT';
+};
 const loanJson = (loan, currentVaultCollateralETH) => toJson({
   borrower: loan.borrower,
   lender: loan.lender,
@@ -52,6 +66,39 @@ const afterCursor = (event, cursor) => !cursor || (() => {
   const [blockNumber, transactionIndex, logIndex] = eventTuple(event);
   return blockNumber > cursor.blockNumber || (blockNumber === cursor.blockNumber && (transactionIndex > cursor.transactionIndex || (transactionIndex === cursor.transactionIndex && logIndex > cursor.logIndex)));
 })();
+// Request IDs are local to LoanMarketplaceV2.  Direct-loan vault events can
+// contain a numerically equal requestId/depositId, so they are never request
+// lifecycle evidence for a P2P marketplace request.
+const P2P_REQUEST_LIFECYCLE_EVENTS = new Set(['RequestCreated', 'RequestFunded', 'RequestCancelled', 'RequestRepaid', 'RequestRecovered']);
+const isP2PRequestLifecycleEvent = (event, requestId) => event.contractName === 'LoanMarketplaceV2'
+  && P2P_REQUEST_LIFECYCLE_EVENTS.has(event.eventName)
+  && String(event.args?.requestId || '') === String(requestId);
+
+/**
+ * The single canonical availability gate for Lending V2 projections.
+ *
+ * Lending read endpoints and the Admin status surface share this gate so the
+ * Admin tile cannot use a weaker or parallel checkpoint truth. A 1Q_LOCAL
+ * projection must retain its runtime identity, live bytecode identity, and
+ * checkpoint block hash before either surface is considered indexed.
+ */
+async function canonicalLendingV2Availability({ manifest, models, provider = new JsonRpcProvider(manifest.rpcUrl) }) {
+  if (manifest.runtimeFamily !== '1Q_LOCAL' || !manifest.deploymentIdentity) {
+    return { available: false, status: 'UNAVAILABLE', reason: 'The Admin Lending V2 surface requires the explicit canonical 1Q_LOCAL deployment family.', checkpoint: null };
+  }
+  const network = await provider.getNetwork();
+  if (Number(network.chainId) !== Number(manifest.chainId)) return { available: false, status: 'UNAVAILABLE', reason: 'The canonical Lending V2 RPC is on the wrong chain.', checkpoint: null };
+  for (const [name, contract] of Object.entries(manifest.contracts)) {
+    if (await provider.getCode(contract.address) === '0x') return { available: false, status: 'UNAVAILABLE', reason: `Canonical ${name} bytecode is missing for this deployment.`, checkpoint: null };
+  }
+  const identity = { chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, ...projectionRuntimeFields(manifest), scope: SCOPE };
+  const checkpoint = await models.V2BlockCheckpoint.findOne(identity).lean();
+  if (!checkpoint?.lastProcessedBlock || !checkpoint.lastProcessedBlockHash) return { available: false, status: 'UNAVAILABLE', reason: 'The canonical Lending V2 indexer has not completed a confirmed sync for this deployment.', checkpoint: null };
+  const [block, latest, runtime] = await Promise.all([provider.getBlock(Number(checkpoint.lastProcessedBlock)), provider.getBlockNumber(), checkpointRuntimeFields(manifest, provider, Object.values(manifest.contracts).map((contract) => contract.address))]);
+  if (!block || lower(block.hash) !== lower(checkpoint.lastProcessedBlockHash) || !checkpointRuntimeMatches(checkpoint, runtime)) return { available: false, status: 'UNAVAILABLE', reason: 'The canonical Lending V2 checkpoint does not match the live 1Q deployment.', checkpoint: null };
+  if (Number(checkpoint.lastProcessedBlock) < Math.max(0, Number(latest) - 2)) return { available: false, status: 'UNAVAILABLE', reason: 'The canonical Lending V2 indexer checkpoint is stale.', checkpoint: null };
+  return { available: true, status: 'AVAILABLE', checkpoint: checkpoint.lastProcessedBlock };
+}
 
 function createLendingV2ReadController({ manifest, artifacts, models, provider = new JsonRpcProvider(manifest.rpcUrl) }) {
   const pool = new Contract(manifest.contracts.LendingPoolV2.address, artifacts.LendingPoolV2.abi, provider);
@@ -68,15 +115,7 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
     ? new Contract(manifest.contracts.LendingReferralManagerV2.address, artifacts.LendingReferralManagerV2.abi, provider)
     : null;
   const source = () => ({ kind: 'canonical-v2-indexed-on-chain', chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, contracts: Object.fromEntries(Object.entries(manifest.contracts).map(([name, record]) => [name, record.address])) });
-  const availability = async () => {
-    const network = await provider.getNetwork();
-    if (Number(network.chainId) !== Number(manifest.chainId)) return { available: false, status: 'UNAVAILABLE', reason: 'The canonical Lending V2 RPC is on the wrong chain.', checkpoint: null };
-    for (const [name, contract] of Object.entries(manifest.contracts)) {
-      if (await provider.getCode(contract.address) === '0x') return { available: false, status: 'UNAVAILABLE', reason: `Canonical ${name} bytecode is missing for this deployment.`, checkpoint: null };
-    }
-    const checkpoint = await models.V2BlockCheckpoint.findOne({ chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, scope: SCOPE }).lean();
-    return checkpoint?.lastProcessedBlock ? { available: true, status: 'AVAILABLE', checkpoint: checkpoint.lastProcessedBlock } : { available: false, status: 'UNAVAILABLE', reason: 'The canonical Lending V2 indexer has not completed a confirmed sync for this deployment.', checkpoint: null };
-  };
+  const availability = () => canonicalLendingV2Availability({ manifest, models, provider });
   const requireAvailable = async (res, data = []) => { const state = await availability(); if (!state.available) { res.json({ source: source(), ...state, data }); return null; } return state; };
   const readLoan = async (loanId) => {
     const record = await manager.getLoan(loanId);
@@ -135,14 +174,46 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
     const data = all.slice(0, limit);
     return { data, nextCursor: all.length > data.length ? encodeCursor(data[data.length - 1], manifest.deploymentVersion) : null };
   };
+  // LoanNFTV2 event rows are the canonical certificate projection. They are
+  // immutable, deployment-version-scoped event evidence; current ownership
+  // and certificate facts are then read from the same canonical contract.
+  const certificateCreationEvents = async () => eventList({ contractName: 'LoanNFTV2', eventName: 'LoanCertificateCreated' }, Number.MAX_SAFE_INTEGER);
+  const certificateRoleName = (value) => ['LENDER', 'BORROWER', 'PLATFORM'][Number(value)] || 'UNKNOWN';
+  const certificateForCreation = async (creation) => {
+    const tokenId = String(creation.args.certificateId);
+    const [owner, tokenURI, certificate] = await Promise.all([nft.ownerOf(tokenId), nft.tokenURI(tokenId), nft.getCertificate(tokenId)]);
+    // Do not expose an event as a certificate if its contract record does not
+    // bind back to the same canonical loan/token pair.
+    if (String(certificate.loanId) !== String(creation.args.loanId) || Number(certificate.role) !== Number(creation.args.certificateRole)) return null;
+    return toJson({ tokenId, role: certificateRoleName(certificate.role), owner, tokenURI, certificate: certificateJson(certificate), mintedEvidence: creation });
+  };
+  const certificateByTokenId = async (tokenId) => {
+    const creation = (await certificateCreationEvents()).find((event) => String(event.args.certificateId) === String(tokenId));
+    return creation ? certificateForCreation(creation) : null;
+  };
+  const certificatePage = async ({ limit, cursor, predicate = () => true }) => {
+    const records = []; let lastReturnedEvent = null;
+    for (const creation of (await certificateCreationEvents()).filter((event) => afterCursor(event, cursor))) {
+      const certificate = await certificateForCreation(creation);
+      // A malformed/inconsistent chain read is omitted rather than replaced
+      // with invented data. The indexed event remains audit evidence only.
+      if (!certificate || !predicate(certificate, creation)) continue;
+      if (records.length === limit) return { data: records, nextCursor: encodeCursor(lastReturnedEvent, manifest.deploymentVersion) };
+      records.push(certificate); lastReturnedEvent = creation;
+    }
+    return { data: records, nextCursor: null };
+  };
+  const certificateHistory = async (certificate, limit, cursor) => eventPage(
+    { contractName: 'LoanNFTV2' }, limit, cursor,
+    (event) => (event.eventName === 'Transfer' && String(event.args.tokenId) === certificate.tokenId)
+      || (event.eventName === 'LoanCertificateCreated' && String(event.args.certificateId) === certificate.tokenId)
+      || (event.eventName === 'CertificateStatusUpdated' && String(event.args.tokenId) === certificate.tokenId)
+      || (event.eventName === 'LoanCertificateValuationRecorded' && String(event.args.loanId) === String(certificate.certificate.loanId)),
+  );
   const readRequest = async (requestId) => {
     const request = await marketplace.requests(requestId);
     if (lower(request.borrower) === '0x0000000000000000000000000000000000000000') return null;
     return requestJson(request);
-  };
-  const referralStatus = (state, claimable) => {
-    if (state === 3 || state === 4) return 'STOPPED';
-    return claimable ? 'CLAIMABLE' : 'ACCRUING_OR_AWAITING_PAYOUT';
   };
   const readReferral = async (wallet) => {
     if (!referral) throw new Error('Canonical LendingReferralManagerV2 is not configured for this deployment.');
@@ -166,11 +237,11 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
       const endAt = BigInt(record.completedAt) === 0n ? now : BigInt(record.completedAt);
       const elapsedPeriods = endAt > BigInt(loan.start) ? (endAt - BigInt(loan.start)) / BigInt(rewardPeriod) : 0n;
       const availablePeriods = elapsedPeriods < termPeriods ? elapsedPeriods : termPeriods;
-      const stopped = Number(effectiveState) === 3 || Number(effectiveState) === 4;
+      const nonClaimableState = referralNonClaimableState(Number(effectiveState));
       const completionPayout = Number(loan.state) === 5 && BigInt(record.completedAt) !== 0n;
       const oneYearPayout = now >= BigInt(record.startedAt) + 365n * 24n * 60n * 60n;
       const unpaidPeriods = availablePeriods > BigInt(record.paidPeriods) ? availablePeriods - BigInt(record.paidPeriods) : 0n;
-      const claimable = !stopped && (completionPayout || oneYearPayout) && unpaidPeriods !== 0n;
+      const claimable = !nonClaimableState && (completionPayout || oneYearPayout) && unpaidPeriods !== 0n;
       const certificateEvent = related.find((candidate) => candidate.eventName === 'LendingReferralCertificateMinted'
         && String(candidate.args.loanId) === loanId && lower(candidate.args.referred || '') === referred && lower(candidate.args.referrer || '') === lower(record.referrer));
       let certificate = null;
@@ -183,7 +254,7 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
         loanId, requestId: record.requestId, referrer: record.referrer, referred: record.referred, isLenderReferral: record.isLenderReferral,
         registered: record.registered, startedAt: record.startedAt, completedAt: record.completedAt, monthlyReward: record.monthlyReward,
         paidPeriods: record.paidPeriods, totalRewards: record.totalRewards, availablePeriods, accruedAmount: BigInt(record.monthlyReward) * availablePeriods,
-        claimableAmount: claimable ? BigInt(record.monthlyReward) * unpaidPeriods : 0n, claimable, status: referralStatus(Number(effectiveState), claimable), certificate,
+        claimableAmount: claimable ? BigInt(record.monthlyReward) * unpaidPeriods : 0n, claimable, status: referralStatus(Number(effectiveState), claimable, record.totalRewards), certificate,
       });
     }));
     return toJson({
@@ -244,9 +315,44 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
     } catch (error) { next(error); } },
     loan: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readLoan(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); res.json({ source: source(), ...state, data }); } } catch (error) { next(error); } },
     history: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res, []); if (state) { const page = await eventPage({}, boundedLimit(req.query.limit), decodeCursor(req.query.cursor, manifest.deploymentVersion), (event) => String(event.args.loanId || '') === id); res.json({ source: source(), ...state, data: page.data, page: { limit: boundedLimit(req.query.limit), nextCursor: page.nextCursor } }); } } catch (error) { if (/History cursor is invalid/.test(error.message)) return res.status(400).json({ status: 'INVALID_REQUEST', message: error.message }); next(error); } },
+    certificate: async (req, res, next) => { try {
+      const tokenId = req.params.tokenId;
+      if (!validUintId(tokenId)) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Certificate token ID must be a positive uint256 decimal string.' });
+      const state = await requireAvailable(res); if (!state) return;
+      const data = await certificateByTokenId(tokenId);
+      if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null });
+      res.json({ source: source(), ...state, data });
+    } catch (error) { next(error); } },
+    loanCertificates: async (req, res, next) => { try {
+      const loanId = req.params.loanId;
+      if (!validUintId(loanId)) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' });
+      const state = await requireAvailable(res, []); if (!state) return;
+      const limit = boundedLimit(req.query.limit); const cursor = decodeCursor(req.query.cursor, manifest.deploymentVersion);
+      const page = await certificatePage({ limit, cursor, predicate: (_certificate, event) => String(event.args.loanId) === loanId });
+      res.json({ source: source(), ...state, data: page.data, page: { limit, nextCursor: page.nextCursor } });
+    } catch (error) { if (/History cursor is invalid/.test(error.message)) return res.status(400).json({ status: 'INVALID_REQUEST', message: error.message }); next(error); } },
+    walletCertificates: async (req, res, next) => { try {
+      const wallet = normalizeWallet(req.params.address);
+      if (!wallet) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Wallet address must be a valid Ethereum address.' });
+      const state = await requireAvailable(res, []); if (!state) return;
+      const limit = boundedLimit(req.query.limit); const cursor = decodeCursor(req.query.cursor, manifest.deploymentVersion);
+      const page = await certificatePage({ limit, cursor, predicate: (certificate) => lower(certificate.owner) === wallet });
+      // Ownership comes from LoanNFTV2.ownerOf at read time, never from a
+      // legacy/mocked NFT record or an inferred Transfer event.
+      res.json({ source: source(), ...state, wallet, data: page.data, page: { limit, nextCursor: page.nextCursor } });
+    } catch (error) { if (/History cursor is invalid/.test(error.message)) return res.status(400).json({ status: 'INVALID_REQUEST', message: error.message }); next(error); } },
+    certificateHistory: async (req, res, next) => { try {
+      const tokenId = req.params.tokenId;
+      if (!validUintId(tokenId)) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Certificate token ID must be a positive uint256 decimal string.' });
+      const state = await requireAvailable(res, []); if (!state) return;
+      const certificate = await certificateByTokenId(tokenId);
+      if (!certificate) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null });
+      const limit = boundedLimit(req.query.limit); const page = await certificateHistory(certificate, limit, decodeCursor(req.query.cursor, manifest.deploymentVersion));
+      res.json({ source: source(), ...state, data: { certificate, history: page.data }, page: { limit, nextCursor: page.nextCursor } });
+    } catch (error) { if (/History cursor is invalid/.test(error.message)) return res.status(400).json({ status: 'INVALID_REQUEST', message: error.message }); next(error); } },
     preview: async (req, res, next) => { try { const id = req.params.loanId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Loan ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readLoan(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); res.json({ source: source(), ...state, data: data.previews }); } } catch (error) { next(error); } },
-    request: async (req, res, next) => { try { const id = req.params.requestId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Request ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readRequest(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); const history = (await eventList({}, 1_000)).filter((event) => String(event.args.requestId || '') === id); res.json({ source: source(), ...state, data: { requestId: id, request: data, history } }); } } catch (error) { next(error); } },
+    request: async (req, res, next) => { try { const id = req.params.requestId; if (!UINT.test(id) || BigInt(id) === 0n) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Request ID must be a positive uint256 decimal string.' }); const state = await requireAvailable(res); if (state) { const data = await readRequest(id); if (!data) return res.status(404).json({ source: source(), ...state, status: 'NOT_FOUND', data: null }); const limit = boundedLimit(req.query.limit); const page = await eventPage(projectionRuntimeFields(manifest), limit, decodeCursor(req.query.cursor, manifest.deploymentVersion), (event) => isP2PRequestLifecycleEvent(event, id)); res.json({ source: source(), ...state, data: { requestId: id, request: data, history: page.data }, page: { limit, nextCursor: page.nextCursor } }); } } catch (error) { if (/History cursor is invalid/.test(error.message)) return res.status(400).json({ status: 'INVALID_REQUEST', message: error.message }); next(error); } },
     referral: async (req, res, next) => { try { const wallet = normalizeWallet(req.params.address); if (!wallet) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Wallet address must be a valid Ethereum address.' }); const state = await requireAvailable(res); if (state) res.json({ source: source(), ...state, data: await readReferral(wallet) }); } catch (error) { next(error); } },
   };
 }
-module.exports = { createLendingV2ReadController, loanJson, normalizeWallet };
+module.exports = { createLendingV2ReadController, canonicalLendingV2Availability, isP2PRequestLifecycleEvent, loanJson, normalizeWallet, REFERRAL_NON_CLAIMABLE_CURRENT_STATE, REFERRAL_PAID, referralNonClaimableState, referralStatus };

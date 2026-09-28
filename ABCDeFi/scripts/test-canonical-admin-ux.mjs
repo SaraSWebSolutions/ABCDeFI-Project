@@ -10,6 +10,8 @@ const [portal, dashboard, service, server] = await Promise.all([
 
 const activePortal = portal.split('const LegacyAdminPortalEngine')[0];
 assert.match(activePortal, /CanonicalAdminDashboard/);
+assert.match(dashboard, /Runtime identity:/);
+assert.match(dashboard, /Indexer checkpoint:/);
 assert.doesNotMatch(activePortal, /<ICOAdmin\s*\/>/);
 assert.doesNotMatch(activePortal, /<AdminNftIssuance\s*\/>/);
 assert.match(dashboard, /Canonical admin provenance/);

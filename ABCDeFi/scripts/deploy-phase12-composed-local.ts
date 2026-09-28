@@ -5,12 +5,15 @@ import { assertLocalChainId, assertManifestOutputPath, resolveManifestPath } fro
 
 const historicalRoot = path.resolve("deployments.json");
 const paths = {
-  root: resolveManifestPath(process.env.PHASE12_ROOT_MANIFEST_PATH, "deployments.phase12-root-fresh-local.json"),
-  legion: resolveManifestPath(process.env.PHASE12_LEGION_MANIFEST_PATH, "deployments.phase12-legion-fresh-local.json"),
-  legionMarketplace: resolveManifestPath(process.env.PHASE12_LEGION_MARKETPLACE_MANIFEST_PATH, "deployments.phase12-legion-marketplace-fresh-local.json"),
-  treasury: resolveManifestPath(process.env.PHASE12_TREASURY_MANIFEST_PATH, "deployments.phase12-treasury-fresh-local.json"),
-  marketplace: resolveManifestPath(process.env.PHASE12_ABCD_MARKETPLACE_MANIFEST_PATH, "deployments.phase12-abcd-marketplace-fresh-local.json"),
-  franchise: resolveManifestPath(process.env.PHASE12_FRANCHISE_MANIFEST_PATH, "deployments.phase12-franchise-fresh-local.json"),
+  // These names identify one newly generated canonical V2 snapshot.  Earlier
+  // phase12-* manifests are historical evidence and are deliberately never
+  // overwritten by this composed workflow.
+  root: resolveManifestPath(process.env.PHASE12_ROOT_MANIFEST_PATH, "deployments.canonical-v2-root-local.json"),
+  legion: resolveManifestPath(process.env.PHASE12_LEGION_MANIFEST_PATH, "deployments.canonical-v2-legion-local.json"),
+  franchise: resolveManifestPath(process.env.PHASE12_FRANCHISE_MANIFEST_PATH, "deployments.canonical-v2-franchise-local.json"),
+  legionMarketplace: resolveManifestPath(process.env.PHASE12_LEGION_MARKETPLACE_MANIFEST_PATH, "deployments.canonical-v2-legion-marketplace-local.json"),
+  treasury: resolveManifestPath(process.env.PHASE12_TREASURY_MANIFEST_PATH, "deployments.canonical-v2-treasury-local.json"),
+  marketplace: resolveManifestPath(process.env.PHASE12_ABCD_MARKETPLACE_MANIFEST_PATH, "deployments.canonical-v2-abcd-marketplace-local.json"),
 };
 
 function run(script: string, environment: NodeJS.ProcessEnv) {
@@ -28,15 +31,33 @@ function run(script: string, environment: NodeJS.ProcessEnv) {
 async function main() {
   const { ethers } = await network.connect();
   assertLocalChainId((await ethers.provider.getNetwork()).chainId, "Phase 12 composed local deployment");
-  assertManifestOutputPath({ outputPath: paths.root, protectedPaths: [historicalRoot], label: "Phase 12 root" });
+  // This command is expressly a fresh-local runtime builder.  It may replace
+  // only its own canonical-v2 outputs after the caller has started a fresh
+  // chain; historical deployment records remain protected.
+  assertManifestOutputPath({ outputPath: paths.root, protectedPaths: [historicalRoot], allowOverwrite: true, label: "Phase 12 root" });
   for (const [label, outputPath] of Object.entries(paths).filter(([label]) => label !== "root")) {
-    assertManifestOutputPath({ outputPath, sourcePaths: [paths.root], protectedPaths: [historicalRoot], label: `Phase 12 ${label}` });
+    assertManifestOutputPath({ outputPath, sourcePaths: [paths.root], protectedPaths: [historicalRoot], allowOverwrite: true, label: `Phase 12 ${label}` });
   }
 
-  const common = { ...process.env, PHASE12_COMPOSED_LOCAL: "1", ROOT_DEPLOYMENT_MANIFEST_PATH: paths.root };
+  const common = {
+    ...process.env,
+    PHASE12_COMPOSED_LOCAL: "1",
+    ROOT_DEPLOYMENT_MANIFEST_PATH: paths.root,
+    ROOT_DEPLOYMENT_FRESH_LOCAL: "1",
+    LEGION_NFT_V2_FRESH_LOCAL: "1",
+    FRANCHISE_V2_FRESH_LOCAL: "1",
+    LEGION_MARKETPLACE_FRESH_LOCAL: "1",
+    TREASURY_V2_FRESH_LOCAL: "1",
+    ABCD_NFT_MARKETPLACE_FRESH_LOCAL: "1",
+  };
   run("scripts/deploy-ecosystem.ts", common);
   run("scripts/deploy-lending-v2-local.ts", { ...common, LENDING_V2_MANIFEST_PATH: paths.root });
   run("scripts/deploy-legion-nft-v2-local.ts", { ...common, LEGION_NFT_V2_MANIFEST_PATH: paths.legion });
+  run("scripts/deploy-franchise-v2-local.ts", {
+    ...common,
+    LEGION_NFT_V2_MANIFEST_PATH: paths.legion,
+    FRANCHISE_V2_MANIFEST_PATH: paths.franchise,
+  });
   run("scripts/deploy-legion-marketplace-local.ts", {
     ...common,
     LEGION_MARKETPLACE_ROOT_MANIFEST_PATH: paths.root,
@@ -45,7 +66,6 @@ async function main() {
   });
   run("scripts/deploy-treasury-v2-local.ts", { ...common, TREASURY_V2_ROOT_MANIFEST_PATH: paths.root, TREASURY_V2_MANIFEST_PATH: paths.treasury });
   run("scripts/deploy-abcd-nft-marketplace-local.ts", { ...common, ABCD_NFT_MARKETPLACE_ROOT_MANIFEST_PATH: paths.root, ABCD_NFT_MARKETPLACE_MANIFEST_PATH: paths.marketplace });
-  run("scripts/migrate-franchise-local.ts", { ...common, FRANCHISE_BASE_MANIFEST_PATH: paths.root, FRANCHISE_MANIFEST_PATH: paths.franchise });
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

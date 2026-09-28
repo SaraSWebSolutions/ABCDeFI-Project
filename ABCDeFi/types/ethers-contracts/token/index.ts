@@ -2,3 +2,4 @@
 /* tslint:disable */
 /* eslint-disable */
 export type { ABCDToken } from './ABCDToken.js';
+export type { ABCDTokenV2 } from './ABCDTokenV2.js';

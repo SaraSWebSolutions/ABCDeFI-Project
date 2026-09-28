@@ -14,3 +14,12 @@ declare module '@react-native-async-storage/async-storage' {
   const AsyncStorage: AsyncStorageStatic;
   export default AsyncStorage;
 }
+
+declare module '@abcdefi/oneq-unified-manifest' { const manifest: unknown; export default manifest; }
+declare module '@abcdefi/oneq-root-manifest' { const manifest: unknown; export default manifest; }
+declare module '@abcdefi/oneq-ico-manifest' { const manifest: unknown; export default manifest; }
+declare module '@abcdefi/oneq-lending-manifest' { const manifest: unknown; export default manifest; }
+declare module '@abcdefi/oneq-legion-manifest' { const manifest: unknown; export default manifest; }
+declare module '@abcdefi/oneq-franchise-manifest' { const manifest: unknown; export default manifest; }
+declare module '@abcdefi/oneq-marketplace10A-manifest' { const manifest: unknown; export default manifest; }
+declare module '@abcdefi/oneq-marketplace10B-manifest' { const manifest: unknown; export default manifest; }

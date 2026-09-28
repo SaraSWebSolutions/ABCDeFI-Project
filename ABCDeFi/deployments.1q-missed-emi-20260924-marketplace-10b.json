@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "identity": "1Q CANONICAL CANDIDATE — LOCAL ONLY",
+  "model": "OWNER_APPROVED_1Q_PHASE10B",
+  "chainId": 31337,
+  "rpcUrl": "http://127.0.0.1:8546",
+  "rootDeploymentVersion": "abcd-1q-local-0x7c98f09e79f0ac6031299913900f54660676f2c78d4cee8e71ef1358de0e4e37",
+  "legionDeploymentVersion": "legion-nft-v2-local-0xc98bc0a98acd41230b14431725ffa5b7bd7bfc0210e4ede2cd81cf86ebb3c60e",
+  "deploymentVersion": "legion-marketplace-10b-1q-local-0x9312b9f0c4e06fc404a2c5b565f657c99d6cc668ba83e795a700c79eff4d3176",
+  "deploymentBlock": 77,
+  "deploymentTimestamp": 1790250088,
+  "contracts": {
+    "ABCDTokenV2": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    },
+    "LegionNFTV2": {
+      "address": "0x162A433068F51e18b7d13932F27e66a3f99E6890"
+    },
+    "LegionMarketplaceSettlementAdapterV2": {
+      "address": "0x4C4a2f8c81640e47606d3fd77B353E87Ba015584",
+      "settlementRoleGrantTransaction": "0x501fa242dcd526d33f1eca2f1550df582e8702f4d2dc7f0a05a8ba05cc02a618"
+    }
+  },
+  "roles": {
+    "defaultAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "settlementAdmin": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+    "pauser": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"
+  }
+}

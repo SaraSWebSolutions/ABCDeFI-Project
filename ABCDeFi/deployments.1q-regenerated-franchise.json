@@ -1,0 +1,55 @@
+{
+  "chainId": 31337,
+  "network": "localhost",
+  "rpcUrl": "http://127.0.0.1:8546",
+  "localOnly": true,
+  "deploymentVersion": "franchise-v2-local-0x80f2a0ae9a589a25f05a3b1ed71721b0da38168a65a71e77178e130ba299561d",
+  "deploymentBlock": 71,
+  "legionManifestPath": "C:\\ABCDeFi-Stage1-Phase1-Merged-Full\\ABCDeFi-Stage1-updated\\ABCDeFi\\deployments.1q-regenerated-legion.json",
+  "contracts": {
+    "LegionNFTV2": {
+      "address": "0x162A433068F51e18b7d13932F27e66a3f99E6890",
+      "deploymentBlock": 69,
+      "deploymentVersion": "legion-nft-v2-local-0x9516eaa3ea5d0e676a7ee90e58168d93815bbfdf0d9d7df06054b05bf3dfa7ca",
+      "manifestHash": "sha256:d1592da42a5f4f43c550ea8b9efface431debf8eed1d53af8db0f3347f97e2e3",
+      "artifactIdentity": "contracts/nft/LegionNFTV2.sol:LegionNFTV2",
+      "runtimeBytecodeHash": "0x010d32705541b6dc8cb2ed741f870a3ab7c40f54194f805cf5730c79a38f01cf"
+    },
+    "FranchiseNFTV2": {
+      "address": "0x922D6956C99E12DFeB3224DEA977D0939758A1Fe",
+      "deploymentTransactionHash": "0x4f598256bd96f2978f3fc8e4a7fd65efa76157229d1c1fc56ed5b813b89f500d",
+      "deploymentBlock": 70,
+      "constructorArgs": [
+        "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+      ],
+      "artifactIdentity": "contracts/nft/FranchiseNFTV2.sol:FranchiseNFTV2",
+      "runtimeBytecodeHash": "0x0effcb168c71ae9922bf07ec32dad8b4bac63f97ec814439b1fb393d33abde1c"
+    },
+    "FranchiseRegistryV2": {
+      "address": "0x5081a39b8A5f0E35a8D959395a630b68B74Dd30f",
+      "deploymentTransactionHash": "0x3af9bcff846f6c7f69410934527a8ab8bf2be6ac9a69239429b336bcccab8367",
+      "deploymentBlock": 71,
+      "constructorArgs": [
+        "0x162A433068F51e18b7d13932F27e66a3f99E6890",
+        "0x922D6956C99E12DFeB3224DEA977D0939758A1Fe",
+        "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+        "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+        "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"
+      ],
+      "registryBindingTransactionHash": "0x251a6f09f2b5c1486289b8ffec37ad0cf832ad471613510c81e8d58cc4de5131",
+      "registryBindingBlock": 72,
+      "artifactIdentity": "contracts/nft/FranchiseRegistryV2.sol:FranchiseRegistryV2",
+      "runtimeBytecodeHash": "0xb3fbb7b7fafea01af19bf71676e581cd656463d92fa1cbff2fcef1c74efbb14f"
+    }
+  },
+  "roles": {
+    "defaultAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "franchiseAdmin": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "franchiseMinter": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "franchiseTransferApprover": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+    "pauser": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"
+  },
+  "manifestHash": "sha256:fc0b13dfd5405a1f1b45b71a3ac927f1e9a1499d2e799cebee547a189ac5515e"
+}

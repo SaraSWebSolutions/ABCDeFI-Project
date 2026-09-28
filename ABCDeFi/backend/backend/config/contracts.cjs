@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const { resolveManifestPath, loadLendingManifest } = require('./lendingManifest.cjs');
+const { isOneQLocalSelected, loadBackendRuntimeFamily } = require('./runtimeFamily.cjs');
 
 function loadCanonicalContractAddress(contractName) {
   const manifestPath = resolveManifestPath();
@@ -19,16 +20,18 @@ function loadCanonicalContractAddress(contractName) {
   return address;
 }
 
-// Event listeners must use the same RPC endpoint as the canonical deployment.
-const RPC_URL = loadLendingManifest().rpcUrl;
+const oneQRuntime = isOneQLocalSelected() ? loadBackendRuntimeFamily() : null;
+
+// Event listeners must use the same RPC endpoint as the selected canonical deployment.
+const RPC_URL = oneQRuntime ? oneQRuntime.rpcUrl : loadLendingManifest().rpcUrl;
 
 const CONTRACT_ADDRESSES = {
   // LoanNFT is part of the deployed local ecosystem and must follow its manifest.
-  LoanNFT: loadCanonicalContractAddress('LoanNFT'),
+  LoanNFT: oneQRuntime ? oneQRuntime.children.lending.contracts.LoanNFTV2.address : loadCanonicalContractAddress('LoanNFT'),
   // These legacy NFT contracts are not in the canonical local deployment.
   // Leave them disabled unless an explicitly configured deployment provides them.
-  FranchiseNFT: process.env.FRANCHISE_NFT_ADDRESS,
-  LegionNFT: process.env.LEGION_NFT_ADDRESS,
+  FranchiseNFT: oneQRuntime ? undefined : process.env.FRANCHISE_NFT_ADDRESS,
+  LegionNFT: oneQRuntime ? undefined : process.env.LEGION_NFT_ADDRESS,
 };
 
 const LoanNFT_ABI = [

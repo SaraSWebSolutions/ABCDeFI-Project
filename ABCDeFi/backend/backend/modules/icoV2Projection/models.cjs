@@ -1,0 +1,6 @@
+const mongoose=require('mongoose');
+const {Schema}=mongoose; const model=(name,schema,collection)=>mongoose.models[name]||mongoose.model(name,schema,collection);
+const uint={type:String,required:true,match:/^\d+$/}; const address={type:String,required:true,lowercase:true,match:/^0x[a-f0-9]{40}$/}; const hash={type:String,required:true,lowercase:true,match:/^0x[a-f0-9]{64}$/};
+const checkpoint=new Schema({chainId:uint,deploymentVersion:{type:String,required:true},icoAddress:address,lastProcessedBlock:uint,lastProcessedBlockHash:hash,indexedAt:Date},{versionKey:false}); checkpoint.index({chainId:1,deploymentVersion:1,icoAddress:1},{unique:true});
+const event=new Schema({chainId:uint,deploymentVersion:{type:String,required:true},icoAddress:address,transactionHash:hash,blockNumber:uint,logIndex:Number,blockHash:hash,eventName:String,args:Schema.Types.Mixed,indexedAt:Date},{versionKey:false}); event.index({chainId:1,deploymentVersion:1,icoAddress:1,transactionHash:1,logIndex:1},{unique:true}); event.index({chainId:1,deploymentVersion:1,icoAddress:1,'args.buyer':1,blockNumber:1,logIndex:1});
+module.exports={IcoV2Checkpoint:model('IcoV2Checkpoint',checkpoint,'ico_v2_checkpoints'),IcoV2Event:model('IcoV2Event',event,'ico_v2_events')};

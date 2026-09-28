@@ -106,6 +106,8 @@ describe("ABCDNFTMarketplaceV2", function () {
     expect((await marketplace.getListing(listingId)).status).to.equal(3n);
     await expect(marketplace.connect(seller).cancelListing(listingId))
       .to.be.revertedWithCustomError(marketplace, "ListingNotActive");
+    await expect(marketplace.connect(buyer).purchaseListing(listingId))
+      .to.be.revertedWithCustomError(marketplace, "ListingNotActive");
   });
 
   it("settles exact ABCD seller proceeds and the NFT atomically with no fee or marketplace balance", async function () {
@@ -157,6 +159,39 @@ describe("ABCDNFTMarketplaceV2", function () {
     await expect(marketplace.connect(buyer).purchaseListing(second.listingId))
       .to.be.revertedWithCustomError(marketplace, "MarketplaceNotApproved");
     expect(await testCollection.ownerOf(second.tokenId)).to.equal(seller.address);
+  });
+
+  it("rolls back the listing state, ABCD payment, and NFT ownership when canonical ABCD transfer fails", async function () {
+    const { tokenId, listingId } = await activeListing();
+    const marketAddress = await marketplace.getAddress();
+    const buyerBefore = await abcd.balanceOf(buyer.address);
+    const sellerBefore = await abcd.balanceOf(seller.address);
+    await abcd.connect(buyer).approve(marketAddress, priceOne);
+    await abcd.connect(admin).pause();
+    await expect(marketplace.connect(buyer).purchaseListing(listingId)).to.be.revert(ethers);
+    expect((await marketplace.getListing(listingId)).status).to.equal(1n);
+    expect(await testCollection.ownerOf(tokenId)).to.equal(seller.address);
+    expect(await abcd.balanceOf(buyer.address)).to.equal(buyerBefore);
+    expect(await abcd.balanceOf(seller.address)).to.equal(sellerBefore);
+  });
+
+  it("rejects receiver-callback purchase replay while preserving the valid atomic settlement", async function () {
+    const { tokenId, listingId } = await activeListing();
+    const Buyer = await hardhatEthers.getContractFactory("ABCDMarketplaceReentrantBuyer");
+    const receiver = await Buyer.deploy(await abcd.getAddress(), await marketplace.getAddress());
+    await receiver.waitForDeployment();
+    await abcd.connect(admin).transfer(await receiver.getAddress(), priceOne);
+    await receiver.connect(other).approveAndPurchase(listingId, priceOne, listingId);
+    expect(await receiver.reentryAttempted()).to.equal(true);
+    expect(await receiver.reentrySucceeded()).to.equal(false);
+    expect(await testCollection.ownerOf(tokenId)).to.equal(await receiver.getAddress());
+    expect((await marketplace.getListing(listingId)).status).to.equal(2n);
+    expect(await abcd.balanceOf(await marketplace.getAddress())).to.equal(0n);
+  });
+
+  it("has no native-currency payment path and rejects a nonexistent supported-collection token", async function () {
+    await expect(buyer.sendTransaction({ to: await marketplace.getAddress(), value: 1n })).to.be.revert(ethers);
+    await expect(marketplace.connect(seller).createListing(await testCollection.getAddress(), 999n, priceOne)).to.be.revert(ethers);
   });
 
   it("blocks lifecycle writes while paused and keeps read state available", async function () {

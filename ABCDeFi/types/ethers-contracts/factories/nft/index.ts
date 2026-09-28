@@ -4,7 +4,9 @@
 export { AppreciatingGiftNFT__factory } from './AppreciatingGiftNFT__factory.js';
 export { BarterNFT__factory } from './BarterNFT__factory.js';
 export { FranchiseNFT__factory } from './FranchiseNFT__factory.js';
+export { FranchiseNFTV2__factory } from './FranchiseNFTV2__factory.js';
 export { FranchiseRegistry__factory } from './FranchiseRegistry__factory.js';
+export { FranchiseRegistryV2__factory } from './FranchiseRegistryV2__factory.js';
 export { GuruNFT__factory } from './GuruNFT__factory.js';
 export { LegionCredentialV2__factory } from './LegionCredentialV2__factory.js';
 export { LegionNFTV2__factory } from './LegionNFTV2__factory.js';
