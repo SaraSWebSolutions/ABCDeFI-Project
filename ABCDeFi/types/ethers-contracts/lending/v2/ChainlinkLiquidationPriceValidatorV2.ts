@@ -6,24 +6,24 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface ChainlinkLiquidationPriceValidatorV2Interface extends Interface {
-    getFunction(nameOrSignature: "BPS" | "SLIPPAGE_BPS" | "abcd" | "deadlineSeconds" | "ethAsset" | "oracle" | "quoteSale"): FunctionFragment;
+    getFunction(nameOrSignature: "BPS" | "abcd" | "deadlineSeconds" | "ethAsset" | "oracle" | "quoteInstallmentSale" | "quoteSale"): FunctionFragment;
 
     
 
     encodeFunctionData(functionFragment: 'BPS', values?: undefined): string;
-encodeFunctionData(functionFragment: 'SLIPPAGE_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'deadlineSeconds', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ethAsset', values?: undefined): string;
 encodeFunctionData(functionFragment: 'oracle', values?: undefined): string;
+encodeFunctionData(functionFragment: 'quoteInstallmentSale', values: [BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'quoteSale', values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
 
     decodeFunctionResult(functionFragment: 'BPS', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'SLIPPAGE_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'abcd', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'deadlineSeconds', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'ethAsset', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'oracle', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'quoteInstallmentSale', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'quoteSale', data: BytesLike): Result;
   }
 
@@ -71,14 +71,6 @@ decodeFunctionResult(functionFragment: 'quoteSale', data: BytesLike): Result;
     
 
     
-    SLIPPAGE_BPS: TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >
-    
-
-    
     abcd: TypedContractMethod<
       [],
       [string],
@@ -111,9 +103,17 @@ decodeFunctionResult(functionFragment: 'quoteSale', data: BytesLike): Result;
     
 
     
+    quoteInstallmentSale: TypedContractMethod<
+      [arg0: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
+      [[bigint, bigint, bigint] & {collateralAmount: bigint, oracleExpectedRecovery: bigint, deadline: bigint }],
+      'view'
+    >
+    
+
+    
     quoteSale: TypedContractMethod<
       [arg0: BigNumberish, debt: BigNumberish, collateral: BigNumberish, targetLtvBps: BigNumberish, ],
-      [[bigint, bigint, bigint] & {collateralAmount: bigint, minOut: bigint, deadline: bigint }],
+      [[bigint, bigint, bigint] & {collateralAmount: bigint, requiredRecovery: bigint, deadline: bigint }],
       'view'
     >
     
@@ -122,11 +122,6 @@ decodeFunctionResult(functionFragment: 'quoteSale', data: BytesLike): Result;
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
     getFunction(nameOrSignature: 'BPS'): TypedContractMethod<
-      [],
-      [bigint],
-      'view'
-    >;
-getFunction(nameOrSignature: 'SLIPPAGE_BPS'): TypedContractMethod<
       [],
       [bigint],
       'view'
@@ -151,9 +146,14 @@ getFunction(nameOrSignature: 'oracle'): TypedContractMethod<
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'quoteInstallmentSale'): TypedContractMethod<
+      [arg0: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
+      [[bigint, bigint, bigint] & {collateralAmount: bigint, oracleExpectedRecovery: bigint, deadline: bigint }],
+      'view'
+    >;
 getFunction(nameOrSignature: 'quoteSale'): TypedContractMethod<
       [arg0: BigNumberish, debt: BigNumberish, collateral: BigNumberish, targetLtvBps: BigNumberish, ],
-      [[bigint, bigint, bigint] & {collateralAmount: bigint, minOut: bigint, deadline: bigint }],
+      [[bigint, bigint, bigint] & {collateralAmount: bigint, requiredRecovery: bigint, deadline: bigint }],
       'view'
     >;
 

@@ -33,6 +33,19 @@
         "type": "uint256"
       }
     ],
+    "name": "markLoanRecovered",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "loanId",
+        "type": "uint256"
+      }
+    ],
     "name": "markLoanRepaid",
     "outputs": [],
     "stateMutability": "nonpayable",

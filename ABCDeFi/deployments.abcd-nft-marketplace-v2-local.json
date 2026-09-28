@@ -1,22 +1,22 @@
 {
-  "deploymentVersion": "abcd-nft-marketplace-v2-local-v1",
+  "deploymentVersion": "abcd-nft-marketplace-v2-local-v1-0x6b0fff2decb4b4346b724a275ac169178f234374c7bcfdd32dc9b6155a86a00b",
   "network": "hardhat-local",
   "chainId": 31337,
   "rpcUrl": "http://127.0.0.1:8545",
-  "deploymentBlock": 4,
+  "deploymentBlock": 12,
   "contracts": {
     "ABCDToken": {
-      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-      "deploymentBlock": 1
+      "address": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+      "deploymentBlock": 9
     },
-    "BarterNFT": {
-      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-      "deploymentBlock": 2
+    "MarketplaceTestERC721": {
+      "address": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+      "deploymentBlock": 10
     },
     "ABCDNFTMarketplaceV2": {
-      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
-      "deploymentBlock": 4,
-      "configurationTransaction": "0x6cdb73f37b21512ef9df9bd92c45b7dd0935f3231036582f5b6cc205e8e80c0c"
+      "address": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+      "deploymentBlock": 12,
+      "configurationTransaction": "0x6752a1829621132e49b351019860f57d905cb284c68160d1d0ef74510fee12e0"
     }
   },
   "roles": {

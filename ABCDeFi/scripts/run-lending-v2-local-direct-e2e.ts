@@ -4,6 +4,18 @@ import path from "node:path";
 import { ethers } from "ethers";
 import { network } from "hardhat";
 
+/**
+ * SUPERSEDED — NON-CANONICAL PHASE 2 E2E HARNESS.
+ *
+ * This historical harness expected a reserve-assisted terminal liquidation
+ * (LIQUIDATED state with zero debt and zero collateral).  That expectation is
+ * incompatible with the owner-approved Direct partial-liquidation rule in
+ * docs/PHASE2-LENDING-PROTOCOL-AMENDMENT.md: a normal successful sale retains
+ * remaining debt/collateral, restores ACTIVE at <=70% LTV, and does not use
+ * the reserve.  The historical assertions are retained for traceability, but
+ * this script must not be used as Phase 2 validation evidence.
+ */
+
 type Deployment = { address: string };
 type Manifest = {
   chainId: string;
@@ -31,6 +43,11 @@ async function mined(tx: any, expectedTo: string, label: string) {
 }
 
 async function main() {
+  throw new Error(
+    "SUPERSEDED NON-CANONICAL HARNESS: do not run this historical reserve-assisted full-liquidation scenario. " +
+    "Use the approved Direct partial-liquidation tests and Phase 2 amendment instead."
+  );
+
   const manifest = JSON.parse(fs.readFileSync(path.resolve("deployments.json"), "utf8")) as Manifest;
   assert.equal(manifest.chainId, "31337");
   assert.equal(manifest.lendingV2.chainId, "31337");

@@ -38,6 +38,7 @@ contract FranchiseRegistry is AccessControl, Pausable, ReentrancyGuard {
     struct FranchiseRecord {
         bytes32 territoryKey;
         TerritoryLevel level;
+        uint256 parentTokenId;
         address operator;
         FranchiseStatus status;
         uint64 operatorVersion;
@@ -55,6 +56,8 @@ contract FranchiseRegistry is AccessControl, Pausable, ReentrancyGuard {
 
     error InvalidAddress();
     error InvalidTerritoryKey();
+    error InvalidParent(uint256 parentTokenId);
+    error InvalidParentLevel(TerritoryLevel expected, TerritoryLevel actual);
     error TerritoryAlreadyRegistered(bytes32 territoryKey);
     error FranchiseNotFound(uint256 tokenId);
     error OperatorNotEligible(address operator);
@@ -85,6 +88,7 @@ contract FranchiseRegistry is AccessControl, Pausable, ReentrancyGuard {
         bytes32 indexed territoryKey,
         address indexed operator,
         TerritoryLevel level,
+        uint256 parentTokenId,
         string metadataURI
     );
     event TransferRequested(
@@ -150,18 +154,21 @@ contract FranchiseRegistry is AccessControl, Pausable, ReentrancyGuard {
     function registerFranchise(
         bytes32 territoryKey,
         TerritoryLevel level,
+        uint256 parentTokenId,
         address operator,
         string calldata metadataURI
     ) external onlyRole(ISSUER_ROLE) whenNotPaused nonReentrant returns (uint256 tokenId) {
         if (territoryKey == bytes32(0)) revert InvalidTerritoryKey();
         if (_tokenIdByTerritoryKey[territoryKey] != 0) revert TerritoryAlreadyRegistered(territoryKey);
         if (!_eligibleOperators[operator]) revert OperatorNotEligible(operator);
+        _validateParent(level, parentTokenId);
 
         tokenId = _nextTokenId++;
         _tokenIdByTerritoryKey[territoryKey] = tokenId;
         _franchises[tokenId] = FranchiseRecord({
             territoryKey: territoryKey,
             level: level,
+            parentTokenId: parentTokenId,
             operator: operator,
             status: FranchiseStatus.ACTIVE,
             operatorVersion: 1,
@@ -170,7 +177,7 @@ contract FranchiseRegistry is AccessControl, Pausable, ReentrancyGuard {
 
         franchiseNFT.mintFromRegistry(operator, tokenId, metadataURI);
         _requireOperatorOwnerConsistency(tokenId);
-        emit FranchiseRegistered(tokenId, territoryKey, operator, level, metadataURI);
+        emit FranchiseRegistered(tokenId, territoryKey, operator, level, parentTokenId, metadataURI);
     }
 
     function requestTransfer(uint256 tokenId, address proposedOperator)
@@ -312,6 +319,23 @@ contract FranchiseRegistry is AccessControl, Pausable, ReentrancyGuard {
             revert TransferRequestStale(requestId);
         }
         if (!_eligibleOperators[request.proposedOperator]) revert OperatorNotEligible(request.proposedOperator);
+    }
+
+    /**
+     * @dev The approved hierarchy is fixed and parent references are immutable:
+     * Continental (root) -> National -> State -> District. A parent need not
+     * be ACTIVE because lifecycle status creates no unapproved territorial or
+     * financial right; only existence and the structural level are relevant.
+     */
+    function _validateParent(TerritoryLevel level, uint256 parentTokenId) private view {
+        if (level == TerritoryLevel.CONTINENTAL) {
+            if (parentTokenId != 0) revert InvalidParent(parentTokenId);
+            return;
+        }
+        if (parentTokenId == 0) revert InvalidParent(parentTokenId);
+        FranchiseRecord storage parent = _requireFranchise(parentTokenId);
+        TerritoryLevel expected = TerritoryLevel(uint8(level) - 1);
+        if (parent.level != expected) revert InvalidParentLevel(expected, parent.level);
     }
 
     function _requireActiveAndConsistent(uint256 tokenId) private view returns (FranchiseRecord storage franchise) {

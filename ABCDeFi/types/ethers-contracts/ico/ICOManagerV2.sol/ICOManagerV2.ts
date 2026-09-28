@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 export declare namespace ICOManagerV2 {
       
-    export type PurchaseStruct = {allocation: BigNumberish, bnbPaid: BigNumberish, claimed: BigNumberish, refunded: boolean}
+    export type PurchaseStruct = {allocation: BigNumberish, bnbPaid: BigNumberish, claimed: BigNumberish, stageOneAllocation: BigNumberish, stageTwoAllocation: BigNumberish, refunded: boolean}
 
-    export type PurchaseStructOutput = [allocation: bigint, bnbPaid: bigint, claimed: bigint, refunded: boolean] & {allocation: bigint, bnbPaid: bigint, claimed: bigint, refunded: boolean }
+    export type PurchaseStructOutput = [allocation: bigint, bnbPaid: bigint, claimed: bigint, stageOneAllocation: bigint, stageTwoAllocation: bigint, refunded: boolean] & {allocation: bigint, bnbPaid: bigint, claimed: bigint, stageOneAllocation: bigint, stageTwoAllocation: bigint, refunded: boolean }
   
 
     export type StageStruct = {startTime: BigNumberish, endTime: BigNumberish, inventory: BigNumberish, sold: BigNumberish, priceUsdWad: BigNumberish}
@@ -18,16 +18,19 @@ export declare namespace ICOManagerV2 {
     }
 
   export interface ICOManagerV2Interface extends Interface {
-    getFunction(nameOrSignature: "BPS_DENOMINATOR" | "DEFAULT_ADMIN_ROLE" | "ICO_ADMIN_ROLE" | "ICO_INVENTORY" | "MAX_PURCHASE_PER_WALLET" | "MIN_PURCHASE" | "PAUSER_ROLE" | "STAGE_DURATION" | "STAGE_ONE_INVENTORY" | "STAGE_ONE_PRICE_USD_WAD" | "STAGE_TWO_INVENTORY" | "STAGE_TWO_PRICE_USD_WAD" | "TGE_BPS" | "TOKEN_UNIT" | "VESTING_DURATION" | "abcd" | "bnbUsdFeed" | "buy" | "cancel" | "claim" | "claimRefund" | "claimable" | "communityWallet" | "deploymentInventory" | "feedDecimals" | "finalize" | "getRoleAdmin" | "grantRole" | "hasRole" | "lifecycle" | "maxPriceAge" | "pause" | "paused" | "purchaseOf" | "renounceRole" | "revokeRole" | "stage" | "supportsInterface" | "tgeTimestamp" | "totalAllocated" | "totalBnbCollected" | "totalBnbRefunded" | "treasury" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "BPS_DENOMINATOR" | "CUSTODY_ADMIN_ROLE" | "DEFAULT_ADMIN_ROLE" | "ELIGIBILITY_ADMIN_ROLE" | "ICO_ADMIN_ROLE" | "ICO_INVENTORY" | "MAX_PURCHASE_PER_WALLET" | "MIN_PURCHASE" | "ORACLE_ADMIN_ROLE" | "PAUSER_ROLE" | "STAGE_DURATION" | "STAGE_ONE_INVENTORY" | "STAGE_ONE_PRICE_USD_WAD" | "STAGE_TWO_INVENTORY" | "STAGE_TWO_PRICE_USD_WAD" | "TGE_BPS" | "TOKEN_UNIT" | "VESTING_DURATION" | "abcd" | "bnbUsdFeed" | "buy" | "cancel" | "claim" | "claimRefund" | "claimable" | "communityWallet" | "configureTge" | "currentStage" | "deploymentInventory" | "eligibleWallet" | "feedDecimals" | "finalize" | "getRoleAdmin" | "grantRole" | "hasRole" | "lifecycle" | "maxPriceAge" | "pause" | "paused" | "proceedsRecipient" | "purchaseOf" | "renounceRole" | "revokeRole" | "setEligibility" | "setOracle" | "setProceedsRecipient" | "stage" | "supportsInterface" | "tgeTimestamp" | "totalAllocated" | "totalBnbCollected" | "totalBnbRefunded" | "totalBnbWithdrawn" | "unpause" | "withdrawProceeds"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "IcoCancelled" | "IcoFinalized" | "IcoPurchase" | "IcoRefundClaimed" | "IcoTokensClaimed" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "EligibilityUpdated" | "ExcessBnbRefunded" | "IcoCancelled" | "IcoFinalized" | "IcoPurchase" | "IcoRefundClaimed" | "IcoTokensClaimed" | "OracleReplaced" | "Paused" | "ProceedsRecipientConfigured" | "ProceedsWithdrawn" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "StageConfigured" | "TgeConfigured" | "Unpaused" | "VestingCompleted"): EventFragment;
 
     encodeFunctionData(functionFragment: 'BPS_DENOMINATOR', values?: undefined): string;
+encodeFunctionData(functionFragment: 'CUSTODY_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'ELIGIBILITY_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ICO_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ICO_INVENTORY', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MAX_PURCHASE_PER_WALLET', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MIN_PURCHASE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'ORACLE_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'PAUSER_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'STAGE_DURATION', values?: undefined): string;
 encodeFunctionData(functionFragment: 'STAGE_ONE_INVENTORY', values?: undefined): string;
@@ -39,13 +42,16 @@ encodeFunctionData(functionFragment: 'TOKEN_UNIT', values?: undefined): string;
 encodeFunctionData(functionFragment: 'VESTING_DURATION', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'bnbUsdFeed', values?: undefined): string;
-encodeFunctionData(functionFragment: 'buy', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'buy', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'cancel', values?: undefined): string;
 encodeFunctionData(functionFragment: 'claim', values?: undefined): string;
 encodeFunctionData(functionFragment: 'claimRefund', values?: undefined): string;
 encodeFunctionData(functionFragment: 'claimable', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'communityWallet', values?: undefined): string;
+encodeFunctionData(functionFragment: 'configureTge', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'currentStage', values?: undefined): string;
 encodeFunctionData(functionFragment: 'deploymentInventory', values?: undefined): string;
+encodeFunctionData(functionFragment: 'eligibleWallet', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'feedDecimals', values?: undefined): string;
 encodeFunctionData(functionFragment: 'finalize', values?: undefined): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
@@ -55,24 +61,32 @@ encodeFunctionData(functionFragment: 'lifecycle', values?: undefined): string;
 encodeFunctionData(functionFragment: 'maxPriceAge', values?: undefined): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
+encodeFunctionData(functionFragment: 'proceedsRecipient', values?: undefined): string;
 encodeFunctionData(functionFragment: 'purchaseOf', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'setEligibility', values: [AddressLike, boolean]): string;
+encodeFunctionData(functionFragment: 'setOracle', values: [AddressLike]): string;
+encodeFunctionData(functionFragment: 'setProceedsRecipient', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'stage', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'tgeTimestamp', values?: undefined): string;
 encodeFunctionData(functionFragment: 'totalAllocated', values?: undefined): string;
 encodeFunctionData(functionFragment: 'totalBnbCollected', values?: undefined): string;
 encodeFunctionData(functionFragment: 'totalBnbRefunded', values?: undefined): string;
-encodeFunctionData(functionFragment: 'treasury', values?: undefined): string;
+encodeFunctionData(functionFragment: 'totalBnbWithdrawn', values?: undefined): string;
 encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
+encodeFunctionData(functionFragment: 'withdrawProceeds', values?: undefined): string;
 
     decodeFunctionResult(functionFragment: 'BPS_DENOMINATOR', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'CUSTODY_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'ELIGIBILITY_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'ICO_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'ICO_INVENTORY', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MAX_PURCHASE_PER_WALLET', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MIN_PURCHASE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'ORACLE_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'PAUSER_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'STAGE_DURATION', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'STAGE_ONE_INVENTORY', data: BytesLike): Result;
@@ -90,7 +104,10 @@ decodeFunctionResult(functionFragment: 'claim', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'claimRefund', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'claimable', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'communityWallet', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'configureTge', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'currentStage', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'deploymentInventory', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'eligibleWallet', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'feedDecimals', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'finalize', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
@@ -100,24 +117,53 @@ decodeFunctionResult(functionFragment: 'lifecycle', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'maxPriceAge', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'proceedsRecipient', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'purchaseOf', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setEligibility', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setOracle', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setProceedsRecipient', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'stage', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'tgeTimestamp', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'totalAllocated', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'totalBnbCollected', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'totalBnbRefunded', data: BytesLike): Result;
-decodeFunctionResult(functionFragment: 'treasury', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'totalBnbWithdrawn', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'withdrawProceeds', data: BytesLike): Result;
   }
 
   
+    export namespace EligibilityUpdatedEvent {
+      export type InputTuple = [wallet: AddressLike, eligible: boolean];
+      export type OutputTuple = [wallet: string, eligible: boolean];
+      export interface OutputObject {wallet: string, eligible: boolean };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace ExcessBnbRefundedEvent {
+      export type InputTuple = [buyer: AddressLike, amount: BigNumberish];
+      export type OutputTuple = [buyer: string, amount: bigint];
+      export interface OutputObject {buyer: string, amount: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace IcoCancelledEvent {
-      export type InputTuple = [admin: AddressLike, inventoryReturned: BigNumberish];
-      export type OutputTuple = [admin: string, inventoryReturned: bigint];
-      export interface OutputObject {admin: string, inventoryReturned: bigint };
+      export type InputTuple = [admin: AddressLike];
+      export type OutputTuple = [admin: string];
+      export interface OutputObject {admin: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -127,9 +173,9 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   
 
     export namespace IcoFinalizedEvent {
-      export type InputTuple = [tgeTimestamp: BigNumberish, proceedsSent: BigNumberish, unsoldReturned: BigNumberish];
-      export type OutputTuple = [tgeTimestamp: bigint, proceedsSent: bigint, unsoldReturned: bigint];
-      export interface OutputObject {tgeTimestamp: bigint, proceedsSent: bigint, unsoldReturned: bigint };
+      export type InputTuple = [tgeTimestamp: BigNumberish, unsoldReturned: BigNumberish];
+      export type OutputTuple = [tgeTimestamp: bigint, unsoldReturned: bigint];
+      export interface OutputObject {tgeTimestamp: bigint, unsoldReturned: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -151,9 +197,9 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   
 
     export namespace IcoRefundClaimedEvent {
-      export type InputTuple = [buyer: AddressLike, bnbAmount: BigNumberish];
-      export type OutputTuple = [buyer: string, bnbAmount: bigint];
-      export interface OutputObject {buyer: string, bnbAmount: bigint };
+      export type InputTuple = [buyer: AddressLike, bnbAmount: BigNumberish, allocationReversed: BigNumberish];
+      export type OutputTuple = [buyer: string, bnbAmount: bigint, allocationReversed: bigint];
+      export interface OutputObject {buyer: string, bnbAmount: bigint, allocationReversed: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -174,10 +220,46 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
   
 
+    export namespace OracleReplacedEvent {
+      export type InputTuple = [previousFeed: AddressLike, nextFeed: AddressLike, decimals: BigNumberish, maxPriceAge: BigNumberish];
+      export type OutputTuple = [previousFeed: string, nextFeed: string, decimals: bigint, maxPriceAge: bigint];
+      export interface OutputObject {previousFeed: string, nextFeed: string, decimals: bigint, maxPriceAge: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace PausedEvent {
       export type InputTuple = [account: AddressLike];
       export type OutputTuple = [account: string];
       export interface OutputObject {account: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace ProceedsRecipientConfiguredEvent {
+      export type InputTuple = [previousRecipient: AddressLike, nextRecipient: AddressLike];
+      export type OutputTuple = [previousRecipient: string, nextRecipient: string];
+      export interface OutputObject {previousRecipient: string, nextRecipient: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace ProceedsWithdrawnEvent {
+      export type InputTuple = [recipient: AddressLike, amount: BigNumberish, totalWithdrawn: BigNumberish];
+      export type OutputTuple = [recipient: string, amount: bigint, totalWithdrawn: bigint];
+      export interface OutputObject {recipient: string, amount: bigint, totalWithdrawn: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -222,10 +304,46 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
   
 
+    export namespace StageConfiguredEvent {
+      export type InputTuple = [stageId: BigNumberish, startTime: BigNumberish, endTime: BigNumberish, inventory: BigNumberish, priceUsdWad: BigNumberish];
+      export type OutputTuple = [stageId: bigint, startTime: bigint, endTime: bigint, inventory: bigint, priceUsdWad: bigint];
+      export interface OutputObject {stageId: bigint, startTime: bigint, endTime: bigint, inventory: bigint, priceUsdWad: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace TgeConfiguredEvent {
+      export type InputTuple = [tgeTimestamp: BigNumberish, configuredBy: AddressLike];
+      export type OutputTuple = [tgeTimestamp: bigint, configuredBy: string];
+      export interface OutputObject {tgeTimestamp: bigint, configuredBy: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace UnpausedEvent {
       export type InputTuple = [account: AddressLike];
       export type OutputTuple = [account: string];
       export interface OutputObject {account: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace VestingCompletedEvent {
+      export type InputTuple = [buyer: AddressLike, allocation: BigNumberish];
+      export type OutputTuple = [buyer: string, allocation: bigint];
+      export interface OutputObject {buyer: string, allocation: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -276,7 +394,23 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    CUSTODY_ADMIN_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     DEFAULT_ADMIN_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    ELIGIBILITY_ADMIN_ROLE: TypedContractMethod<
       [],
       [string],
       'view'
@@ -311,6 +445,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     MIN_PURCHASE: TypedContractMethod<
       [],
       [bigint],
+      'view'
+    >
+    
+
+    
+    ORACLE_ADMIN_ROLE: TypedContractMethod<
+      [],
+      [string],
       'view'
     >
     
@@ -405,7 +547,7 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
     
     buy: TypedContractMethod<
-      [stageId: BigNumberish, ],
+      [stageId: BigNumberish, requestedAllocation: BigNumberish, ],
       [void],
       'payable'
     >
@@ -452,9 +594,33 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    configureTge: TypedContractMethod<
+      [timestamp: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    currentStage: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     deploymentInventory: TypedContractMethod<
       [],
       [bigint],
+      'view'
+    >
+    
+
+    
+    eligibleWallet: TypedContractMethod<
+      [arg0: AddressLike, ],
+      [boolean],
       'view'
     >
     
@@ -532,6 +698,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    proceedsRecipient: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     purchaseOf: TypedContractMethod<
       [buyer: AddressLike, ],
       [ICOManagerV2.PurchaseStructOutput],
@@ -550,6 +724,30 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
     revokeRole: TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    setEligibility: TypedContractMethod<
+      [wallet: AddressLike, allowed: boolean, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    setOracle: TypedContractMethod<
+      [nextFeed: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    setProceedsRecipient: TypedContractMethod<
+      [nextRecipient: AddressLike, ],
       [void],
       'nonpayable'
     >
@@ -604,15 +802,23 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
-    treasury: TypedContractMethod<
+    totalBnbWithdrawn: TypedContractMethod<
       [],
-      [string],
+      [bigint],
       'view'
     >
     
 
     
     unpause: TypedContractMethod<
+      [],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    withdrawProceeds: TypedContractMethod<
       [],
       [void],
       'nonpayable'
@@ -627,7 +833,17 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       [bigint],
       'view'
     >;
+getFunction(nameOrSignature: 'CUSTODY_ADMIN_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'ELIGIBILITY_ADMIN_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -650,6 +866,11 @@ getFunction(nameOrSignature: 'MAX_PURCHASE_PER_WALLET'): TypedContractMethod<
 getFunction(nameOrSignature: 'MIN_PURCHASE'): TypedContractMethod<
       [],
       [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'ORACLE_ADMIN_ROLE'): TypedContractMethod<
+      [],
+      [string],
       'view'
     >;
 getFunction(nameOrSignature: 'PAUSER_ROLE'): TypedContractMethod<
@@ -708,7 +929,7 @@ getFunction(nameOrSignature: 'bnbUsdFeed'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'buy'): TypedContractMethod<
-      [stageId: BigNumberish, ],
+      [stageId: BigNumberish, requestedAllocation: BigNumberish, ],
       [void],
       'payable'
     >;
@@ -737,9 +958,24 @@ getFunction(nameOrSignature: 'communityWallet'): TypedContractMethod<
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'configureTge'): TypedContractMethod<
+      [timestamp: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'currentStage'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
 getFunction(nameOrSignature: 'deploymentInventory'): TypedContractMethod<
       [],
       [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'eligibleWallet'): TypedContractMethod<
+      [arg0: AddressLike, ],
+      [boolean],
       'view'
     >;
 getFunction(nameOrSignature: 'feedDecimals'): TypedContractMethod<
@@ -787,6 +1023,11 @@ getFunction(nameOrSignature: 'paused'): TypedContractMethod<
       [boolean],
       'view'
     >;
+getFunction(nameOrSignature: 'proceedsRecipient'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'purchaseOf'): TypedContractMethod<
       [buyer: AddressLike, ],
       [ICOManagerV2.PurchaseStructOutput],
@@ -799,6 +1040,21 @@ getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'setEligibility'): TypedContractMethod<
+      [wallet: AddressLike, allowed: boolean, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'setOracle'): TypedContractMethod<
+      [nextFeed: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'setProceedsRecipient'): TypedContractMethod<
+      [nextRecipient: AddressLike, ],
       [void],
       'nonpayable'
     >;
@@ -832,9 +1088,9 @@ getFunction(nameOrSignature: 'totalBnbRefunded'): TypedContractMethod<
       [bigint],
       'view'
     >;
-getFunction(nameOrSignature: 'treasury'): TypedContractMethod<
+getFunction(nameOrSignature: 'totalBnbWithdrawn'): TypedContractMethod<
       [],
-      [string],
+      [bigint],
       'view'
     >;
 getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
@@ -842,25 +1098,46 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'withdrawProceeds'): TypedContractMethod<
+      [],
+      [void],
+      'nonpayable'
+    >;
 
-    getEvent(key: 'IcoCancelled'): TypedContractEvent<IcoCancelledEvent.InputTuple, IcoCancelledEvent.OutputTuple, IcoCancelledEvent.OutputObject>;
+    getEvent(key: 'EligibilityUpdated'): TypedContractEvent<EligibilityUpdatedEvent.InputTuple, EligibilityUpdatedEvent.OutputTuple, EligibilityUpdatedEvent.OutputObject>;
+getEvent(key: 'ExcessBnbRefunded'): TypedContractEvent<ExcessBnbRefundedEvent.InputTuple, ExcessBnbRefundedEvent.OutputTuple, ExcessBnbRefundedEvent.OutputObject>;
+getEvent(key: 'IcoCancelled'): TypedContractEvent<IcoCancelledEvent.InputTuple, IcoCancelledEvent.OutputTuple, IcoCancelledEvent.OutputObject>;
 getEvent(key: 'IcoFinalized'): TypedContractEvent<IcoFinalizedEvent.InputTuple, IcoFinalizedEvent.OutputTuple, IcoFinalizedEvent.OutputObject>;
 getEvent(key: 'IcoPurchase'): TypedContractEvent<IcoPurchaseEvent.InputTuple, IcoPurchaseEvent.OutputTuple, IcoPurchaseEvent.OutputObject>;
 getEvent(key: 'IcoRefundClaimed'): TypedContractEvent<IcoRefundClaimedEvent.InputTuple, IcoRefundClaimedEvent.OutputTuple, IcoRefundClaimedEvent.OutputObject>;
 getEvent(key: 'IcoTokensClaimed'): TypedContractEvent<IcoTokensClaimedEvent.InputTuple, IcoTokensClaimedEvent.OutputTuple, IcoTokensClaimedEvent.OutputObject>;
+getEvent(key: 'OracleReplaced'): TypedContractEvent<OracleReplacedEvent.InputTuple, OracleReplacedEvent.OutputTuple, OracleReplacedEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+getEvent(key: 'ProceedsRecipientConfigured'): TypedContractEvent<ProceedsRecipientConfiguredEvent.InputTuple, ProceedsRecipientConfiguredEvent.OutputTuple, ProceedsRecipientConfiguredEvent.OutputObject>;
+getEvent(key: 'ProceedsWithdrawn'): TypedContractEvent<ProceedsWithdrawnEvent.InputTuple, ProceedsWithdrawnEvent.OutputTuple, ProceedsWithdrawnEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
 getEvent(key: 'RoleGranted'): TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
 getEvent(key: 'RoleRevoked'): TypedContractEvent<RoleRevokedEvent.InputTuple, RoleRevokedEvent.OutputTuple, RoleRevokedEvent.OutputObject>;
+getEvent(key: 'StageConfigured'): TypedContractEvent<StageConfiguredEvent.InputTuple, StageConfiguredEvent.OutputTuple, StageConfiguredEvent.OutputObject>;
+getEvent(key: 'TgeConfigured'): TypedContractEvent<TgeConfiguredEvent.InputTuple, TgeConfiguredEvent.OutputTuple, TgeConfiguredEvent.OutputObject>;
 getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
+getEvent(key: 'VestingCompleted'): TypedContractEvent<VestingCompletedEvent.InputTuple, VestingCompletedEvent.OutputTuple, VestingCompletedEvent.OutputObject>;
 
     filters: {
       
-      'IcoCancelled(address,uint256)': TypedContractEvent<IcoCancelledEvent.InputTuple, IcoCancelledEvent.OutputTuple, IcoCancelledEvent.OutputObject>;
+      'EligibilityUpdated(address,bool)': TypedContractEvent<EligibilityUpdatedEvent.InputTuple, EligibilityUpdatedEvent.OutputTuple, EligibilityUpdatedEvent.OutputObject>;
+      EligibilityUpdated: TypedContractEvent<EligibilityUpdatedEvent.InputTuple, EligibilityUpdatedEvent.OutputTuple, EligibilityUpdatedEvent.OutputObject>;
+    
+
+      'ExcessBnbRefunded(address,uint256)': TypedContractEvent<ExcessBnbRefundedEvent.InputTuple, ExcessBnbRefundedEvent.OutputTuple, ExcessBnbRefundedEvent.OutputObject>;
+      ExcessBnbRefunded: TypedContractEvent<ExcessBnbRefundedEvent.InputTuple, ExcessBnbRefundedEvent.OutputTuple, ExcessBnbRefundedEvent.OutputObject>;
+    
+
+      'IcoCancelled(address)': TypedContractEvent<IcoCancelledEvent.InputTuple, IcoCancelledEvent.OutputTuple, IcoCancelledEvent.OutputObject>;
       IcoCancelled: TypedContractEvent<IcoCancelledEvent.InputTuple, IcoCancelledEvent.OutputTuple, IcoCancelledEvent.OutputObject>;
     
 
-      'IcoFinalized(uint256,uint256,uint256)': TypedContractEvent<IcoFinalizedEvent.InputTuple, IcoFinalizedEvent.OutputTuple, IcoFinalizedEvent.OutputObject>;
+      'IcoFinalized(uint256,uint256)': TypedContractEvent<IcoFinalizedEvent.InputTuple, IcoFinalizedEvent.OutputTuple, IcoFinalizedEvent.OutputObject>;
       IcoFinalized: TypedContractEvent<IcoFinalizedEvent.InputTuple, IcoFinalizedEvent.OutputTuple, IcoFinalizedEvent.OutputObject>;
     
 
@@ -868,7 +1145,7 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       IcoPurchase: TypedContractEvent<IcoPurchaseEvent.InputTuple, IcoPurchaseEvent.OutputTuple, IcoPurchaseEvent.OutputObject>;
     
 
-      'IcoRefundClaimed(address,uint256)': TypedContractEvent<IcoRefundClaimedEvent.InputTuple, IcoRefundClaimedEvent.OutputTuple, IcoRefundClaimedEvent.OutputObject>;
+      'IcoRefundClaimed(address,uint256,uint256)': TypedContractEvent<IcoRefundClaimedEvent.InputTuple, IcoRefundClaimedEvent.OutputTuple, IcoRefundClaimedEvent.OutputObject>;
       IcoRefundClaimed: TypedContractEvent<IcoRefundClaimedEvent.InputTuple, IcoRefundClaimedEvent.OutputTuple, IcoRefundClaimedEvent.OutputObject>;
     
 
@@ -876,8 +1153,20 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       IcoTokensClaimed: TypedContractEvent<IcoTokensClaimedEvent.InputTuple, IcoTokensClaimedEvent.OutputTuple, IcoTokensClaimedEvent.OutputObject>;
     
 
+      'OracleReplaced(address,address,uint8,uint256)': TypedContractEvent<OracleReplacedEvent.InputTuple, OracleReplacedEvent.OutputTuple, OracleReplacedEvent.OutputObject>;
+      OracleReplaced: TypedContractEvent<OracleReplacedEvent.InputTuple, OracleReplacedEvent.OutputTuple, OracleReplacedEvent.OutputObject>;
+    
+
       'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
       Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+    
+
+      'ProceedsRecipientConfigured(address,address)': TypedContractEvent<ProceedsRecipientConfiguredEvent.InputTuple, ProceedsRecipientConfiguredEvent.OutputTuple, ProceedsRecipientConfiguredEvent.OutputObject>;
+      ProceedsRecipientConfigured: TypedContractEvent<ProceedsRecipientConfiguredEvent.InputTuple, ProceedsRecipientConfiguredEvent.OutputTuple, ProceedsRecipientConfiguredEvent.OutputObject>;
+    
+
+      'ProceedsWithdrawn(address,uint256,uint256)': TypedContractEvent<ProceedsWithdrawnEvent.InputTuple, ProceedsWithdrawnEvent.OutputTuple, ProceedsWithdrawnEvent.OutputObject>;
+      ProceedsWithdrawn: TypedContractEvent<ProceedsWithdrawnEvent.InputTuple, ProceedsWithdrawnEvent.OutputTuple, ProceedsWithdrawnEvent.OutputObject>;
     
 
       'RoleAdminChanged(bytes32,bytes32,bytes32)': TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
@@ -892,8 +1181,20 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
       RoleRevoked: TypedContractEvent<RoleRevokedEvent.InputTuple, RoleRevokedEvent.OutputTuple, RoleRevokedEvent.OutputObject>;
     
 
+      'StageConfigured(uint8,uint256,uint256,uint256,uint256)': TypedContractEvent<StageConfiguredEvent.InputTuple, StageConfiguredEvent.OutputTuple, StageConfiguredEvent.OutputObject>;
+      StageConfigured: TypedContractEvent<StageConfiguredEvent.InputTuple, StageConfiguredEvent.OutputTuple, StageConfiguredEvent.OutputObject>;
+    
+
+      'TgeConfigured(uint256,address)': TypedContractEvent<TgeConfiguredEvent.InputTuple, TgeConfiguredEvent.OutputTuple, TgeConfiguredEvent.OutputObject>;
+      TgeConfigured: TypedContractEvent<TgeConfiguredEvent.InputTuple, TgeConfiguredEvent.OutputTuple, TgeConfiguredEvent.OutputObject>;
+    
+
       'Unpaused(address)': TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
       Unpaused: TypedContractEvent<UnpausedEvent.InputTuple, UnpausedEvent.OutputTuple, UnpausedEvent.OutputObject>;
+    
+
+      'VestingCompleted(address,uint256)': TypedContractEvent<VestingCompletedEvent.InputTuple, VestingCompletedEvent.OutputTuple, VestingCompletedEvent.OutputObject>;
+      VestingCompleted: TypedContractEvent<VestingCompletedEvent.InputTuple, VestingCompletedEvent.OutputTuple, VestingCompletedEvent.OutputObject>;
     
     };
   }

@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 export declare namespace LoanNFTV2 {
       
-    export type CertificateStruct = {loanId: BigNumberish, requestId: BigNumberish, borrower: AddressLike, lender: AddressLike, platform: AddressLike, principal: BigNumberish, collateral: BigNumberish, agreedInterest: BigNumberish, totalScheduledRepayment: BigNumberish, actualRepayment: BigNumberish, certificateValue: BigNumberish, aprBps: BigNumberish, start: BigNumberish, maturity: BigNumberish, completedAt: BigNumberish, completionBlock: BigNumberish, status: BigNumberish, role: BigNumberish, isP2P: boolean, metadataHash: BytesLike}
+    export type CertificateStruct = {loanId: BigNumberish, requestId: BigNumberish, borrower: AddressLike, lender: AddressLike, platform: AddressLike, principal: BigNumberish, collateral: BigNumberish, agreedInterest: BigNumberish, totalScheduledRepayment: BigNumberish, actualRepayment: BigNumberish, certificateValue: BigNumberish, aprBps: BigNumberish, start: BigNumberish, maturity: BigNumberish, completedAt: BigNumberish, completionBlock: BigNumberish, status: BigNumberish, role: BigNumberish, isP2P: boolean, metadataHash: BytesLike, valuationFeed: AddressLike, valuationRoundId: BigNumberish, valuationUpdatedAt: BigNumberish, completionABCDUSDPrice: BigNumberish, formulaVersion: BigNumberish}
 
-    export type CertificateStructOutput = [loanId: bigint, requestId: bigint, borrower: string, lender: string, platform: string, principal: bigint, collateral: bigint, agreedInterest: bigint, totalScheduledRepayment: bigint, actualRepayment: bigint, certificateValue: bigint, aprBps: bigint, start: bigint, maturity: bigint, completedAt: bigint, completionBlock: bigint, status: bigint, role: bigint, isP2P: boolean, metadataHash: string] & {loanId: bigint, requestId: bigint, borrower: string, lender: string, platform: string, principal: bigint, collateral: bigint, agreedInterest: bigint, totalScheduledRepayment: bigint, actualRepayment: bigint, certificateValue: bigint, aprBps: bigint, start: bigint, maturity: bigint, completedAt: bigint, completionBlock: bigint, status: bigint, role: bigint, isP2P: boolean, metadataHash: string }
+    export type CertificateStructOutput = [loanId: bigint, requestId: bigint, borrower: string, lender: string, platform: string, principal: bigint, collateral: bigint, agreedInterest: bigint, totalScheduledRepayment: bigint, actualRepayment: bigint, certificateValue: bigint, aprBps: bigint, start: bigint, maturity: bigint, completedAt: bigint, completionBlock: bigint, status: bigint, role: bigint, isP2P: boolean, metadataHash: string, valuationFeed: string, valuationRoundId: bigint, valuationUpdatedAt: bigint, completionABCDUSDPrice: bigint, formulaVersion: bigint] & {loanId: bigint, requestId: bigint, borrower: string, lender: string, platform: string, principal: bigint, collateral: bigint, agreedInterest: bigint, totalScheduledRepayment: bigint, actualRepayment: bigint, certificateValue: bigint, aprBps: bigint, start: bigint, maturity: bigint, completedAt: bigint, completionBlock: bigint, status: bigint, role: bigint, isP2P: boolean, metadataHash: string, valuationFeed: string, valuationRoundId: bigint, valuationUpdatedAt: bigint, completionABCDUSDPrice: bigint, formulaVersion: bigint }
   
 
     export type MetadataStruct = {uri: string, hash: BytesLike}
@@ -23,14 +23,16 @@ export declare namespace LoanNFTV2 {
     }
 
   export interface LoanNFTV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "DIRECT_COMPLETION_OPERATOR_ROLE" | "MINTER_ROLE" | "P2P_COMPLETION_OPERATOR_ROLE" | "approve" | "balanceOf" | "completionCreated" | "getApproved" | "getCertificate" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "loanCertificate" | "loanCertificates" | "loanManager" | "mintCompletionCertificates" | "name" | "ownerOf" | "platformRecipient" | "renounceRole" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "setStatus" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom"): FunctionFragment;
+    getFunction(nameOrSignature: "COMPLETION_VALUE_FORMULA_VERSION" | "DEFAULT_ADMIN_ROLE" | "DIRECT_COMPLETION_OPERATOR_ROLE" | "MINTER_ROLE" | "P2P_COMPLETION_OPERATOR_ROLE" | "VALUATION_CONFIG_ROLE" | "approve" | "balanceOf" | "completionCreated" | "getApproved" | "getCertificate" | "getRoleAdmin" | "grantRole" | "hasRole" | "isApprovedForAll" | "loanCertificate" | "loanCertificates" | "loanManager" | "mintCompletionCertificates" | "name" | "ownerOf" | "platformRecipient" | "renounceRole" | "revokeRole" | "safeTransferFrom(address,address,uint256)" | "safeTransferFrom(address,address,uint256,bytes)" | "setApprovalForAll" | "setCompletionValuationOracle" | "setStatus" | "supportsInterface" | "symbol" | "tokenURI" | "transferFrom" | "valuationAsset" | "valuationOracle"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "BatchMetadataUpdate" | "CertificateStatusUpdated" | "LoanCertificateCreated" | "MetadataUpdate" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Transfer"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "Approval" | "ApprovalForAll" | "BatchMetadataUpdate" | "CertificateStatusUpdated" | "CompletionValuationConfigured" | "LoanCertificateCreated" | "LoanCertificateValuationRecorded" | "MetadataUpdate" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Transfer"): EventFragment;
 
-    encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'COMPLETION_VALUE_FORMULA_VERSION', values?: undefined): string;
+encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'DIRECT_COMPLETION_OPERATOR_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MINTER_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'P2P_COMPLETION_OPERATOR_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'VALUATION_CONFIG_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'approve', values: [AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'balanceOf', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'completionCreated', values: [BigNumberish]): string;
@@ -52,16 +54,21 @@ encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLi
 encodeFunctionData(functionFragment: 'safeTransferFrom(address,address,uint256)', values: [AddressLike, AddressLike, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'safeTransferFrom(address,address,uint256,bytes)', values: [AddressLike, AddressLike, BigNumberish, BytesLike]): string;
 encodeFunctionData(functionFragment: 'setApprovalForAll', values: [AddressLike, boolean]): string;
+encodeFunctionData(functionFragment: 'setCompletionValuationOracle', values: [AddressLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'setStatus', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'symbol', values?: undefined): string;
 encodeFunctionData(functionFragment: 'tokenURI', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'transferFrom', values: [AddressLike, AddressLike, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'valuationAsset', values?: undefined): string;
+encodeFunctionData(functionFragment: 'valuationOracle', values?: undefined): string;
 
-    decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'COMPLETION_VALUE_FORMULA_VERSION', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'DIRECT_COMPLETION_OPERATOR_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MINTER_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'P2P_COMPLETION_OPERATOR_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'VALUATION_CONFIG_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'approve', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'balanceOf', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'completionCreated', data: BytesLike): Result;
@@ -83,11 +90,14 @@ decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'safeTransferFrom(address,address,uint256)', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'safeTransferFrom(address,address,uint256,bytes)', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setApprovalForAll', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setCompletionValuationOracle', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setStatus', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'symbol', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'tokenURI', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'valuationAsset', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'valuationOracle', data: BytesLike): Result;
   }
 
   
@@ -139,10 +149,34 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
 
   
 
+    export namespace CompletionValuationConfiguredEvent {
+      export type InputTuple = [oracle: AddressLike, asset: AddressLike, configuredBy: AddressLike];
+      export type OutputTuple = [oracle: string, asset: string, configuredBy: string];
+      export interface OutputObject {oracle: string, asset: string, configuredBy: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace LoanCertificateCreatedEvent {
       export type InputTuple = [loanId: BigNumberish, certificateId: BigNumberish, certificateRole: BigNumberish, owner: AddressLike, certificateValue: BigNumberish, metadataURI: string, metadataHash: BytesLike];
       export type OutputTuple = [loanId: bigint, certificateId: bigint, certificateRole: bigint, owner: string, certificateValue: bigint, metadataURI: string, metadataHash: string];
       export interface OutputObject {loanId: bigint, certificateId: bigint, certificateRole: bigint, owner: string, certificateValue: bigint, metadataURI: string, metadataHash: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace LoanCertificateValuationRecordedEvent {
+      export type InputTuple = [loanId: BigNumberish, feed: AddressLike, roundId: BigNumberish, updatedAt: BigNumberish, completionABCDUSDPrice: BigNumberish, certificateValueUSD: BigNumberish, formulaVersion: BigNumberish];
+      export type OutputTuple = [loanId: bigint, feed: string, roundId: bigint, updatedAt: bigint, completionABCDUSDPrice: bigint, certificateValueUSD: bigint, formulaVersion: bigint];
+      export interface OutputObject {loanId: bigint, feed: string, roundId: bigint, updatedAt: bigint, completionABCDUSDPrice: bigint, certificateValueUSD: bigint, formulaVersion: bigint };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -245,6 +279,14 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
 
     
     
+    COMPLETION_VALUE_FORMULA_VERSION: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     DEFAULT_ADMIN_ROLE: TypedContractMethod<
       [],
       [string],
@@ -270,6 +312,14 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
 
     
     P2P_COMPLETION_OPERATOR_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    VALUATION_CONFIG_ROLE: TypedContractMethod<
       [],
       [string],
       'view'
@@ -445,6 +495,14 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
     
 
     
+    setCompletionValuationOracle: TypedContractMethod<
+      [oracle_: AddressLike, asset_: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     setStatus: TypedContractMethod<
       [loanId: BigNumberish, status: BigNumberish, ],
       [void],
@@ -484,10 +542,31 @@ decodeFunctionResult(functionFragment: 'transferFrom', data: BytesLike): Result;
     >
     
 
+    
+    valuationAsset: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
+    valuationOracle: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
-    getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
+    getFunction(nameOrSignature: 'COMPLETION_VALUE_FORMULA_VERSION'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -503,6 +582,11 @@ getFunction(nameOrSignature: 'MINTER_ROLE'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'P2P_COMPLETION_OPERATOR_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'VALUATION_CONFIG_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -612,6 +696,11 @@ getFunction(nameOrSignature: 'setApprovalForAll'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'setCompletionValuationOracle'): TypedContractMethod<
+      [oracle_: AddressLike, asset_: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'setStatus'): TypedContractMethod<
       [loanId: BigNumberish, status: BigNumberish, ],
       [void],
@@ -637,12 +726,24 @@ getFunction(nameOrSignature: 'transferFrom'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'valuationAsset'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'valuationOracle'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 
     getEvent(key: 'Approval'): TypedContractEvent<ApprovalEvent.InputTuple, ApprovalEvent.OutputTuple, ApprovalEvent.OutputObject>;
 getEvent(key: 'ApprovalForAll'): TypedContractEvent<ApprovalForAllEvent.InputTuple, ApprovalForAllEvent.OutputTuple, ApprovalForAllEvent.OutputObject>;
 getEvent(key: 'BatchMetadataUpdate'): TypedContractEvent<BatchMetadataUpdateEvent.InputTuple, BatchMetadataUpdateEvent.OutputTuple, BatchMetadataUpdateEvent.OutputObject>;
 getEvent(key: 'CertificateStatusUpdated'): TypedContractEvent<CertificateStatusUpdatedEvent.InputTuple, CertificateStatusUpdatedEvent.OutputTuple, CertificateStatusUpdatedEvent.OutputObject>;
+getEvent(key: 'CompletionValuationConfigured'): TypedContractEvent<CompletionValuationConfiguredEvent.InputTuple, CompletionValuationConfiguredEvent.OutputTuple, CompletionValuationConfiguredEvent.OutputObject>;
 getEvent(key: 'LoanCertificateCreated'): TypedContractEvent<LoanCertificateCreatedEvent.InputTuple, LoanCertificateCreatedEvent.OutputTuple, LoanCertificateCreatedEvent.OutputObject>;
+getEvent(key: 'LoanCertificateValuationRecorded'): TypedContractEvent<LoanCertificateValuationRecordedEvent.InputTuple, LoanCertificateValuationRecordedEvent.OutputTuple, LoanCertificateValuationRecordedEvent.OutputObject>;
 getEvent(key: 'MetadataUpdate'): TypedContractEvent<MetadataUpdateEvent.InputTuple, MetadataUpdateEvent.OutputTuple, MetadataUpdateEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
 getEvent(key: 'RoleGranted'): TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
@@ -667,8 +768,16 @@ getEvent(key: 'Transfer'): TypedContractEvent<TransferEvent.InputTuple, Transfer
       CertificateStatusUpdated: TypedContractEvent<CertificateStatusUpdatedEvent.InputTuple, CertificateStatusUpdatedEvent.OutputTuple, CertificateStatusUpdatedEvent.OutputObject>;
     
 
+      'CompletionValuationConfigured(address,address,address)': TypedContractEvent<CompletionValuationConfiguredEvent.InputTuple, CompletionValuationConfiguredEvent.OutputTuple, CompletionValuationConfiguredEvent.OutputObject>;
+      CompletionValuationConfigured: TypedContractEvent<CompletionValuationConfiguredEvent.InputTuple, CompletionValuationConfiguredEvent.OutputTuple, CompletionValuationConfiguredEvent.OutputObject>;
+    
+
       'LoanCertificateCreated(uint256,uint256,uint8,address,uint256,string,bytes32)': TypedContractEvent<LoanCertificateCreatedEvent.InputTuple, LoanCertificateCreatedEvent.OutputTuple, LoanCertificateCreatedEvent.OutputObject>;
       LoanCertificateCreated: TypedContractEvent<LoanCertificateCreatedEvent.InputTuple, LoanCertificateCreatedEvent.OutputTuple, LoanCertificateCreatedEvent.OutputObject>;
+    
+
+      'LoanCertificateValuationRecorded(uint256,address,uint80,uint48,uint256,uint256,uint8)': TypedContractEvent<LoanCertificateValuationRecordedEvent.InputTuple, LoanCertificateValuationRecordedEvent.OutputTuple, LoanCertificateValuationRecordedEvent.OutputObject>;
+      LoanCertificateValuationRecorded: TypedContractEvent<LoanCertificateValuationRecordedEvent.InputTuple, LoanCertificateValuationRecordedEvent.OutputTuple, LoanCertificateValuationRecordedEvent.OutputObject>;
     
 
       'MetadataUpdate(uint256)': TypedContractEvent<MetadataUpdateEvent.InputTuple, MetadataUpdateEvent.OutputTuple, MetadataUpdateEvent.OutputObject>;

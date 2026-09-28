@@ -79,7 +79,7 @@ through its own approved process.
 | LEG-29 | Who may update `metadataURI` if mutable? | Unspecified. | Dedicated metadata role; registry; multisig admin; nobody. | Role must preserve auditable provenance. | APPROVED |
 | LEG-30 | What provenance events are required? | Client asks hierarchy; PDF no Legion event schema. | Owner-approved event set. | At minimum decide mint, hierarchy link, transfer, metadata, status, and pause events. | APPROVED |
 | LEG-31 | Must historical parent relationships remain permanently queryable? | Unspecified. | Yes immutable history; event-only; other. | Preserve parent relationship provenance to make hierarchy auditable. | APPROVED |
-| LEG-32 | Is Marketplace integration part of Legion? | Client asks transferable; no marketplace rule. | No integration; standard ownership only; dedicated future integration. | Keep OUT OF SCOPE absent approval. | REJECTED / OUT OF SCOPE |
+| LEG-32 | Is Marketplace integration part of Legion? | Client asks transferable; no marketplace rule. | No integration; standard ownership only; dedicated future integration. | **AMENDED:** only the owner-approved Phase 10B controlled-settlement extension is permitted for canonical Country/State/District `LegionNFTV2` tokens. No generic Marketplace integration follows. See the Phase 10B amendment approval and targeted-buyer decision records. | AMENDED — LIMITED PHASE 10B EXCEPTION |
 | LEG-33 | May a marketplace merely consume standard ERC-721 ownership without Legion-specific logic? | Unspecified. | No; yes; later approved integration. | Requires transfer model first; no automatic connection. | APPROVED |
 | LEG-34 | Does Legion have commission/revenue logic? | No approved economics. | Out of scope; separately approve full economics. | Keep OUT OF SCOPE. | REJECTED / OUT OF SCOPE |
 | LEG-35 | Does Legion integrate with Treasury? | No approved Treasury rule. | Out of scope; separately approve. | Keep OUT OF SCOPE. | REJECTED / OUT OF SCOPE |
@@ -112,7 +112,7 @@ client/owner requirements, not whitepaper-defined Legion rules.
 | Pause | `PAUSER_ROLE`; pausing blocks all Legion state changes: single/batch mints, transfer request/approval/execution, metadata mutation, and lifecycle mutation. Reads remain available. Pause/unpause preserves historical data. |
 | Transfers | Registry/admin-controlled only; current owner requests, authorized Registry/administrator approves, execution consumes the request, and stale/replayed/direct-bypass transfers revert. Parent and child remain independently owned; parent transfer never transfers a child. |
 | Burn | No public burn. Any administrative burn requires a separate owner decision. |
-| Financial/marketplace | No financial logic and no Legion Marketplace logic are introduced. Franchise remains independent. |
+| Financial/marketplace | No general financial logic or Legion Marketplace logic is introduced. The sole exception is the separately owner-approved Phase 10B targeted-buyer controlled settlement: an authorized settlement authority may execute only a correctly correlated, already-approved LEG-44 request for atomic exact-ABCD payment and transfer. Franchise remains independent. |
 
 ### New execution-value decisions
 
@@ -125,8 +125,9 @@ client/owner requirements, not whitepaper-defined Legion rules.
 
 ## Decision counts
 
-- APPROVED: **39** (LEG-01…LEG-44, excluding five out-of-scope decisions)
-- REJECTED / OUT OF SCOPE: **5**
+- APPROVED: **39** (LEG-01…LEG-44, excluding five original out-of-scope decisions)
+- AMENDED: **1** (LEG-32; limited Phase 10B controlled-settlement exception)
+- REJECTED / OUT OF SCOPE: **4**
 - UNDECIDED: **0**
 
 ## Final status

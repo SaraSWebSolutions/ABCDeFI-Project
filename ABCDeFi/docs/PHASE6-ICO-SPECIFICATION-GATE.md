@@ -1,6 +1,23 @@
 # Phase 6 - ICO Specification Gate
 
-Status: specification only. No ICO is authorized, deployed, configured, or active.
+> **HISTORICAL / SUPERSEDED SPECIFICATION GATE — NOT CURRENT PHASE 6 STATUS**
+>
+> This pre-owner-decision gate is retained to preserve the original whitepaper
+> and 1B-model conflict analysis. Its statements that no ICO is authorized,
+> deployed, configured, or active were true when written but are superseded by
+> `PHASE6-ICO-OWNER-PROTOCOL-SPECIFICATION.md` and the later local validation.
+> Current Phase 6 status is **ACTIVE — UNLOCKED**; this file is not a final
+> lock record.
+
+Status at the time of this historical gate: specification only. No ICO was
+authorized, deployed, configured, or active.
+
+> **Historical cross-reference:** a prior reconciliation in this file referred
+> to the requirements audit as the current owner-review document and described
+> the Community-funded candidate as conflicting with unresolved decisions. That
+> was a pre-approval snapshot. It is now superseded by the owner-approved
+> specification and local implementation validation; it remains preserved in
+> `PHASE6-ICO-REQUIREMENTS-AUDIT.md` as historical analysis.
 
 Primary source: *ABCDeFi 21 Jan 2022 White Paper*, historically tracked at `ABCDeFi-backup-before-1B/backend/backend/uploads/1774005908823-853736633-abcedefi 21st jan 2022 white paper.pdf` (git blob `86f42a271b0d118400fc49683d5b6c5db591df60`). Page references use printed PDF pages.
 
@@ -91,8 +108,8 @@ Do not implement or activate ICO. Obtain only these owner approvals: (1) whether
 
 Until then, `saleEnabled` remains false and `scripts/deploy-ico.ts` remains disabled.
 
-PHASE 5 STATUS:
-BSC TESTNET DEPLOYMENT BLOCKED - WAITING FOR TESTNET GAS
+HISTORICAL PHASE 6 STATUS AT THE TIME OF THIS GATE:
+SPECIFICATION AUDIT COMPLETE — IMPLEMENTATION NOT STARTED
 
-PHASE 6 STATUS:
-KEEP OPEN - SPECIFICATION/ALLOCATION GATE
+HISTORICAL IMPLEMENTATION READINESS:
+READY FOR OWNER REVIEW

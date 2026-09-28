@@ -3,13 +3,16 @@
 /* eslint-disable */
 export { IABCDNFTMarketplaceV2__factory } from './IABCDNFTMarketplaceV2__factory.js';
 export { IABCDToken__factory } from './IABCDToken__factory.js';
+export { IABCDTokenV2__factory } from './IABCDTokenV2__factory.js';
 export { IBarterNFT__factory } from './IBarterNFT__factory.js';
 export { IBonusManager__factory } from './IBonusManager__factory.js';
 export { ICollateralVault__factory } from './ICollateralVault__factory.js';
 export { IEMIManager__factory } from './IEMIManager__factory.js';
 export { IFranchiseNFT__factory } from './IFranchiseNFT__factory.js';
+export { IFranchiseNFTV2__factory } from './IFranchiseNFTV2__factory.js';
 export { IGuruNFT__factory } from './IGuruNFT__factory.js';
 export { ILegionCredentialV2__factory } from './ILegionCredentialV2__factory.js';
+export { ILegionMarketplaceSettlementAdapterV2__factory } from './ILegionMarketplaceSettlementAdapterV2__factory.js';
 export { ILegionNFTV2__factory } from './ILegionNFTV2__factory.js';
 export { ILendingPool__factory } from './ILendingPool__factory.js';
 export { ILiquidation__factory } from './ILiquidation__factory.js';
@@ -23,3 +26,4 @@ export { IReferralManager__factory } from './IReferralManager__factory.js';
 export { IReputationNFT__factory } from './IReputationNFT__factory.js';
 export { ITokenVesting__factory } from './ITokenVesting__factory.js';
 export { ITreasury__factory } from './ITreasury__factory.js';
+export { ITreasuryV2__factory } from './ITreasuryV2__factory.js';

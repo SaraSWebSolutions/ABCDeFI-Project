@@ -129,7 +129,14 @@ contract LendingPoolV2 is AccessControl, Pausable, ReentrancyGuard {
         internal returns (uint256 loanId)
     {
         require(principal != 0 && collateral != 0, "zero amount");
-        require(principal <= maxBorrowable(collateral), "ltv exceeded");
+        // Origination is a price-dependent write. Record the exact fresh
+        // validated snapshots rather than relying solely on a frontend/view
+        // quote; missing or circuit-broken feed policy therefore fails closed.
+        OracleAdapterV2.PriceSnapshot memory ethSnapshot = oracle.snapshotPriceUSD(ETH_ASSET);
+        OracleAdapterV2.PriceSnapshot memory abcdSnapshot = oracle.snapshotPriceUSD(address(abcd));
+        uint256 collateralUSD = collateral * ethSnapshot.priceUSD / 1e18;
+        uint256 maxPrincipal = collateralUSD * MAX_INITIAL_LTV_BPS / BPS * 1e18 / abcdSnapshot.priceUSD;
+        require(principal <= maxPrincipal, "ltv exceeded");
         require(liquidity >= principal, "insufficient liquidity");
         uint16 aprBps = loanManager.newLoanAprBps();
         loanId = loanManager.create(msg.sender, address(this), collateral, principal, aprBps, term);

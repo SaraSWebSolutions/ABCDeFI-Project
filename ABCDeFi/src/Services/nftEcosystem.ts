@@ -1,5 +1,15 @@
+/**
+ * Historical/non-canonical NFT V1 service.
+ *
+ * It remains only as preserved implementation evidence for the legacy
+ * Participant/Guru/Reputation/NFTMarketplace stack. Canonical User and Admin
+ * surfaces must use LoanNFTV2, LegionNFTV2, Franchise V2, Phase 10A, and
+ * Phase 10B deployment-scoped APIs instead; do not import this service into a
+ * canonical dashboard or read model.
+ */
 import { Contract, formatEther, Interface, isAddress, parseEther, Signer } from 'ethers';
 import { CONTRACTS, DEPLOYMENT_CHAIN_ID, requireContractAddress } from '../Config/contracts';
+import { canonicalDeploymentContext } from '../Config/canonicalDeploymentContext';
 import { getSigner } from './wallet';
 import { provider as canonicalProvider } from './contractProvider';
 import ParticipantArtifact from '../../artifacts/contracts/nft/ParticipantNFT.sol/ParticipantNFT.json';
@@ -7,7 +17,6 @@ import ReputationArtifact from '../../artifacts/contracts/nft/ReputationNFT.sol/
 import GuruArtifact from '../../artifacts/contracts/nft/GuruNFT.sol/GuruNFT.json';
 import LoanArtifact from '../../artifacts/contracts/nft/LoanNFT.sol/LoanNFT.json';
 import MarketplaceArtifact from '../../artifacts/contracts/marketplace/NFTMarketplace.sol/NFTMarketplace.json';
-import deploymentManifest from '../../deployments.json';
 
 export interface MarketplaceListing { listingId: string; nftAddress: string; tokenId: string; seller: string; priceEth: string; active: boolean; }
 export interface ReputationSnapshot { tokenId: string; creditScore: string; totalLoansCount: string; totalDefaultsCount: string; metadataUri: string; }
@@ -74,7 +83,7 @@ export async function assertNftMarketplaceBytecode(
   const address = marketplaceAddress();
   const bytecode = await deploymentProvider.getCode(address);
   if (!isDeployedBytecode(bytecode)) {
-    throw new Error(`No NFTMarketplace bytecode exists at ${address} on Hardhat Local (31337). The active local chain does not match deployments.json.`);
+    throw new Error(`No NFTMarketplace bytecode exists at ${address} on Hardhat Local (31337). The active local chain does not match the selected canonical deployment.`);
   }
 }
 
@@ -89,7 +98,7 @@ export async function assertLoanNftDeployment(
   const address = loanAddress();
   const bytecode = await deploymentProvider.getCode(address);
   if (!isDeployedBytecode(bytecode)) {
-    throw new Error(`No LoanNFT bytecode exists at ${address} on Hardhat Local (31337). The active local chain does not match deployments.json.`);
+    throw new Error(`No LoanNFT bytecode exists at ${address} on Hardhat Local (31337). The active local chain does not match the selected canonical deployment.`);
   }
 }
 
@@ -198,8 +207,8 @@ export async function getNftEcosystemSnapshot(walletAddress: string): Promise<Nf
     participant.balanceOf(walletAddress), reputation.getUserTokenId(walletAddress), guru.balanceOf(walletAddress), marketplace.getAllActiveListings(), marketplace.marketplaceFeeBps(),
     participant.MINTER_NFT_ROLE(), guru.MINTER_NFT_ROLE(),
   ]);
-  const participantBlock = Number(deploymentManifest.contracts.ParticipantNFT.deploymentBlock);
-  const guruBlock = Number(deploymentManifest.contracts.GuruNFT.deploymentBlock);
+  const participantBlock = canonicalDeploymentContext.root.deploymentBlock;
+  const guruBlock = canonicalDeploymentContext.root.deploymentBlock;
   const ownedTokenIds = async (contract: Contract, deploymentBlock: number) => {
     const received = await contract.queryFilter(contract.filters.Transfer(null, walletAddress), deploymentBlock, 'latest');
     const ids = [...new Set(received.map((event: any) => BigInt(event.args?.tokenId ?? event.args?.[2]).toString()))].map(BigInt);
@@ -441,20 +450,14 @@ export async function updateNftListingPrice(listingIdInput: string, newPriceEth:
   return waitForNftMarketplaceReceipt(await transaction.wait(), 'Listing price update');
 }
 
-// Compatibility exports for the inactive governance portal. They are legacy
-// display policy data, not inputs to the active on-chain NFT route above.
+// Legacy marketplace display policy data. These are not inputs to the active
+// on-chain NFT route above.
 export interface FeeDiscountTier { tierName: string; minReputationScore: number; feeDiscountPercent: number; effectiveTradingFeeBps: number; badge: string; }
 export const MARKETPLACE_FEE_TIERS: FeeDiscountTier[] = [
   { tierName: 'Standard User', minReputationScore: 300, feeDiscountPercent: 0, effectiveTradingFeeBps: 250, badge: 'Bronze' },
   { tierName: 'Silver Member', minReputationScore: 580, feeDiscountPercent: 15, effectiveTradingFeeBps: 212, badge: 'Silver' },
   { tierName: 'Gold Supporter', minReputationScore: 670, feeDiscountPercent: 50, effectiveTradingFeeBps: 125, badge: 'Gold' },
   { tierName: 'Platinum / Diamond VIP', minReputationScore: 800, feeDiscountPercent: 100, effectiveTradingFeeBps: 0, badge: 'VIP' },
-];
-export interface AirdropCampaign { id: string; title: string; description: string; rewardType: 'NFT' | 'Tokens' | 'Dual NFT + Token'; rewardAmount: string; snapshotDate: string; eligibilityCriteria: string; totalPoolAllocated: string; totalClaimed: string; status: 'Active' | 'Scheduled' | 'Ended'; icon: string; }
-export const AIRDROP_CAMPAIGNS: AirdropCampaign[] = [
-  { id: 'AIRDROP-GENESIS-01', title: 'Legion Genesis Founder NFT Drop', description: 'Legacy governance display content.', rewardType: 'Dual NFT + Token', rewardAmount: '1x Genesis Legion NFT + 2,500 ABCD', snapshotDate: 'Jul 01, 2026', eligibilityCriteria: 'Unavailable — no current eligibility rule is configured', totalPoolAllocated: '1,000 NFTs + 2.5M ABCD', totalClaimed: '420 / 1,000 (42%)', status: 'Active', icon: '🪂' },
-  { id: 'AIRDROP-GOV-02', title: 'Governance Pioneer Loyalty Token Airdrop', description: 'Legacy governance display content.', rewardType: 'Tokens', rewardAmount: '1,000 ABCD', snapshotDate: 'Jul 15, 2026', eligibilityCriteria: 'Voted on at least two proposals', totalPoolAllocated: '500,000 ABCD', totalClaimed: '185,000 / 500,000 (37%)', status: 'Active', icon: '🗳️' },
-  { id: 'AIRDROP-SEASON-03', title: 'Season 2 Financial Education Mastery Drop', description: 'Legacy governance display content.', rewardType: 'NFT', rewardAmount: '1x Scholar Master NFT Certificate', snapshotDate: 'Aug 15, 2026', eligibilityCriteria: '100% score on quiz exams', totalPoolAllocated: '500 Certificates', totalClaimed: '0 / 500 (0%)', status: 'Scheduled', icon: '🎓' },
 ];
 export interface GiftAndBarterRulesConfig { giftMinLockDays: number; giftYieldApyPct: number; barterMaxValuationSpreadPct: number; barterEscrowLockHours: number; antiScamEscrowRequired: boolean; }
 export const PROTOCOL_GIFT_BARTER_RULES: GiftAndBarterRulesConfig = { giftMinLockDays: 7, giftYieldApyPct: 8.5, barterMaxValuationSpreadPct: 10, barterEscrowLockHours: 24, antiScamEscrowRequired: true };

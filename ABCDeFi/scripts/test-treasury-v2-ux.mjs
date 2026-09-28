@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const service = fs.readFileSync(new URL('../src/Services/treasuryV2.ts', import.meta.url), 'utf8');
+const dashboard = fs.readFileSync(new URL('../src/components/TreasuryV2Dashboard.tsx', import.meta.url), 'utf8');
+const shell = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+assert.match(service, /\/api\/treasury-v2/);
+assert.match(service, /\/history/);
+assert.match(service, /Number\(left\.blockNumber\) - Number\(right\.blockNumber\)/);
+assert.match(service, /UNAVAILABLE/);
+assert.match(dashboard, /No allocation, distribution, yield, Reserve routing, or public withdrawal/);
+assert.match(shell, /TreasuryV2Dashboard/);
+assert.match(shell, /activeTab === 'treasury-v2' && <TreasuryV2Dashboard/);
+assert.match(dashboard, /No allocation, distribution, yield, Reserve routing, or public withdrawal is available/);
+assert.match(dashboard, /Treasury History/);
+assert.match(dashboard, /treasury-history-event/);
+assert.match(dashboard, /Block \{event\.blockNumber\} · log \{event\.logIndex\}/);
+assert.match(dashboard, /Transaction:/);
+console.log('TreasuryV2 canonical dashboard checks passed');

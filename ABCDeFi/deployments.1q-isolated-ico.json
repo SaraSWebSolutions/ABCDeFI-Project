@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "model": "OWNER_APPROVED_1Q_ICO_V3",
+  "localOnly": true,
+  "chainId": 31337,
+  "rootDeploymentVersion": "abcd-1q-local-0x7c98f09e79f0ac6031299913900f54660676f2c78d4cee8e71ef1358de0e4e37",
+  "deploymentVersion": "ico-v3-1q-local-0x689705a2073677da460ec59f2113aafbf3b86d7b1c213b6f1fde177ad3420b83",
+  "contracts": {
+    "ABCDTokenV2": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    },
+    "ICOManagerV3": {
+      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0"
+    },
+    "MockAggregatorV3V2_BNB_USD": {
+      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+    }
+  },
+  "custody": {
+    "icoWallet": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "initialAllocation": "200000000000000000000000000000000",
+    "saleInventory": "50000000000000000000000000",
+    "remainingAfterFunding": "199999950000000000000000000000000",
+    "fundingTransactionHash": "0x689705a2073677da460ec59f2113aafbf3b86d7b1c213b6f1fde177ad3420b83",
+    "fundingBlock": 4
+  },
+  "stages": [
+    {
+      "inventory": "25000000000000000000000000",
+      "priceUsdWad": "8000000000000000"
+    },
+    {
+      "inventory": "25000000000000000000000000",
+      "priceUsdWad": "10000000000000000"
+    }
+  ]
+}

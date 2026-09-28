@@ -1,6 +1,6 @@
 import { Contract, formatEther, isAddress, keccak256, parseEther, toUtf8Bytes } from "ethers";
 import { CONTRACTS, DEPLOYMENT_CHAIN_ID } from "../Config/contracts";
-import ABCDTokenArtifact from "../../artifacts/contracts/token/ABCDToken.sol/ABCDToken.json";
+import ABCDTokenArtifact from "../../artifacts/contracts/token/ABCDTokenV2.sol/ABCDTokenV2.json";
 import { getCanonicalReadContract } from "./contractProvider";
 import { getSigner, getWalletAddress } from "./wallet";
 
@@ -69,7 +69,10 @@ export async function getABCDTokenState(): Promise<ABCDTokenState> {
     contract.decimals(),
     contract.totalSupply(),
     contract.maxSupply(),
-    contract.isPaused(),
+    // ABCDTokenV2 inherits OpenZeppelin Pausable, whose canonical read
+    // getter is `paused()`.  Do not use the legacy ABCDToken `isPaused()`
+    // compatibility getter here: it is absent from the 1Q token ABI.
+    contract.paused(),
   ]);
   return {
     name,

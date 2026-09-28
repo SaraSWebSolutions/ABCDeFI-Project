@@ -10,8 +10,8 @@ import ToastContainer, { ToastMessage } from './ToastContainer';
 import Web3ActionModal from './Web3ActionModal';
 import AdminSecurityConfirmationModal from './AdminSecurityConfirmationModal';
 import ICOAdmin from './ICOAdmin';
-import { AdminNftIssuance } from './AdminNftIssuance';
 import { AdminAuthenticationDiagnostics } from './AdminAuthenticationDiagnostics';
+import { CanonicalAdminDashboard } from './CanonicalAdminDashboard';
 import { useAuth } from '../Context/AuthContext';
 
 export interface AdminUserRole {
@@ -21,10 +21,10 @@ export interface AdminUserRole {
 }
 
 /**
- * Active administrator route. Only ICOAdmin currently has a canonical
- * deployments.json -> contract -> signer path. The former broad operations
- * dashboard remains below as isolated legacy code; it must not present its
- * mock API metrics as live protocol data.
+ * Active administrator route. The Phase 12 console is manifest/indexer-bound
+ * and exposes no synthetic power. The former broad operations dashboard
+ * remains below as isolated legacy code and must not present mock metrics as
+ * canonical protocol data.
  */
 export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> = ({ onOpenUserDashboard }) => {
   const { user, sessionVerified } = useAuth();
@@ -50,12 +50,14 @@ export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> =
     <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 text-sm text-amber-100">
       <h1 className="font-bold">Canonical admin controls</h1>
       <p className="mt-1 text-amber-100/80">
-        Presale administration and role-protected Franchise/Legion NFT issuance are available in this local runtime. They read the canonical
-        deployment manifest and use the connected MetaMask account for authorized writes.
+        The dashboard reads canonical manifests, indexers, and the connected
+        wallet's existing module-local roles. It does not create a universal
+        Admin blockchain role.
       </p>
       <p className="mt-2 text-xs text-amber-100/70">
-        Application administrator access does not grant any on-chain role. Every write independently checks the connected signer’s
-        contract permission and waits for a real receipt. The canonical ICO remains inactive because no approved sale inventory exists.
+        Application administrator access does not grant any on-chain role. Any
+        future supported write independently checks the connected signer,
+        receipt, expected event, indexer, API, and dashboard reconciliation.
       </p>
       <p className="mt-2 text-xs text-amber-100/70">
         TVL, revenue, user counts, KYC, AML, generic analytics, support, and fabricated loan metrics are unavailable
@@ -63,8 +65,7 @@ export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> =
       </p>
     </div>
     <AdminAuthenticationDiagnostics />
-    <ICOAdmin />
-    <AdminNftIssuance />
+    <CanonicalAdminDashboard />
   </section>
   );
 };
@@ -184,10 +185,6 @@ const LegacyAdminPortalEngine: React.FC = () => {
 
   const [supportTicketsList, setSupportTicketsList] = useState([
     { id: 'TCK-801', user: 'dinesh@abcdefi.com', subject: 'KYC Document Verification Delay', priority: 'High', assignee: 'Compliance Support', status: 'Open' },
-  ]);
-
-  const [daoProposalsList, setDaoProposalsList] = useState([
-    { id: 'PROP-106', title: 'Lower Minimum Collateral Ratio from 150% to 135%', proposer: 'dinesh.eth', votesFor: '84.2% (1.2M ABCD)', votesAgainst: '15.8% (225k ABCD)', status: 'Active', timelock: '24 Hours' },
   ]);
 
   const [contractsList, setContractsList] = useState([
@@ -347,7 +344,6 @@ const LegacyAdminPortalEngine: React.FC = () => {
     { id: 'credit-mgmt',  label: 'Credit Score Mgmt',     icon: Star },
     { id: 'ipfs-storage', label: 'IPFS Storage',          icon: HardDrive },
     { id: 'risk',         label: 'Risk Management',       icon: AlertTriangle },
-    // { id: 'governance',   label: 'DAO Governance',        icon: Key },
     { id: 'support',      label: 'Support Center',        icon: MessageSquare },
     { id: 'analytics',    label: 'Analytics',             icon: Activity },
     { id: 'notifications',label: 'Notifications',         icon: Bell },
@@ -818,37 +814,6 @@ const LegacyAdminPortalEngine: React.FC = () => {
               </div>
             </div>
           )}
-
-          {/* 8. DAO GOVERNANCE */}
-          {/* {activeRoute === 'governance' && (
-            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 shadow-xl">
-              <div className="flex justify-between items-center border-b border-slate-800 pb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-white uppercase tracking-wider">DAO Timelock & Governance Proposals</h2>
-                  <p className="text-xs text-slate-400">Approve, execute, or veto active DAO governance proposals.</p>
-                </div>
-              </div>
-
-              <div className="space-y-3 text-xs">
-                {daoProposalsList.map((p) => (
-                  <div key={p.id} className="p-4 bg-slate-950 border border-slate-800 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div>
-                      <div className="font-bold text-white text-sm">{p.id}: {p.title}</div>
-                      <div className="text-[10px] text-slate-400">Proposer: {p.proposer} • For: {p.votesFor} • Against: {p.votesAgainst}</div>
-                    </div>
-                    <button
-                      onClick={() => triggerSecurityAction(`Execute Proposal ${p.id}`, `Execute proposal ${p.id} via DAO timelock.`, () => {
-                        setDaoProposalsList((prev) => prev.map((item) => item.id === p.id ? { ...item, status: 'Executed ⚡' } : item));
-                      })}
-                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs cursor-pointer"
-                    >
-                      Execute Proposal ⚡
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )} */}
 
           {/* 9. SUPPORT CENTER */}
           {activeRoute === 'support' && (

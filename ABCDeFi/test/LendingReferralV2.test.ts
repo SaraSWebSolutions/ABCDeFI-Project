@@ -105,6 +105,56 @@ describe("LendingReferralManagerV2", () => {
     await expect(referral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.be.revertedWith("rewards stopped");
   });
 
+  it("rejects referral claims for a residual-debt loan without changing referral accounting", async () => {
+    const Fixture = await hh.ethers.getContractFactory("ReferralLoanManagerFixture");
+    const fixture = await Fixture.deploy();
+    const Referral = await hh.ethers.getContractFactory("LendingReferralManagerV2");
+    const residualReferral = await Referral.deploy(admin.address, await token.getAddress(), await fixture.getAddress(), admin.address);
+    await token.approve(await residualReferral.getAddress(), ethers.MaxUint256);
+    await residualReferral.connect(borrowerReferrer).createReferralCode("RESIDUAL-REF");
+    await residualReferral.connect(borrower).bindReferrer("RESIDUAL-REF");
+    const start = (await hh.ethers.provider.getBlock("latest"))!.timestamp;
+    const loan = {
+      borrower: borrower.address, lender: lender.address, collateralETH: ethers.parseEther("1"), principal: ethers.parseEther("100"),
+      principalOutstanding: ethers.parseEther("100"), accruedInterest: 0, fees: 0, aprBps: DIRECT_ETH_APR_BPS,
+      start, lastAccrual: start, maturity: start + 90 * DAY, graceEnd: start + 97 * DAY, marginCallAt: 0,
+      marginCallCureEnd: 0, state: 0, lateFeeAssessed: false, reserveContribution: 0, badDebt: 0, totalRepaid: 0, isP2P: false,
+    };
+    await fixture.setLoan(1, loan);
+    await residualReferral.registerLoan(1, 0, false);
+    await fixture.setLoan(1, { ...loan, state: 7, badDebt: ethers.parseEther("1") });
+    const before = await residualReferral.getLoanReferral(1, borrower.address);
+    await expect(residualReferral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.be.revertedWith("reward unavailable");
+    const after = await residualReferral.getLoanReferral(1, borrower.address);
+    expect(after.paidPeriods).eq(before.paidPeriods);
+    expect(after.totalRewards).eq(before.totalRewards);
+  });
+
+  it("rejects referral claims for a liquidated loan without changing referral accounting", async () => {
+    const Fixture = await hh.ethers.getContractFactory("ReferralLoanManagerFixture");
+    const fixture = await Fixture.deploy();
+    const Referral = await hh.ethers.getContractFactory("LendingReferralManagerV2");
+    const liquidatedReferral = await Referral.deploy(admin.address, await token.getAddress(), await fixture.getAddress(), admin.address);
+    await token.approve(await liquidatedReferral.getAddress(), ethers.MaxUint256);
+    await liquidatedReferral.connect(borrowerReferrer).createReferralCode("LIQUIDATED-REF");
+    await liquidatedReferral.connect(borrower).bindReferrer("LIQUIDATED-REF");
+    const start = (await hh.ethers.provider.getBlock("latest"))!.timestamp;
+    const loan = {
+      borrower: borrower.address, lender: lender.address, collateralETH: ethers.parseEther("1"), principal: ethers.parseEther("100"),
+      principalOutstanding: ethers.parseEther("100"), accruedInterest: 0, fees: 0, aprBps: DIRECT_ETH_APR_BPS,
+      start, lastAccrual: start, maturity: start + 90 * DAY, graceEnd: start + 97 * DAY, marginCallAt: 0,
+      marginCallCureEnd: 0, state: 0, lateFeeAssessed: false, reserveContribution: 0, badDebt: 0, totalRepaid: 0, isP2P: false,
+    };
+    await fixture.setLoan(1, loan);
+    await liquidatedReferral.registerLoan(1, 0, false);
+    await fixture.setLoan(1, { ...loan, state: 4 });
+    const before = await liquidatedReferral.getLoanReferral(1, borrower.address);
+    await expect(liquidatedReferral.connect(borrowerReferrer).claimAccruedReward(1, borrower.address)).to.be.revertedWith("rewards stopped");
+    const after = await liquidatedReferral.getLoanReferral(1, borrower.address);
+    expect(after.paidPeriods).eq(before.paidPeriods);
+    expect(after.totalRewards).eq(before.totalRewards);
+  });
+
   it("does not accrue a reward when the approved marketing allocation is insufficient", async () => {
     await referral.connect(borrowerReferrer).createReferralCode("FUNDS-REF");
     await referral.connect(borrower).bindReferrer("FUNDS-REF");

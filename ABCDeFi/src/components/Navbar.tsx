@@ -12,7 +12,6 @@ import {
   AlertCircle,
   User,
   LogOut,
-  Shield,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -67,7 +66,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setActiveTab, onOpenKyc, onOpenA
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-900/80 text-slate-300 border border-slate-800 hover:border-slate-700 transition"
               >
                 <Globe className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{chain.split(' ')[0]}</span>
+                <span>{chain}</span>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
               </button>
 
@@ -180,13 +179,13 @@ export const Navbar: React.FC<NavbarProps> = ({ setActiveTab, onOpenKyc, onOpenA
                     
                     <button
                       onClick={() => {
-                        setActiveTab('security');
+                        setActiveTab('profile');
                         setShowProfileMenu(false);
                       }}
                       className="w-full flex items-center gap-2 px-2.5 py-1.5 mb-1 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition text-xs font-medium cursor-pointer"
                     >
-                      <Shield className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Security & 2FA Settings</span>
+                      <User className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Profile</span>
                     </button>
 
                     {canAccessAdmin && (

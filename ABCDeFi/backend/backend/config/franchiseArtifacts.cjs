@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { isOneQLocalSelected } = require('./runtimeFamily.cjs');
 
 function artifact(relativePath) {
   const artifactPath = path.resolve(__dirname, '../../..', relativePath);
@@ -10,6 +11,7 @@ function artifact(relativePath) {
 }
 
 function loadFranchiseArtifacts() {
+  if (isOneQLocalSelected()) throw new Error('Legacy Franchise artifacts are not available in 1Q_LOCAL; use Franchise V2 artifacts.');
   return Object.freeze({
     nft: artifact('artifacts/contracts/nft/FranchiseNFT.sol/FranchiseNFT.json'),
     registry: artifact('artifacts/contracts/nft/FranchiseRegistry.sol/FranchiseRegistry.json'),

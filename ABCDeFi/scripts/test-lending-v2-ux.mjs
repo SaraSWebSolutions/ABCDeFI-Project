@@ -8,18 +8,44 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import * as ethers from 'ethers';
 
+// The browser runtime refuses implicit deployment selection. This isolated
+// renderer therefore supplies the same explicit 1Q selection as Vite.
+process.env.VITE_ABCDEFI_RUNTIME_FAMILY = '1Q_LOCAL';
+
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..');
+// Mirror Vite's explicit 1Q manifest aliases for this Node-only renderer.
+// It never falls back to a historical manifest or substitutes mock contracts.
+const selectedManifest = path.resolve(root, process.env.VITE_ABCDEFI_1Q_UNIFIED_MANIFEST_PATH || '.e2e-runtime/oneq-persistence-v1/manifests/unified.json');
+if (!fs.existsSync(selectedManifest)) throw new Error(`Canonical 1Q manifest is unavailable for Lending UX tests: ${selectedManifest}`);
+process.env.VITE_ABCDEFI_1Q_UNIFIED_MANIFEST_PATH = path.relative(root, selectedManifest).replace(/\\/g, '/');
+const unifiedManifest = JSON.parse(fs.readFileSync(selectedManifest, 'utf8'));
+const childManifest = name => {
+  const entry = unifiedManifest.childManifests?.[name];
+  if (!entry?.path) throw new Error(`Canonical 1Q ${name} manifest is unavailable for Lending UX tests.`);
+  return require(entry.path);
+};
+const manifestAliases = {
+  '@abcdefi/oneq-unified-manifest': unifiedManifest,
+  '@abcdefi/oneq-root-manifest': childManifest('root'),
+  '@abcdefi/oneq-ico-manifest': childManifest('ico'),
+  '@abcdefi/oneq-lending-manifest': childManifest('lending'),
+  '@abcdefi/oneq-legion-manifest': childManifest('legion'),
+  '@abcdefi/oneq-franchise-manifest': childManifest('franchise'),
+  '@abcdefi/oneq-marketplace10A-manifest': childManifest('marketplace10A'),
+  '@abcdefi/oneq-marketplace10B-manifest': childManifest('marketplace10B'),
+};
 function load(relative, overrides = {}, expose = '') {
   const absolute = path.resolve(root, relative);
   const code = ts.transpileModule(fs.readFileSync(absolute, 'utf8') + expose, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   const module = { exports: {} };
   const localRequire = spec => {
     if (Object.hasOwn(overrides, spec)) return overrides[spec];
+    if (Object.hasOwn(manifestAliases, spec)) return manifestAliases[spec];
     if (!spec.startsWith('.')) return require(spec);
     const base = path.resolve(path.dirname(absolute), spec);
     if (base.endsWith('.json')) return require(base);
-    const file = ['.ts', '.tsx', '.js', ''].map(ext => base + ext).find(file => fs.existsSync(file));
+    const file = ['.ts', '.tsx', '.js', '.mjs', ''].map(ext => base + ext).find(file => fs.existsSync(file));
     return load(path.relative(root, file), overrides);
   };
   new Function('require', 'module', 'exports', code)(localRequire, module, module.exports);
@@ -69,6 +95,16 @@ test('Direct Lending UI and service do not expose a removed crypto late-fee char
   assert.doesNotMatch(service, /previewLateFee|LATE_FEE_BPS|lateFeeBps|lateFee/);
 });
 
+test('Direct Lending displays the canonical partial-sale execution read without treating local configuration as production policy', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(service, /partialLiquidationExecution = saleAdapter === ZeroAddress/);
+  assert.match(source, /p\.partialLiquidationExecution === 'CONFIGURED'/);
+  assert.match(source, /Configured — local test-only; not production policy/);
+  assert.match(source, /Not configured — fail closed/);
+  assert.doesNotMatch(source, /label="Partial-sale execution" value="Not configured — fail closed"/);
+});
+
 test('terminal zero-debt V2 reads do not show a contract risk sentinel as an active LTV', () => {
   const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
   assert.match(service, /if \(outstanding !== 0n\) \{/);
@@ -99,6 +135,20 @@ test('top-level dashboard referrals render the canonical Lending V2 referral exp
   assert.match(referralDashboard, /Indexed lending referral projection/);
   assert.match(service, /\/api\/lending-v2\/referrals\//);
   assert.doesNotMatch(referralDashboard, /contracts\/ico\/ReferralManager/);
+});
+
+test('Lending referral dashboard renders the neutral non-claimable residual-debt status', () => {
+  const referralDashboard = fs.readFileSync(new URL('../src/components/LendingReferralDashboard.tsx', import.meta.url), 'utf8');
+  assert.match(referralDashboard, /NON_CLAIMABLE_CURRENT_STATE/);
+  assert.match(referralDashboard, /Not claimable in current loan state/);
+  assert.match(referralDashboard, /value=\{referralStatusLabel\(record\.status\)\}/);
+});
+
+test('Lending referral dashboard renders a recorded aggregate reward payment accurately', () => {
+  const referralDashboard = fs.readFileSync(new URL('../src/components/LendingReferralDashboard.tsx', import.meta.url), 'utf8');
+  assert.match(referralDashboard, /status === 'PAID'/);
+  assert.match(referralDashboard, /Reward paid/);
+  assert.match(referralDashboard, /Claimable aggregate amount/);
 });
 
 test('V2 borrow controls stay rendered during loading and empty states', () => {
@@ -140,11 +190,17 @@ test('V2 loan actions reject empty, foreign, terminal or unsettled loans', () =>
 });
 test('V2 initial dashboard separates P2P and retains useful inactive steps', () => {
   const html = renderToStaticMarkup(React.createElement(component.LendingV2));
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
   assert.match(html, /Direct Lending/); assert.match(html, /P2P Lending/);
   assert.match(html, /Repayment becomes available after a loan is created/);
   assert.match(html, /Collateral top-ups become available/);
   assert.match(html, /Collateral can be withdrawn after the loan is fully settled/);
   assert.match(html, /Advanced Protocol Details/);
+  assert.match(source, /Canonical Reserve evidence/);
+  assert.match(source, /Reserve cover cap/);
+  assert.match(source, /ReserveUsed/);
+  assert.match(source, /Reserve contribution/);
+  assert.match(source, /Bad debt/);
   assert.doesNotMatch(html, /Approve ABCD &amp; fund request/);
   assert.match(html, /sm:grid-cols-2/);
 });
@@ -159,6 +215,79 @@ test('P2P funding loads an explicitly selected canonical request before exposing
   assert.match(source, /fundV2Request\(requestId, progress\)/);
   assert.match(service, /const request = await getV2Request\(requestId\)/);
   assert.match(service, /market\.fundRequest\.estimateGas\(requestId\)/);
+});
+
+test('P2P recovered requests retain the canonical marketplace state label', () => {
+  assert.equal(component.p2pRequestStateLabel(0), 'Open');
+  assert.equal(component.p2pRequestStateLabel(4), 'Recovered');
+  assert.equal(component.p2pRequestStateLabel(5), 'Unknown (5)');
+});
+
+test('P2P request history uses only canonical lifecycle events with deterministic cursor continuation', async () => {
+  const originalFetch = global.fetch;
+  const calls = [];
+  let responseNumber = 0;
+  global.fetch = async url => {
+    calls.push(String(url));
+    responseNumber += 1;
+    const history = responseNumber === 1
+      ? [
+        { eventName: 'RequestCreated', blockNumber: '104', transactionHash: '0xcreated', logIndex: 0, args: { requestId: '1' } },
+        { eventName: 'RequestFunded', blockNumber: '106', transactionHash: '0xfunded', logIndex: 1, args: { requestId: '1' } },
+      ]
+      : [{ eventName: 'RequestRepaid', blockNumber: '109', transactionHash: '0xrepaid', logIndex: 0, args: { requestId: '1' } }];
+    return {
+      ok: true,
+      json: async () => ({
+        status: 'AVAILABLE',
+        source: { kind: 'canonical-v2-indexed-on-chain', chainId: '31337', deploymentVersion: 'lending-v2-test' },
+        data: { requestId: '1', request: { borrower, lender: other, principal: ethers.parseEther('70').toString(), collateral: ethers.parseEther('0.1').toString(), term: '7776000', state: '1', loanId: '4', initialLtvBps: '3500' }, history },
+        page: { nextCursor: responseNumber === 1 ? 'cursor-106' : null },
+      }),
+    };
+  };
+  try {
+    const service = load('src/Services/lendingV2.ts', {
+      '../Config/contracts': { DEPLOYMENT_CHAIN_ID: 31337n, CONTRACTS: {}, LENDING_V2_CONTRACTS: {}, getLendingV2DeploymentBlock: () => 1, getLendingV2DeploymentVersion: () => 'lending-v2-test' },
+      './contractProvider': { provider: {} }, './wallet': { getProvider: async () => ({}) },
+    });
+    const first = await service.getV2P2PRequestHistory('1', { limit: 2 });
+    const second = await service.getV2P2PRequestHistory('1', { limit: 2, cursor: first.nextCursor });
+    assert.match(calls[0], /\/api\/lending-v2\/requests\/1\?limit=2$/);
+    assert.match(calls[1], /\/api\/lending-v2\/requests\/1\?limit=2&cursor=cursor-106$/);
+    assert.deepEqual(first.history.map(event => event.eventName), ['RequestCreated', 'RequestFunded']);
+    assert.equal(first.nextCursor, 'cursor-106');
+    assert.deepEqual(second.history.map(event => event.eventName), ['RequestRepaid']);
+    assert.equal(second.nextCursor, null);
+  } finally { global.fetch = originalFetch; }
+});
+
+test('P2P request history rejects unrelated Direct Lending events instead of presenting them as P2P history', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      status: 'AVAILABLE',
+      source: { kind: 'canonical-v2-indexed-on-chain', chainId: '31337', deploymentVersion: 'lending-v2-test' },
+      data: { requestId: '1', request: { borrower, lender: other, principal: '0', collateral: '0', term: '0', state: '0', loanId: '0', initialLtvBps: '3500' }, history: [{ eventName: 'CollateralLocked', blockNumber: '80', transactionHash: '0xdirect', logIndex: 0, args: { requestId: '1' } }] },
+      page: { nextCursor: null },
+    }),
+  });
+  try {
+    const service = load('src/Services/lendingV2.ts', {
+      '../Config/contracts': { DEPLOYMENT_CHAIN_ID: 31337n, CONTRACTS: {}, LENDING_V2_CONTRACTS: {}, getLendingV2DeploymentBlock: () => 1, getLendingV2DeploymentVersion: () => 'lending-v2-test' },
+      './contractProvider': { provider: {} }, './wallet': { getProvider: async () => ({}) },
+    });
+    await assert.rejects(service.getV2P2PRequestHistory('1'), /invalid lifecycle event/);
+  } finally { global.fetch = originalFetch; }
+});
+
+test('P2P history UI consumes the canonical endpoint without reconstructing generic lending events', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  assert.match(source, /Canonical P2P request history/);
+  assert.match(source, /getV2P2PRequestHistory\(requestId, \{ limit: 20, cursor \}\)/);
+  assert.match(source, /Load more history/);
+  assert.doesNotMatch(source, /CollateralLocked.*P2P request history/);
 });
 
 function serviceHarness() {
@@ -289,6 +418,12 @@ test('V2 confirmed receipt remains visible when an indexer refresh fails', () =>
   assert.match(html, /do not resubmit/); assert.doesNotMatch(html, /Failed/);
 });
 
+test('canonical indexed wallet-history reads bypass browser HTTP cache after an explicit reload', () => {
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(service, /async function apiGet<T>\(path: string\)[\s\S]*fetch\(path, \{ cache: 'no-store' \}\)/);
+  assert.match(service, /getV2WalletHistory\(wallet: string\)[\s\S]*\/api\/lending-v2\/wallet\/\$\{wallet\}\?limit=100/);
+});
+
 test('direct Loan #1-style reads never index an empty canonical EMI result', () => {
   const { service } = serviceHarness();
   const emptySchedule = new Proxy([], { get(target, property, receiver) {
@@ -297,8 +432,19 @@ test('direct Loan #1-style reads never index an empty canonical EMI result', () 
   } });
   assert.equal(service.v2EmiSchedule(emptySchedule, 0n, 0n), null);
   const p2pSchedule = service.v2EmiSchedule([{ amount: ethers.parseEther('50'), dueAt: 1234n }], 0n, 1200n);
-  assert.deepEqual(p2pSchedule, { installmentAmount: '50.0', installmentCount: '1', paidInstallments: '0', nextDueAt: '1234', chainTimestamp: '1200', due: false, completed: false });
+  assert.deepEqual(p2pSchedule, {
+    installmentAmount: '50.0', amountApplied: '0.0', remainingDue: '50.0', state: 'DUE',
+    installmentCount: '1', paidInstallments: '0', nextDueAt: '1234', chainTimestamp: '1200', due: false, completed: false,
+  });
   assert.equal(service.v2EmiSchedule([{ amount: ethers.parseEther('50'), dueAt: 1234n }], 0n, 1234n)?.due, true);
+  const terminalRecovery = service.v2EmiSchedule([{
+    amount: ethers.parseEther('50'), dueAt: 1234n, paid: true,
+    amountApplied: ethers.parseEther('50'), state: 2n,
+  }], 1n, 1300n, true);
+  assert.deepEqual(terminalRecovery, {
+    installmentAmount: '50.0', amountApplied: '50.0', remainingDue: '0.0', state: 'SETTLED',
+    installmentCount: '1', paidInstallments: '1', nextDueAt: '1234', chainTimestamp: '1300', due: true, completed: true,
+  });
 });
 
 test('fresh Loan #1 recovery uses canonical DirectLoanOpened evidence without waiting for the indexer', async () => {
@@ -378,14 +524,15 @@ test('P2P request capacity is read from LoanMarketplaceV2 and blocks an over-cap
   assert.match(source, /!p2pWithinCapacity/);
 });
 
-test('P2P overdue settlement is visibly blocked until the whitepaper-undefined policy is approved', () => {
+test('due-installment recovery uses the approved canonical path while P2P partial/default settlement stays fail-closed', () => {
   const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
   const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
-  assert.match(source, /P2P overdue collateral seizure, partial liquidation, and default settlement are unavailable/);
-  assert.doesNotMatch(source, /Approve ABCD & execute overdue EMI/);
-  assert.match(service, /P2P overdue collateral settlement is blocked/);
-  assert.match(service, /P2P overdue collateral settlement is blocked/);
+  assert.match(source, /Execute due collateral recovery/);
+  assert.match(source, /DUE → PARTIALLY_SETTLED → SETTLED/);
+  assert.match(service, /liquidation\.executeOverdueInstallment\.estimateGas\(loanId\)/);
+  assert.match(service, /Due-installment collateral recovery/);
   assert.match(service, /P2P default settlement is blocked/);
+  assert.match(source, /P2P partial liquidation, reserve\/bad-debt settlement, and terminal default recovery remain fail-closed/);
   assert.doesNotMatch(service, /Math\.random\(\)|mock.*overdue|fake.*overdue/i);
 });
 
@@ -396,6 +543,28 @@ test('Direct partial-liquidation UI reports eligibility and exposes only a confi
   assert.match(source, /Execute configured partial liquidation/);
   assert.match(source, /liquidateV2\(loanId, progress\)/);
   assert.doesNotMatch(source, /Direct liquidation bonus/);
+});
+
+test('lending UI renders only canonical recovery and completion-valuation provenance', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  assert.match(source, /Recovery state/);
+  assert.match(source, /Amount applied/);
+  assert.match(source, /Remaining scheduled due/);
+  assert.match(source, /Informational 1% USD valuation/);
+  assert.match(source, /Valuation feed/);
+  assert.match(source, /Valuation round/);
+  assert.doesNotMatch(source, /Blocked: USD valuation policy required/);
+  assert.match(source, /A normal partial liquidation never uses Reserve coverage or creates bad debt/);
+});
+
+test('lending UI labels immutable origination collateral separately from the current vault balance', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
+  assert.match(source, /label="Original collateral" value=\{`\$\{loan\.originalCollateralETH\} ETH`\}/);
+  assert.match(source, /label="Current vault collateral" value=\{`\$\{loan\.currentVaultCollateralETH\} ETH`\}/);
+  assert.doesNotMatch(source, /label="Remaining collateral \(vault\)" value=\{`\$\{loan\.collateralETH\} ETH`\}/);
+  assert.match(service, /originalCollateralETH: formatEther\(loan\.collateralETH\), currentVaultCollateralETH: formatEther\(liveCollateral\)/);
+  assert.match(service, /const liveCollateral = await vault\.loanCollateral\(loanId\)/);
 });
 
 test('the local Phase 1 harness has no environment-gated legacy P2P liquidation path', () => {

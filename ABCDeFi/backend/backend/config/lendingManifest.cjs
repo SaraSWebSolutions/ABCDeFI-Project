@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const { isOneQLocalSelected } = require('./runtimeFamily.cjs');
 
 const REQUIRED_CONTRACTS = [
   "ABCDToken",
@@ -25,6 +26,9 @@ function assertAddress(value, fieldName) {
 }
 
 function loadLendingManifest() {
+  if (isOneQLocalSelected()) {
+    throw new Error('Legacy P2P lending manifest is not migrated to 1Q_LOCAL; use the canonical Lending V2 read path.');
+  }
   const manifestPath = resolveManifestPath();
   if (!fs.existsSync(manifestPath)) {
     throw new Error(`Canonical lending manifest is missing: ${manifestPath}`);

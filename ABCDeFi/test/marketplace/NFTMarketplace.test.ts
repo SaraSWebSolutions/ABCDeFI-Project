@@ -195,8 +195,9 @@ describe("NFTMarketplace Contract Suite", function () {
       await franchise.connect(admin).setRegistry(await registry.getAddress());
       await registry.connect(admin).setOperatorEligibility(seller.address, true);
       await registry.connect(admin).registerFranchise(
-        hardhatEthers.keccak256(hardhatEthers.toUtf8Bytes("district:in-tg-hyd")),
-        3,
+        hardhatEthers.keccak256(hardhatEthers.toUtf8Bytes("territory:test")),
+        0,
+        0,
         seller.address,
         "ipfs://bafybeigdyrzt4metadata/metadata.json"
       );

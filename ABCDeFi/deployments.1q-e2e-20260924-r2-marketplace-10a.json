@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "identity": "1Q CANONICAL CANDIDATE — LOCAL ONLY",
+  "model": "OWNER_APPROVED_1Q_PHASE10A",
+  "chainId": 31337,
+  "rpcUrl": "http://127.0.0.1:8546",
+  "rootDeploymentVersion": "abcd-1q-local-0x7c98f09e79f0ac6031299913900f54660676f2c78d4cee8e71ef1358de0e4e37",
+  "deploymentVersion": "marketplace-10a-1q-local-0x3bd0cd4567d58c22eda62876c57f7555995e3d65b5f98774936ca94678dc10a7",
+  "deploymentBlock": 75,
+  "deploymentTimestamp": 1790240255,
+  "contracts": {
+    "ABCDTokenV2": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    },
+    "MarketplaceTestERC721": {
+      "address": "0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6"
+    },
+    "ABCDNFTMarketplaceV2": {
+      "address": "0x04C89607413713Ec9775E14b954286519d836FEf",
+      "configurationTransaction": "0xa2108f162aa629bb6f73af3b290159aa8458f400c7214e8546d9a15d8e37d02d"
+    }
+  },
+  "roles": {
+    "defaultAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "marketplaceAdmin": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    "pauser": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+  }
+}

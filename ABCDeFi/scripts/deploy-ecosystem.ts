@@ -3,9 +3,13 @@ import { network } from "hardhat";
 import { ethers } from "ethers";
 import fs from "node:fs";
 import path from "node:path";
+import { assertManifestOutputPath, resolveManifestPath } from "./deployment-manifest-guards.mjs";
 
 const MANIFEST_SCHEMA_VERSION = "1.0";
 const DEPLOYMENT_VERSION_PREFIX = process.env.DEPLOYMENT_VERSION || "local-ecosystem";
+const ROOT_MANIFEST_PATH = resolveManifestPath(process.env.ROOT_DEPLOYMENT_MANIFEST_PATH, "deployments.json");
+const HISTORICAL_ROOT_MANIFEST_PATH = path.resolve("deployments.json");
+const USES_FRESH_ROOT_MANIFEST = Boolean(process.env.ROOT_DEPLOYMENT_MANIFEST_PATH);
 
 function resolvePublicRpcUrl(chainId: string): string {
   const configured = process.env.PUBLIC_RPC_URL;
@@ -50,6 +54,16 @@ function removeLegacyFrontendDeploymentOverrides(): void {
 }
 
 async function main() {
+  // The historical default is retained for established non-composed deployment
+  // flows. A composed local runtime must opt into an isolated target explicitly.
+  if (USES_FRESH_ROOT_MANIFEST) {
+    assertManifestOutputPath({
+      outputPath: ROOT_MANIFEST_PATH,
+      protectedPaths: [HISTORICAL_ROOT_MANIFEST_PATH],
+      allowOverwrite: process.env.ROOT_DEPLOYMENT_FRESH_LOCAL === "1",
+      label: "Root ecosystem",
+    });
+  }
   const { ethers: hh } = await network.connect();
   const signers = await hh.getSigners();
   const deployer = signers[0];
@@ -209,10 +223,10 @@ async function main() {
   // receives the initial administration and minting roles; this does not add
   // payment, revenue, or marketplace behavior.
   const legionNFT = await deploy("LegionNFT", [deployer.address, deployer.address]);
-  // Franchise certificates are issuer-minted ERC-721 licences. The deployer is
-  // deliberately the initial minter; no public purchase or revenue mechanism
-  // is implied by this deployment.
-  const franchiseNFT = await deploy("FranchiseNFT", [deployer.address, deployer.address]);
+  // The canonical Phase 9 FranchiseNFT is Registry-controlled and is deployed
+  // later by the isolated Franchise foundation step. Do not create an old
+  // standalone instance here: it would be unbound to FranchiseRegistry and
+  // could not represent the canonical non-financial assignment foundation.
   const loanNFT = await deploy("LoanNFT", [loanMarketplaceAddress]);
   const referralManager = await deploy("ReferralManager", [tokenAddress, wallets.reserve]);
   const bonusEngine = await deploy("BonusEngine", [tokenAddress, wallets.reserve]);
@@ -227,9 +241,6 @@ async function main() {
   const VAULT_OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("VAULT_OPERATOR_ROLE"));
   const MARKETPLACE_EMI_OPERATOR_ROLE = ethers.keccak256(ethers.toUtf8Bytes("EMI_OPERATOR_ROLE"));
   const LENDING_ADMIN_ROLE = ethers.keccak256(ethers.toUtf8Bytes("LENDING_ADMIN_ROLE"));
-  const FRANCHISE_MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_ROLE"));
-  const FRANCHISE_PAUSER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("PAUSER_ROLE"));
-  const FRANCHISE_UPDATER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("UPDATER_ROLE"));
   const LEGION_MINTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MINTER_ROLE"));
   const LEGION_PAUSER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("PAUSER_ROLE"));
 
@@ -249,14 +260,6 @@ async function main() {
   await (await loanMarketplace.grantRole(MARKETPLACE_EMI_OPERATOR_ROLE, emiManagerAddress)).wait();
   await (await collateralVault.grantRole(VAULT_OPERATOR_ROLE, loanMarketplaceAddress)).wait();
   await (await loanMarketplace.setEMIManager(emiManagerAddress)).wait();
-  if (
-    !await franchiseNFT.hasRole(ethers.ZeroHash, deployer.address) ||
-    !await franchiseNFT.hasRole(FRANCHISE_MINTER_ROLE, deployer.address) ||
-    !await franchiseNFT.hasRole(FRANCHISE_PAUSER_ROLE, deployer.address) ||
-    !await franchiseNFT.hasRole(FRANCHISE_UPDATER_ROLE, deployer.address)
-  ) {
-    throw new Error("FranchiseNFT role wiring verification failed");
-  }
   if (
     !await legionNFT.hasRole(ethers.ZeroHash, deployer.address) ||
     !await legionNFT.hasRole(LEGION_MINTER_ROLE, deployer.address) ||
@@ -351,12 +354,18 @@ async function main() {
     deployer: deployer.address,
     contracts: deployed,
   };
-  fs.writeFileSync(path.resolve("deployments.json"), JSON.stringify(deployment, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2));
+  const temporaryManifestPath = `${ROOT_MANIFEST_PATH}.${process.pid}.tmp`;
+  fs.writeFileSync(temporaryManifestPath, JSON.stringify(deployment, (key, value) => typeof value === 'bigint' ? value.toString() : value, 2));
+  fs.renameSync(temporaryManifestPath, ROOT_MANIFEST_PATH);
 
-  removeLegacyFrontendDeploymentOverrides();
-  console.log("✓ Frontend contract configuration resolves from deployments.json");
+  // A composed local runtime is intentionally manifest-scoped and must not
+  // rewrite frontend environment configuration as a deployment side effect.
+  if (!USES_FRESH_ROOT_MANIFEST) {
+    removeLegacyFrontendDeploymentOverrides();
+    console.log("✓ Frontend contract configuration resolves from deployments.json");
+  }
 
-  console.log(`Deployment saved for chain ${chainId}`);
+  console.log(`Deployment saved for chain ${chainId}: ${ROOT_MANIFEST_PATH}`);
 }
 
 main().catch((error) => {

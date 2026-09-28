@@ -6,7 +6,8 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "indexer": "node scripts/runLendingIndexer.js",
-    "franchise-indexer": "node scripts/runFranchiseIndexer.js"
+    "franchise-indexer": "node scripts/runFranchiseIndexer.js",
+    "franchise-v2-indexer": "node scripts/runFranchiseV2Indexer.cjs"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

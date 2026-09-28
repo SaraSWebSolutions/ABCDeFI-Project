@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { isAddress } = require('ethers');
+const { isOneQLocalSelected } = require('./runtimeFamily.cjs');
 
 /**
  * Loads only an explicitly deployed canonical LegionCredentialV2 entry.
@@ -8,6 +9,9 @@ const { isAddress } = require('ethers');
  * caller as UNDEPLOYED, never by a synthetic address or legacy LegionNFT.
  */
 function loadLegionCredentialManifest() {
+  if (isOneQLocalSelected()) {
+    throw new Error('LegionCredentialV2 is not part of the validated 1Q_LOCAL family; no historical manifest fallback is permitted.');
+  }
   const manifestPath = process.env.LEGION_CREDENTIAL_MANIFEST_PATH
     ? path.resolve(process.env.LEGION_CREDENTIAL_MANIFEST_PATH)
     : path.resolve(__dirname, '../../..', 'deployments.json');

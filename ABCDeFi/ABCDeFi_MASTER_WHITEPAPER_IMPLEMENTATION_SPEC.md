@@ -93,20 +93,28 @@ production oracle operations. **Baseline lock: yes. Production lock: no.**
 Collateral-backed loans, repayment, collateral release after full repayment, interest, margin-call
 narrative, and liquidation narrative.
 
-## Current implementation
+## Historical / superseded implementation baseline
 
 - Contracts: \`LendingPoolV2.sol\`, \`LoanManagerV2.sol\`, \`CollateralVaultV2.sol\`,
   \`LiquidationV2.sol\`, \`OracleAdapterV2.sol\`.
 - Frontend/backend/indexer: \`LendingV2.tsx\`, \`lendingV2.ts\`, \`lendingV2Projection/*\`.
-- Current policy: 50% initial LTV, 12% APR for new loans, 30/90/180-day terms, 72-hour cure,
-  80% threshold, 7-day grace, 2% late fee.
+- Historical baseline: 50% initial LTV, 12% APR for new loans, 30/90/180-day
+  terms, 72-hour cure, 80% threshold, 7-day grace, and 2% late fee. These
+  values are preserved only as superseded history and are not current policy.
+
+## Canonical current implementation — Phase 2 locked
+
+- Current policy: 35% initial ETH LTV, 9.25% APR, and 30/90/180-day terms.
+- The current Direct Lending lifecycle, risk, repayment, missed-installment,
+  margin-call, cure, and approved partial-liquidation behavior are governed by
+  the Phase 2 lock and owner-approved Phase 2 amendment.
 
 ## Correct / verified
 
 Real local MetaMask deposit → borrow → repay → collateral withdrawal was completed with canonical
 V2 receipt/event/state verification.
 
-## Gaps, conflicts, approvals, tests, acceptance
+## Historical gaps, conflicts, approvals, tests, and acceptance record
 
 | Classification | Finding | Required disposition |
 |---|---|---|
@@ -116,9 +124,12 @@ V2 receipt/event/state verification.
 | WHITEPAPER-UNDEFINED | 7-day grace and 2% late fee | Keep baseline unless approved otherwise. |
 | NEEDS VERIFICATION | BSC oracle, margin call, liquidation, failure-path E2E | Required before BSC PASS. |
 
-No implementation is authorized until conflicts are resolved. Preserve the verified direct
-lifecycle, 50% baseline, completed loan accounting, and V1/V2 isolation. Dependencies: Phases 3,
-5, 11, 13. **Baseline lock: yes. Production lock: no.**
+Historical status: at the time of this record, implementation required the listed
+policy decisions. The later Phase 2 amendment and lock supersede those historical
+50%/12% baseline statements for canonical Direct Lending. Preserve the historical
+record, but use the Phase 2 lock and amendment for the current 35% ETH LTV,
+9.25% APR, and lifecycle policy. Dependencies: Phases 3, 5, 11, 13.
+**Baseline lock: yes. Production lock: no.**
 
 ---
 
@@ -134,21 +145,36 @@ lifecycle, 50% baseline, completed loan accounting, and V1/V2 isolation. Depende
 ## Current implementation
 
 - Contract: \`contracts/nft/LoanNFTV2.sol\`.
-- Exactly three completion certificates are minted after settlement.
+- Exactly three completion certificates are minted after successful settlement:
+  \`LENDER\`, \`BORROWER\`, and \`PLATFORM\`.
+- The canonical contract is a standard transferable ERC-721. Transferability
+  does not approve a Marketplace listing path or create any financial right.
 - Metadata URI plus bytes32 hash are required; local HTTP URI is rejected.
+- Each certificate records a completion-time, validated ABCD/USD oracle
+  snapshot and the approved 1%-of-principal-plus-agreed-interest USD value as
+  informational provenance only. It has no redemption, collateral, payout,
+  reward, fee, or Treasury claim.
 - V2 metadata workflow is connected to lending UI/backend modules.
+
+### Historical reconciliation
+
+The earlier statement in this register that the current certificates were
+"soulbound" reflected a prior review state. It is superseded for the canonical
+implementation by the approved Phase 2 amendment and the deployed
+\`LoanNFTV2\` ERC-721 interface. This reconciliation does not add a transfer
+policy, Marketplace integration, or any economic utility.
 
 ## Correct / verified
 
 Canonical local Loan #1 was verified Repaid with exactly three on-chain
-\`LoanCertificateCreated\` events: lender, borrower, platform/Treasury; each recorded a non-empty
+\`LoanCertificateCreated\` events: lender, borrower, platform; each recorded a non-empty
 IPFS URI, metadata hash, and 1% accounting value.
 
 ## Gaps, conflicts, approvals, tests, acceptance
 
 | Classification | Finding | Required disposition |
 |---|---|---|
-| CONFLICT | Current certificates are soulbound; whitepaper says tradable/collateralizable | Approval required before transfer-rule change. |
+| WHITEPAPER-UNSPECIFIED | \`LoanNFTV2\` is transferable, but no Marketplace, collateralization, redemption, fee, reward, or financial-claim mechanism is approved. | Keep those mechanisms absent; each requires a separate explicit protocol specification and approval. |
 | WHITEPAPER-UNDEFINED | Metadata schema/statistical fields and retention | Approve schema/version/retention policy. |
 | NEEDS VERIFICATION | Pin durability and BSC minting | Production provider and BSC E2E required. |
 
@@ -163,7 +189,11 @@ roles. Dependencies: Phases 1, 2 and IPFS. **Baseline lock: yes. Production lock
 ## Whitepaper-defined
 
 - 0.05% monthly referral interest, up to one year or loan duration, in ABCD.
-- Referral NFT value 0.5%; no certificate on default; unlimited referrals.
+- Aggregate referral payout at successful loan completion or the one-year
+  boundary, whichever comes first.
+- Referral NFT value 0.5% of the originated amount lent or borrowed; no
+  certificate on default; unlimited referrals.
+- A borrower may refer a lender and a lender may refer a borrower.
 - Referral source: Marketing/Promotion/Bonus allocation.
 - Narratives for promotion, listing, fiat-origination, and NFT trading fees.
 
@@ -178,13 +208,20 @@ roles. Dependencies: Phases 1, 2 and IPFS. **Baseline lock: yes. Production lock
 | Classification | Finding | Required disposition |
 |---|---|---|
 | PARTIAL | Full whitepaper fee set is not canonical V2 fee accounting | Do not invent fee collection/routing. |
-| WHITEPAPER-UNDEFINED | Referral payout timing and NFT value basis | Project approval before change. |
+| HISTORICAL / SUPERSEDED | Earlier documentation classified referral payout timing and NFT value basis as whitepaper-undefined. The authoritative whitepaper defines aggregate payout at successful completion or one year, whichever comes first, and a 0.5% amount-lent-or-borrowed certificate value. | Preserve this historical note; use `docs/PHASE4-FEES-REFERRAL-SPECIFICATION-GATE.md` and the current LendingReferralManagerV2 baseline for the canonical Phase 4 interpretation. |
 | NEEDS VERIFICATION | Default, cap, reward-vault, and accounting reconciliation | BSC tests/E2E required. |
 
-Production PASS requires an approved fee schedule, asset/recipient mapping, accounting events,
-default/reversal tests, reward-vault security, and BSC reconciliation. Preserve 5 bps baseline and
-no-default-certificate behavior. Dependencies: Treasury and Reserve. **Baseline lock: yes.
-Production lock: no.**
+Historical status: this register previously described Phase 4 as active
+specification work and not a completion or lock decision. The later Phase 4
+owner decision accepts the existing `LendingReferralManagerV2` canonical
+baseline, and its implementation and local E2E validation are complete;
+final lock documentation remains pending. Preserve the existing 5-bps baseline
+and no-default-certificate behavior. This does not authorize a Treasury or
+Reserve dependency, an unapproved fee schedule, or a BSC production rollout.
+
+Production/BSC readiness remains separate: it requires an approved fee
+schedule where applicable, asset/recipient mapping, accounting events,
+default/reversal tests, reward-vault security, and BSC reconciliation.
 
 ---
 
@@ -223,21 +260,28 @@ The whitepaper describes private sale, presale, crowd sale, bonuses, and a legac
 
 ## Current implementation
 
-- Canonical source: \`ABCDToken.sol\`, \`Constants.sol\`, \`AllocationManager.sol\`.
-- \`Presale.sol\` is deliberately inactive; \`ICOInactive.test.ts\` covers safe inactive state.
-- \`ICOManager.sol\` is legacy source and not canonical deployment truth.
+- Canonical implementation: \`contracts/ico/ICOManagerV2.sol\`, using existing
+  Community-allocation inventory without minting.
+- Canonical approved terms: 50,000,000 ABCD total inventory; Stage 1 is
+  25,000,000 ABCD at USD 0.008; Stage 2 is 25,000,000 ABCD at USD 0.010.
+- \`Presale.sol\` and \`ICOManager.sol\` are legacy/non-canonical sources and
+  are not canonical deployment truth.
+- **Current Phase 6 status: ACTIVE — UNLOCKED.** The pre-owner-decision
+  inactive-sale record is historical/superseded; see
+  \`docs/PHASE6-ICO-OWNER-PROTOCOL-SPECIFICATION.md\`.
 
 ## Gaps, conflicts, approvals, tests, acceptance
 
 | Classification | Finding | Required disposition |
 |---|---|---|
 | CONFLICT | 1Q legacy sale quantities vs approved 1B supply | Treat legacy material as noncanonical. |
-| PRODUCTION BLOCKER | No approved 1B sale/inventory/legal specification | Required before any sale activation. |
-| NEEDS VERIFICATION | Inactive sale invariant on BSC | Verify after BSC deployment. |
+| HISTORICAL / SUPERSEDED | Earlier records had no approved 1B ICO sale/inventory specification. | Preserve their historical analysis; the owner-approved Phase 6 specification now governs the local canonical implementation. |
+| NEEDS VERIFICATION | BSC deployment and production operations | Separate from the current local Phase 6 validation. |
 
-Current Phase 6 PASS means safe inactive sale state only, not launch readiness. Preserve 1B,
-18-decimal, eight-allocation model and inactive sale state. Dependencies: Treasury, Admin, KYC,
-Governance. **Baseline lock: yes. Production sale lock: no.**
+The current local Phase 6 implementation preserves the 1B, 18-decimal,
+eight-allocation model. Production deployment/operations remain separate and
+are not authorized by this record. **Phase 6 is active and unlocked; no final
+Phase 6 lock is represented here.**
 
 ---
 
@@ -315,10 +359,13 @@ NFT purchase/sale activity and 0.1% NFT transaction fee narrative.
 
 ## Gaps, conflicts, approvals, tests, acceptance
 
-LoanNFTV2 cannot list because it is soulbound; this follows current contract behavior but conflicts
-with whitepaper tradability language. Production PASS requires BSC list/buy/cancel/fee-recipient
-E2E, event/indexer reconciliation, reentrancy review, and bad-token handling. Preserve native ETH
-and 10 bps absent approved change. Dependencies: Legion, Franchise, LoanNFT policy, Treasury, Admin.
+\`LoanNFTV2\` is transferable under its ERC-721 contract, but it is not an
+approved Marketplace collection and has no automatic listing, sale, or
+commercial right. The canonical Marketplace must not treat it as allowlisted
+without a separate owner decision. Production PASS for the legacy marketplace
+path requires BSC list/buy/cancel/fee-recipient E2E, event/indexer reconciliation,
+reentrancy review, and bad-token handling. Preserve native ETH and 10 bps absent
+approved change. Dependencies: Legion, Franchise, LoanNFT policy, Treasury, Admin.
 **Baseline lock: yes. Production lock: no.**
 
 ---

@@ -3,13 +3,13 @@
   "network": "localhost",
   "rpcUrl": "http://127.0.0.1:8545",
   "localOnly": true,
-  "deploymentVersion": "legion-nft-v2-local-0x33ad6b808f83d5accb49627bcd130f29892b5f69c981839c99b44734376dcacb",
-  "deploymentBlock": 1,
+  "deploymentVersion": "legion-nft-v2-local-0x889010d513c682b1545b8d0c4ae7879d56121d644d38c43bf8e03705e09e37b6",
+  "deploymentBlock": 21,
   "contracts": {
     "LegionNFTV2": {
-      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-      "deploymentTransactionHash": "0x3438f455d26588bd196dc796f85cceab87ba7e5b83a1c74dbafe826fa7f61a48",
-      "deploymentBlock": 1,
+      "address": "0x9A676e781A523b5d0C0e43731313A708CB607508",
+      "deploymentTransactionHash": "0xc857bcd89eebd5eb7e2610670e7aa40ae63c8fbfc4695d1ce414012f1619eec6",
+      "deploymentBlock": 21,
       "constructorArgs": [
         "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
         "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",

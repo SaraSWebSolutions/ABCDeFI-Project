@@ -1,0 +1,13 @@
+import React, { useCallback, useEffect, useState } from 'react';
+
+type IcoV3Status = { status: string; reason?: string; manifest?: { chainId: number; deploymentVersion: string; deploymentIdentity: string; address: string; abcdAddress: string; contractKind: string }; checkpoint?: { lastProcessedBlock: string; lastProcessedBlockHash: string }; data?: { lifecycle: string; totalAllocated: string } };
+
+/** Canonical 1Q ICO V3 administrator read surface. No ICO write capability is exposed. */
+export const CanonicalIcoV3Admin: React.FC = () => {
+  const [status, setStatus] = useState<IcoV3Status | null>(null);
+  const [reason, setReason] = useState('Loading canonical ICO V3 indexed state…');
+  const load = useCallback(async () => { try { const response = await fetch('/api/ico-v3/status'); const body = await response.json().catch(() => ({})); if (!response.ok || body.status !== 'AVAILABLE') throw new Error(body.reason || 'Canonical ICO V3 API is unavailable.'); setStatus(body); setReason(''); } catch (error) { setStatus(null); setReason(error instanceof Error ? error.message : 'Canonical ICO V3 API is unavailable.'); } }, []);
+  useEffect(() => { void load(); }, [load]);
+  if (!status?.data || !status.manifest || !status.checkpoint) return <section aria-label="Canonical ICO V3 Admin" className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">ICO V3 canonical read state unavailable: {reason}</section>;
+  return <section aria-label="Canonical ICO V3 Admin" className="space-y-3 rounded-xl border border-cyan-500/30 bg-slate-950/70 p-4 text-xs"><header className="flex items-center justify-between gap-3"><div><p className="font-black text-cyan-200">Canonical ICO V3</p><p className="mt-1 text-slate-400">Read-only, deployment-scoped ICOManagerV3 reconciliation. No unverified administrative action is exposed.</p></div><button onClick={() => void load()} className="rounded-lg border border-slate-700 px-3 py-2 font-bold text-slate-100">Refresh</button></header><p className="break-all text-slate-400">Chain {status.manifest.chainId} · deployment {status.manifest.deploymentVersion} · runtime {status.manifest.deploymentIdentity} · checkpoint {status.checkpoint.lastProcessedBlock} / {status.checkpoint.lastProcessedBlockHash}</p><div className="grid gap-2 md:grid-cols-3 text-slate-300"><p>Lifecycle: {status.data.lifecycle}</p><p>Allocated: {status.data.totalAllocated}</p><p>API health: {status.status} · reconciliation: checkpoint verified</p><p className="break-all">ICOManagerV3: {status.manifest.address}</p><p className="break-all">ABCDTokenV2: {status.manifest.abcdAddress}</p></div></section>;
+};

@@ -2,6 +2,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export * as icoManagerV2Sol from './ICOManagerV2.sol/index.js';
+export * as icoManagerV3Sol from './ICOManagerV3.sol/index.js';
 export { AllocationManager__factory } from './AllocationManager__factory.js';
 export { ICOManager__factory } from './ICOManager__factory.js';
 export { Presale__factory } from './Presale__factory.js';

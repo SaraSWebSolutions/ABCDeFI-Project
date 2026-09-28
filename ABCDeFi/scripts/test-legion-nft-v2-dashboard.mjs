@@ -9,5 +9,9 @@ assert.doesNotMatch(dashboard, /List for sale|marketplace listing|approvalForAll
 assert.match(service, /requestTransfer/);
 assert.match(service, /approveTransfer/);
 assert.match(service, /executeTransfer/);
+assert.match(service, /hasLegionNFTV2AdminCapability/);
+assert.match(service, /LEGION_ADMIN_ROLE/);
+assert.match(dashboard, /canApproveTransfers/);
+assert.match(dashboard, /!request\.approved && canApproveTransfers/);
 assert.doesNotMatch(service, /transferFrom\(/);
 console.log('LegionNFTV2 dashboard integration checks passed');

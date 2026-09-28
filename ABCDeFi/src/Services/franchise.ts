@@ -1,10 +1,9 @@
 import { Contract, Interface, isAddress, parseEther, Signer } from 'ethers';
-import { CONTRACTS, DEPLOYMENT_CHAIN_ID, requireContractAddress } from '../Config/contracts';
+import { CONTRACTS, DEPLOYMENT_CHAIN_ID, getContractDeploymentBlock, requireContractAddress } from '../Config/contracts';
 import { provider as canonicalProvider } from './contractProvider';
 import { getSigner } from './wallet';
 import FranchiseArtifact from '../../artifacts/contracts/nft/FranchiseNFT.sol/FranchiseNFT.json';
 import MarketplaceArtifact from '../../artifacts/contracts/marketplace/NFTMarketplace.sol/NFTMarketplace.json';
-import deploymentManifest from '../../deployments.json';
 import { isAcceptedMetadataUri } from './nftMetadata';
 
 export type FranchiseStatus = 'Active' | 'Suspended' | 'Revoked' | 'Pending' | 'Unavailable';
@@ -240,7 +239,8 @@ export async function getFranchiseSnapshot(
   const deploymentProvider = options.deploymentProvider || canonicalProvider;
   const address = await assertFranchiseDeployment(deploymentProvider);
   const contract = options.contract || new Contract(address, FranchiseArtifact.abi, canonicalProvider) as unknown as FranchiseReadContract;
-  const deploymentBlock = options.deploymentBlock ?? Number(deploymentManifest.contracts.FranchiseNFT.deploymentBlock);
+  const deploymentBlock = options.deploymentBlock ?? getContractDeploymentBlock('FranchiseNFT');
+  if (deploymentBlock === null) throw new Error('Canonical FranchiseNFT deployment block is missing from deployments.json.');
   const [received, mintEvents, latestBlock, minterRole] = await Promise.all([
     contract.queryFilter(contract.filters.Transfer(null, walletAddress, null), deploymentBlock, 'latest'),
     contract.queryFilter(contract.filters.Transfer(ZERO_ADDRESS, null, null), deploymentBlock, 'latest'),

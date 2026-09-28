@@ -1,0 +1,111 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { network } from 'hardhat';
+import { ethers } from 'ethers';
+
+const receiptOf = async (transaction: any, label: string) => { const receipt = await transaction.wait(); if (!receipt || Number(receipt.status) !== 1) throw new Error(`${label} did not mine successfully.`); return receipt; };
+const eventOf = (contract: any, receipt: any, name: string) => { for (const log of receipt.logs) { try { const parsed = contract.interface.parseLog(log); if (parsed?.name === name) return { event: name, block: Number(receipt.blockNumber), logIndex: Number(log.index ?? log.logIndex) }; } catch {} } throw new Error(`${name} was not emitted.`); };
+const reverted = async (label: string, action: () => Promise<any>) => { try { const tx = await action(); await tx.wait(); } catch (error) { const value = error as { shortMessage?: string; message?: string; receipt?: { transactionHash?: string; blockNumber?: number; status?: number } }; return { label, reverted: true, transactionHash: value.receipt?.transactionHash || null, block: value.receipt?.blockNumber || null, reason: value.shortMessage || value.message || 'reverted' }; } throw new Error(`${label} unexpectedly succeeded.`); };
+
+async function main() {
+  const manifestPath = path.resolve(process.env.LEGION_MARKETPLACE_MANIFEST_PATH || 'deployments.legion-marketplace-v2-local.json');
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  if (manifest.chainId !== 31337 || manifest.network !== 'hardhat-local') throw new Error('Legion marketplace E2E requires the isolated Hardhat 31337 manifest.');
+  const legionManifestPath = manifest.contracts?.LegionNFTV2?.reusedFromManifest;
+  if (typeof legionManifestPath !== 'string' || !fs.existsSync(legionManifestPath)) throw new Error('Phase 10B manifest must retain its canonical LegionNFTV2 manifest provenance.');
+  const legionManifest = JSON.parse(fs.readFileSync(legionManifestPath, 'utf8'));
+  const { ethers: hh } = await network.connect(); const signers = await hh.getSigners();
+  const signerFor = (address: string | undefined, label: string) => {
+    const signer = signers.find((candidate) => candidate.address.toLowerCase() === address?.toLowerCase());
+    if (!signer) throw new Error(`Canonical Phase 10B ${label} signer is unavailable on this local chain.`);
+    return signer;
+  };
+  // Seller/buyer identities are fixture actors; privileged actors are resolved
+  // from the deployed manifest rather than inferred from historical signer
+  // positions.
+  const defaultAdmin = signerFor(manifest.roles?.defaultAdmin, 'default-admin');
+  const minter = signerFor(legionManifest.roles?.legionMinter, 'Legion minter');
+  const legionAdmin = signerFor(manifest.roles?.legionAdmin || legionManifest.roles?.legionAdmin || legionManifest.roles?.defaultAdmin, 'Legion admin');
+  const settlementAdmin = signerFor(manifest.roles?.settlementAdmin, 'settlement admin');
+  const pauser = signerFor(manifest.roles?.pauser, 'pauser');
+  const [seller, buyer, wrongBuyer, other] = signers.slice(5, 9);
+  const chain = await hh.provider.getNetwork(); if (chain.chainId !== 31337n) throw new Error('Legion marketplace E2E requires chain 31337.');
+  const abcd = await hh.getContractAt('ABCDToken', manifest.contracts.ABCDToken.address);
+  const legion = await hh.getContractAt('LegionNFTV2', manifest.contracts.LegionNFTV2.address);
+  const adapter = await hh.getContractAt('LegionMarketplaceSettlementAdapterV2', manifest.contracts.LegionMarketplaceSettlementAdapterV2.address);
+  const metadata = 'ipfs://phase10b-local-test'; const price = ethers.parseUnits('25', 18); const funding = ethers.parseUnits('500', 18); const abcdAddress = await abcd.getAddress();
+  // The root deployment assigns the 1B supply to its named allocation wallets;
+  // defaultAdmin is deliberately not an allocation recipient.  Use the live
+  // canonical liquidity allocation holder, validate that it is a local signer,
+  // and move only the amount this disposable E2E scenario needs.
+  const liquidityWallet = await abcd.liquidityWallet();
+  const liquidityFunder = signers.find((signer) => signer.address.toLowerCase() === liquidityWallet.toLowerCase());
+  if (!liquidityFunder) throw new Error('Canonical ABCD liquidity allocation holder is not an available local signer.');
+  if (await abcd.balanceOf(liquidityWallet) < funding) throw new Error('Canonical ABCD liquidity allocation holder lacks the required local E2E funding amount.');
+  const fundBuyer = await receiptOf(await abcd.connect(liquidityFunder).transfer(buyer.address, funding), 'buyer funding from canonical liquidity allocation holder');
+  const countryId = await legion.connect(minter).mintCountry.staticCall(seller.address, 'Local Country', 'local-country', 1n, metadata);
+  const countryMint = await receiptOf(await legion.connect(minter).mintCountry(seller.address, 'Local Country', 'local-country', 1n, metadata), 'country mint');
+  const stateId = await legion.connect(minter).mintState.staticCall(seller.address, 'Local State', 'local-state', countryId, 2n, metadata);
+  const stateMint = await receiptOf(await legion.connect(minter).mintState(seller.address, 'Local State', 'local-state', countryId, 2n, metadata), 'state mint');
+  const districtId = await legion.connect(minter).mintDistrict.staticCall(seller.address, 'Local District', 'local-district', stateId, 3n, metadata);
+  const districtMint = await receiptOf(await legion.connect(minter).mintDistrict(seller.address, 'Local District', 'local-district', stateId, 3n, metadata), 'district mint');
+  const saleId = await adapter.connect(seller).createSale.staticCall(countryId, buyer.address, price);
+  const saleCreate = await receiptOf(await adapter.connect(seller).createSale(countryId, buyer.address, price), 'targeted sale creation');
+  const requestId = await legion.connect(seller).requestTransfer.staticCall(countryId, buyer.address);
+  const requestCreate = await receiptOf(await legion.connect(seller).requestTransfer(countryId, buyer.address), 'LEG-44 request');
+  const link = await receiptOf(await adapter.connect(seller).linkTransferRequest(saleId, requestId), 'sale/request link');
+  const approval = await receiptOf(await legion.connect(legionAdmin).approveTransfer(requestId), 'Legion admin approval');
+  const allowance = await receiptOf(await abcd.connect(buyer).approve(await adapter.getAddress(), price), 'buyer ABCD allowance');
+  const before = { sellerABCD: await abcd.balanceOf(seller.address), buyerABCD: await abcd.balanceOf(buyer.address), adapterABCD: await abcd.balanceOf(await adapter.getAddress()), owner: await legion.ownerOf(countryId) };
+  const settlement = await receiptOf(await adapter.connect(buyer).settleSale(saleId), 'atomic targeted settlement');
+  const after = { sellerABCD: await abcd.balanceOf(seller.address), buyerABCD: await abcd.balanceOf(buyer.address), adapterABCD: await abcd.balanceOf(await adapter.getAddress()), owner: await legion.ownerOf(countryId) };
+  if (after.sellerABCD - before.sellerABCD !== price || before.buyerABCD - after.buyerABCD !== price || after.adapterABCD !== 0n || after.owner !== buyer.address) throw new Error('Atomic settlement invariants failed.');
+  if ((await adapter.getSale(saleId)).status !== 2n || (await legion.getTransferRequest(requestId)).active) throw new Error('Sale or request was not consumed.');
+
+  const negative: any[] = [];
+  negative.push(await reverted('replayed settlement', () => adapter.connect(buyer).settleSale(saleId, { gasLimit: 3_000_000 })));
+  negative.push(await reverted('direct Legion approve', () => legion.connect(buyer).approve(other.address, countryId, { gasLimit: 3_000_000 })));
+  negative.push(await reverted('direct Legion setApprovalForAll', () => legion.connect(buyer).setApprovalForAll(other.address, true, { gasLimit: 3_000_000 })));
+  negative.push(await reverted('direct unrestricted Legion transfer', () => legion.connect(buyer).transferFrom(buyer.address, other.address, countryId, { gasLimit: 3_000_000 })));
+  negative.push(await reverted('wrong seller creates sale', () => adapter.connect(other).createSale(stateId, buyer.address, price, { gasLimit: 3_000_000 })));
+  negative.push(await reverted('wrong token creates sale', () => adapter.connect(seller).createSale(999999n, buyer.address, price, { gasLimit: 3_000_000 })));
+  negative.push(await reverted('zero price sale', () => adapter.connect(seller).createSale(stateId, buyer.address, 0n, { gasLimit: 3_000_000 })));
+  negative.push(await reverted('unauthorized marketplace settlement hook', () => legion.connect(settlementAdmin).executeMarketplaceTransfer(requestId, saleId, seller.address, buyer.address, price, abcdAddress, { gasLimit: 3_000_000 })));
+
+  const pendingToken = await legion.connect(minter).mintCountry.staticCall(seller.address, 'Pending Country', 'pending-country', 1n, metadata); await receiptOf(await legion.connect(minter).mintCountry(seller.address, 'Pending Country', 'pending-country', 1n, metadata), 'pending country mint');
+  const pendingSale = await adapter.connect(seller).createSale.staticCall(pendingToken, buyer.address, price); await receiptOf(await adapter.connect(seller).createSale(pendingToken, buyer.address, price), 'pending sale');
+  const pendingRequest = await legion.connect(seller).requestTransfer.staticCall(pendingToken, buyer.address); await receiptOf(await legion.connect(seller).requestTransfer(pendingToken, buyer.address), 'pending request'); await receiptOf(await adapter.connect(seller).linkTransferRequest(pendingSale, pendingRequest), 'pending link');
+  const rollbackBefore = { seller: await abcd.balanceOf(seller.address), buyer: await abcd.balanceOf(buyer.address), owner: await legion.ownerOf(pendingToken) };
+  negative.push(await reverted('unapproved request atomic rollback', () => adapter.connect(buyer).settleSale(pendingSale, { gasLimit: 3_000_000 })));
+  const rollbackAfter = { seller: await abcd.balanceOf(seller.address), buyer: await abcd.balanceOf(buyer.address), owner: await legion.ownerOf(pendingToken) };
+  if (rollbackBefore.seller !== rollbackAfter.seller || rollbackBefore.buyer !== rollbackAfter.buyer || rollbackAfter.owner !== seller.address || !(await legion.getTransferRequest(pendingRequest)).active) throw new Error('Failed settlement did not roll back safely.');
+  await receiptOf(await legion.connect(legionAdmin).approveTransfer(pendingRequest), 'pending Legion approval');
+  negative.push(await reverted('wrong buyer settlement', () => adapter.connect(wrongBuyer).settleSale(pendingSale, { gasLimit: 3_000_000 })));
+  negative.push(await reverted('insufficient allowance', () => adapter.connect(buyer).settleSale(pendingSale, { gasLimit: 3_000_000 })));
+  await receiptOf(await abcd.connect(buyer).approve(await adapter.getAddress(), price), 'pending allowance'); await abcd.connect(buyer).transfer(other.address, (await abcd.balanceOf(buyer.address)) - (price - 1n));
+  negative.push(await reverted('insufficient ABCD balance', () => adapter.connect(buyer).settleSale(pendingSale, { gasLimit: 3_000_000 })));
+  await receiptOf(await legion.connect(seller).cancelTransfer(pendingRequest), 'cancel pending request'); await receiptOf(await adapter.connect(other).markNotSettleable(pendingSale), 'mark cancelled sale');
+  negative.push(await reverted('cancelled request settlement', () => adapter.connect(buyer).settleSale(pendingSale, { gasLimit: 3_000_000 })));
+
+  const pauseToken = await legion.connect(minter).mintCountry.staticCall(seller.address, 'Pause Country', 'pause-country', 1n, metadata); await receiptOf(await legion.connect(minter).mintCountry(seller.address, 'Pause Country', 'pause-country', 1n, metadata), 'pause country mint');
+  const pauseSale = await adapter.connect(seller).createSale.staticCall(pauseToken, buyer.address, price); await receiptOf(await adapter.connect(seller).createSale(pauseToken, buyer.address, price), 'pause sale');
+  const pauseRequest = await legion.connect(seller).requestTransfer.staticCall(pauseToken, buyer.address); await receiptOf(await legion.connect(seller).requestTransfer(pauseToken, buyer.address), 'pause request'); await receiptOf(await adapter.connect(seller).linkTransferRequest(pauseSale, pauseRequest), 'pause link'); await receiptOf(await legion.connect(legionAdmin).approveTransfer(pauseRequest), 'pause Legion approval');
+  await receiptOf(await abcd.connect(liquidityFunder).transfer(buyer.address, price), 'pause buyer funding from canonical liquidity allocation holder'); await receiptOf(await abcd.connect(buyer).approve(await adapter.getAddress(), price), 'pause allowance');
+  await receiptOf(await adapter.connect(pauser).pause(), 'adapter pause'); negative.push(await reverted('adapter paused settlement', () => adapter.connect(buyer).settleSale(pauseSale, { gasLimit: 3_000_000 }))); await receiptOf(await adapter.connect(pauser).unpause(), 'adapter unpause');
+  await receiptOf(await legion.connect(pauser).pause(), 'Legion pause'); negative.push(await reverted('Legion paused settlement', () => adapter.connect(buyer).settleSale(pauseSale, { gasLimit: 3_000_000 }))); await receiptOf(await legion.connect(pauser).unpause(), 'Legion unpause');
+
+  const invalidToken = await legion.connect(minter).mintCountry.staticCall(seller.address, 'Invalid Country', 'invalid-country', 1n, metadata); await receiptOf(await legion.connect(minter).mintCountry(seller.address, 'Invalid Country', 'invalid-country', 1n, metadata), 'invalid country mint');
+  const invalidSale = await adapter.connect(seller).createSale.staticCall(invalidToken, buyer.address, price); await receiptOf(await adapter.connect(seller).createSale(invalidToken, buyer.address, price), 'invalid sale'); const invalidRequest = await legion.connect(seller).requestTransfer.staticCall(invalidToken, buyer.address); await receiptOf(await legion.connect(seller).requestTransfer(invalidToken, buyer.address), 'invalid request'); await receiptOf(await adapter.connect(seller).linkTransferRequest(invalidSale, invalidRequest), 'invalid link'); await receiptOf(await legion.connect(legionAdmin).invalidateTransfer(invalidRequest), 'invalidate request'); await receiptOf(await adapter.connect(other).markNotSettleable(invalidSale), 'mark invalidated sale'); negative.push(await reverted('invalidated request settlement', () => adapter.connect(buyer).settleSale(invalidSale, { gasLimit: 3_000_000 })));
+
+  const staleToken = await legion.connect(minter).mintCountry.staticCall(seller.address, 'Stale Country', 'stale-country', 1n, metadata); await receiptOf(await legion.connect(minter).mintCountry(seller.address, 'Stale Country', 'stale-country', 1n, metadata), 'stale country mint');
+  const staleSale = await adapter.connect(seller).createSale.staticCall(staleToken, buyer.address, price); await receiptOf(await adapter.connect(seller).createSale(staleToken, buyer.address, price), 'stale sale'); const staleRequest = await legion.connect(seller).requestTransfer.staticCall(staleToken, buyer.address); await receiptOf(await legion.connect(seller).requestTransfer(staleToken, buyer.address), 'stale request'); await receiptOf(await adapter.connect(seller).linkTransferRequest(staleSale, staleRequest), 'stale link'); await receiptOf(await legion.connect(legionAdmin).approveTransfer(staleRequest), 'stale Legion approval'); await receiptOf(await legion.connect(seller).executeTransfer(staleRequest), 'external LEG-44 transfer creating stale sale'); await receiptOf(await adapter.connect(other).markNotSettleable(staleSale), 'mark stale sale'); negative.push(await reverted('stale owner settlement', () => adapter.connect(buyer).settleSale(staleSale, { gasLimit: 3_000_000 })));
+
+  const ReentrantBuyer = await hh.getContractFactory('ReentrantLegionMarketplaceBuyer'); const reentrantBuyer = await ReentrantBuyer.deploy(abcdAddress, await adapter.getAddress()); await reentrantBuyer.waitForDeployment();
+  const reentrantToken = await legion.connect(minter).mintCountry.staticCall(seller.address, 'Receiver Country', 'receiver-country', 1n, metadata); await receiptOf(await legion.connect(minter).mintCountry(seller.address, 'Receiver Country', 'receiver-country', 1n, metadata), 'receiver country mint');
+  const reentrantSale = await adapter.connect(seller).createSale.staticCall(reentrantToken, await reentrantBuyer.getAddress(), price); await receiptOf(await adapter.connect(seller).createSale(reentrantToken, await reentrantBuyer.getAddress(), price), 'receiver sale'); const reentrantRequest = await legion.connect(seller).requestTransfer.staticCall(reentrantToken, await reentrantBuyer.getAddress()); await receiptOf(await legion.connect(seller).requestTransfer(reentrantToken, await reentrantBuyer.getAddress()), 'receiver request'); await receiptOf(await adapter.connect(seller).linkTransferRequest(reentrantSale, reentrantRequest), 'receiver link'); await receiptOf(await legion.connect(legionAdmin).approveTransfer(reentrantRequest), 'receiver Legion approval'); await receiptOf(await abcd.connect(liquidityFunder).transfer(await reentrantBuyer.getAddress(), price), 'receiver ABCD funding from canonical liquidity allocation holder'); const reentrantSettlement = await receiptOf(await reentrantBuyer.connect(other).approveAndSettle(reentrantSale, price), 'reentrant settlement');
+  if (!(await reentrantBuyer.reentryAttempted()) || await reentrantBuyer.reentrySucceeded()) throw new Error('Reentrancy protection failed.');
+
+  const result = { chainId: Number(chain.chainId), manifestPath, deploymentVersion: manifest.deploymentVersion, contracts: manifest.contracts, roles: manifest.roles, fixtureFunding: { source: liquidityWallet, amount: funding.toString(), sourceBalanceAfter: (await abcd.balanceOf(liquidityWallet)).toString() }, hierarchy: { countryId: countryId.toString(), stateId: stateId.toString(), districtId: districtId.toString(), stateParent: (await legion.getTerritory(stateId)).parentId.toString(), districtParent: (await legion.getTerritory(districtId)).parentId.toString() }, settlement: { saleId: saleId.toString(), requestId: requestId.toString(), tokenId: countryId.toString(), seller: seller.address, buyer: buyer.address, price: price.toString(), before: Object.fromEntries(Object.entries(before).map(([key, value]) => [key, value.toString()])), after: Object.fromEntries(Object.entries(after).map(([key, value]) => [key, value.toString()])), events: { saleCreated: eventOf(adapter, saleCreate, 'SaleCreated'), requestCreated: eventOf(legion, requestCreate, 'TransferRequested'), linked: eventOf(adapter, link, 'SaleRequestLinked'), approved: eventOf(legion, approval, 'TransferApproved'), settled: eventOf(adapter, settlement, 'SaleSettled'), transfer: eventOf(legion, settlement, 'MarketplaceTransferExecuted') }, receipts: { buyerFunding: { hash: fundBuyer.hash, block: Number(fundBuyer.blockNumber) }, countryMint: { hash: countryMint.hash, block: Number(countryMint.blockNumber) }, stateMint: { hash: stateMint.hash, block: Number(stateMint.blockNumber) }, districtMint: { hash: districtMint.hash, block: Number(districtMint.blockNumber) }, allowance: { hash: allowance.hash, block: Number(allowance.blockNumber) }, settlement: { hash: settlement.hash, block: Number(settlement.blockNumber) } } }, rollback: { before: Object.fromEntries(Object.entries(rollbackBefore).map(([key, value]) => [key, value.toString()])), after: Object.fromEntries(Object.entries(rollbackAfter).map(([key, value]) => [key, value.toString()])) }, reentrancy: { settlementHash: reentrantSettlement.hash, block: Number(reentrantSettlement.blockNumber), attempted: await reentrantBuyer.reentryAttempted(), succeeded: await reentrantBuyer.reentrySucceeded() }, negative };
+  console.log(JSON.stringify(result, null, 2));
+}
+main().catch((error) => { console.error(error); process.exitCode = 1; });

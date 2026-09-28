@@ -4,48 +4,81 @@
 import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, EventFragment, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers"
 import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../../../common.js"
   
+export declare namespace OracleAdapterV2 {
+      
+    export type PriceSnapshotStruct = {aggregator: AddressLike, roundId: BigNumberish, updatedAt: BigNumberish, priceUSD: BigNumberish}
+
+    export type PriceSnapshotStructOutput = [aggregator: string, roundId: bigint, updatedAt: bigint, priceUSD: bigint] & {aggregator: string, roundId: bigint, updatedAt: bigint, priceUSD: bigint }
+  
+    }
 
   export interface OracleAdapterV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ORACLE_ADMIN_ROLE" | "configureFeed" | "feeds" | "getRoleAdmin" | "grantRole" | "hasRole" | "pause" | "paused" | "priceUSD" | "renounceRole" | "revokeRole" | "supportsInterface" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "BPS" | "DEFAULT_ADMIN_ROLE" | "ORACLE_ADMIN_ROLE" | "ORACLE_SNAPSHOT_ROLE" | "configureFeed" | "configureFeedWithPolicy" | "feedPolicyConfigured" | "feeds" | "getRoleAdmin" | "grantRole" | "hasRole" | "latestValidatedSnapshot" | "pause" | "paused" | "priceUSD" | "renounceRole" | "resetDeviationBaseline" | "revokeRole" | "snapshotPriceUSD" | "supportsInterface" | "unpause"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "FeedConfigured" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "DeviationBaselineReset" | "FeedConfigured" | "Paused" | "PriceSnapshotRecorded" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "Unpaused"): EventFragment;
 
-    encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ORACLE_ADMIN_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'ORACLE_SNAPSHOT_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'configureFeed', values: [AddressLike, AddressLike, BigNumberish, boolean]): string;
+encodeFunctionData(functionFragment: 'configureFeedWithPolicy', values: [AddressLike, AddressLike, BigNumberish, BigNumberish, BigNumberish, boolean]): string;
+encodeFunctionData(functionFragment: 'feedPolicyConfigured', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'feeds', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'latestValidatedSnapshot', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
 encodeFunctionData(functionFragment: 'priceUSD', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'resetDeviationBaseline', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
+encodeFunctionData(functionFragment: 'snapshotPriceUSD', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 
-    decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'ORACLE_ADMIN_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'ORACLE_SNAPSHOT_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'configureFeed', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'configureFeedWithPolicy', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'feedPolicyConfigured', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'feeds', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'latestValidatedSnapshot', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'priceUSD', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'resetDeviationBaseline', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'snapshotPriceUSD', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
   }
 
   
+    export namespace DeviationBaselineResetEvent {
+      export type InputTuple = [asset: AddressLike, aggregator: AddressLike, roundId: BigNumberish, updatedAt: BigNumberish, acceptedPriceUSD: BigNumberish, resetBy: AddressLike];
+      export type OutputTuple = [asset: string, aggregator: string, roundId: bigint, updatedAt: bigint, acceptedPriceUSD: bigint, resetBy: string];
+      export interface OutputObject {asset: string, aggregator: string, roundId: bigint, updatedAt: bigint, acceptedPriceUSD: bigint, resetBy: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
     export namespace FeedConfiguredEvent {
-      export type InputTuple = [asset: AddressLike, aggregator: AddressLike, heartbeat: BigNumberish, enabled: boolean];
-      export type OutputTuple = [asset: string, aggregator: string, heartbeat: bigint, enabled: boolean];
-      export interface OutputObject {asset: string, aggregator: string, heartbeat: bigint, enabled: boolean };
+      export type InputTuple = [asset: AddressLike, aggregator: AddressLike, heartbeat: BigNumberish, expectedDecimals: BigNumberish, maxDeviationBps: BigNumberish, enabled: boolean, deviationConfigured: boolean];
+      export type OutputTuple = [asset: string, aggregator: string, heartbeat: bigint, expectedDecimals: bigint, maxDeviationBps: bigint, enabled: boolean, deviationConfigured: boolean];
+      export interface OutputObject {asset: string, aggregator: string, heartbeat: bigint, expectedDecimals: bigint, maxDeviationBps: bigint, enabled: boolean, deviationConfigured: boolean };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -58,6 +91,18 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       export type InputTuple = [account: AddressLike];
       export type OutputTuple = [account: string];
       export interface OutputObject {account: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace PriceSnapshotRecordedEvent {
+      export type InputTuple = [asset: AddressLike, aggregator: AddressLike, roundId: BigNumberish, updatedAt: BigNumberish, priceUSD: BigNumberish, recorder: AddressLike];
+      export type OutputTuple = [asset: string, aggregator: string, roundId: bigint, updatedAt: bigint, priceUSD: bigint, recorder: string];
+      export interface OutputObject {asset: string, aggregator: string, roundId: bigint, updatedAt: bigint, priceUSD: bigint, recorder: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -148,6 +193,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
     
     
+    BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     DEFAULT_ADMIN_ROLE: TypedContractMethod<
       [],
       [string],
@@ -164,6 +217,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    ORACLE_SNAPSHOT_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     configureFeed: TypedContractMethod<
       [asset: AddressLike, aggregator: AddressLike, heartbeat: BigNumberish, enabled: boolean, ],
       [void],
@@ -172,9 +233,25 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    configureFeedWithPolicy: TypedContractMethod<
+      [asset: AddressLike, aggregator: AddressLike, heartbeat: BigNumberish, expectedDecimals: BigNumberish, maxDeviationBps: BigNumberish, enabled: boolean, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    feedPolicyConfigured: TypedContractMethod<
+      [asset: AddressLike, ],
+      [boolean],
+      'view'
+    >
+    
+
+    
     feeds: TypedContractMethod<
       [arg0: AddressLike, ],
-      [[string, bigint, boolean] & {aggregator: string, heartbeat: bigint, enabled: boolean }],
+      [[string, bigint, bigint, bigint, bigint, bigint, boolean, boolean, bigint] & {aggregator: string, heartbeat: bigint, acceptedAt: bigint, acceptedRoundId: bigint, maxDeviationBps: bigint, expectedDecimals: bigint, enabled: boolean, deviationConfigured: boolean, acceptedPriceUSD: bigint }],
       'view'
     >
     
@@ -199,6 +276,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     hasRole: TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [boolean],
+      'view'
+    >
+    
+
+    
+    latestValidatedSnapshot: TypedContractMethod<
+      [asset: AddressLike, ],
+      [OracleAdapterV2.PriceSnapshotStructOutput],
       'view'
     >
     
@@ -236,9 +321,25 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    resetDeviationBaseline: TypedContractMethod<
+      [asset: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     revokeRole: TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [void],
+      'nonpayable'
+    >
+    
+
+    
+    snapshotPriceUSD: TypedContractMethod<
+      [asset: AddressLike, ],
+      [OracleAdapterV2.PriceSnapshotStructOutput],
       'nonpayable'
     >
     
@@ -262,7 +363,12 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
-    getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
+    getFunction(nameOrSignature: 'BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -272,14 +378,29 @@ getFunction(nameOrSignature: 'ORACLE_ADMIN_ROLE'): TypedContractMethod<
       [string],
       'view'
     >;
+getFunction(nameOrSignature: 'ORACLE_SNAPSHOT_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'configureFeed'): TypedContractMethod<
       [asset: AddressLike, aggregator: AddressLike, heartbeat: BigNumberish, enabled: boolean, ],
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'configureFeedWithPolicy'): TypedContractMethod<
+      [asset: AddressLike, aggregator: AddressLike, heartbeat: BigNumberish, expectedDecimals: BigNumberish, maxDeviationBps: BigNumberish, enabled: boolean, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'feedPolicyConfigured'): TypedContractMethod<
+      [asset: AddressLike, ],
+      [boolean],
+      'view'
+    >;
 getFunction(nameOrSignature: 'feeds'): TypedContractMethod<
       [arg0: AddressLike, ],
-      [[string, bigint, boolean] & {aggregator: string, heartbeat: bigint, enabled: boolean }],
+      [[string, bigint, bigint, bigint, bigint, bigint, boolean, boolean, bigint] & {aggregator: string, heartbeat: bigint, acceptedAt: bigint, acceptedRoundId: bigint, maxDeviationBps: bigint, expectedDecimals: bigint, enabled: boolean, deviationConfigured: boolean, acceptedPriceUSD: bigint }],
       'view'
     >;
 getFunction(nameOrSignature: 'getRoleAdmin'): TypedContractMethod<
@@ -295,6 +416,11 @@ getFunction(nameOrSignature: 'grantRole'): TypedContractMethod<
 getFunction(nameOrSignature: 'hasRole'): TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [boolean],
+      'view'
+    >;
+getFunction(nameOrSignature: 'latestValidatedSnapshot'): TypedContractMethod<
+      [asset: AddressLike, ],
+      [OracleAdapterV2.PriceSnapshotStructOutput],
       'view'
     >;
 getFunction(nameOrSignature: 'pause'): TypedContractMethod<
@@ -317,9 +443,19 @@ getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'resetDeviationBaseline'): TypedContractMethod<
+      [asset: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'revokeRole'): TypedContractMethod<
       [role: BytesLike, account: AddressLike, ],
       [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'snapshotPriceUSD'): TypedContractMethod<
+      [asset: AddressLike, ],
+      [OracleAdapterV2.PriceSnapshotStructOutput],
       'nonpayable'
     >;
 getFunction(nameOrSignature: 'supportsInterface'): TypedContractMethod<
@@ -333,8 +469,10 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
       'nonpayable'
     >;
 
-    getEvent(key: 'FeedConfigured'): TypedContractEvent<FeedConfiguredEvent.InputTuple, FeedConfiguredEvent.OutputTuple, FeedConfiguredEvent.OutputObject>;
+    getEvent(key: 'DeviationBaselineReset'): TypedContractEvent<DeviationBaselineResetEvent.InputTuple, DeviationBaselineResetEvent.OutputTuple, DeviationBaselineResetEvent.OutputObject>;
+getEvent(key: 'FeedConfigured'): TypedContractEvent<FeedConfiguredEvent.InputTuple, FeedConfiguredEvent.OutputTuple, FeedConfiguredEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+getEvent(key: 'PriceSnapshotRecorded'): TypedContractEvent<PriceSnapshotRecordedEvent.InputTuple, PriceSnapshotRecordedEvent.OutputTuple, PriceSnapshotRecordedEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
 getEvent(key: 'RoleGranted'): TypedContractEvent<RoleGrantedEvent.InputTuple, RoleGrantedEvent.OutputTuple, RoleGrantedEvent.OutputObject>;
 getEvent(key: 'RoleRevoked'): TypedContractEvent<RoleRevokedEvent.InputTuple, RoleRevokedEvent.OutputTuple, RoleRevokedEvent.OutputObject>;
@@ -342,12 +480,20 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
     filters: {
       
-      'FeedConfigured(address,address,uint48,bool)': TypedContractEvent<FeedConfiguredEvent.InputTuple, FeedConfiguredEvent.OutputTuple, FeedConfiguredEvent.OutputObject>;
+      'DeviationBaselineReset(address,address,uint80,uint48,uint256,address)': TypedContractEvent<DeviationBaselineResetEvent.InputTuple, DeviationBaselineResetEvent.OutputTuple, DeviationBaselineResetEvent.OutputObject>;
+      DeviationBaselineReset: TypedContractEvent<DeviationBaselineResetEvent.InputTuple, DeviationBaselineResetEvent.OutputTuple, DeviationBaselineResetEvent.OutputObject>;
+    
+
+      'FeedConfigured(address,address,uint48,uint8,uint16,bool,bool)': TypedContractEvent<FeedConfiguredEvent.InputTuple, FeedConfiguredEvent.OutputTuple, FeedConfiguredEvent.OutputObject>;
       FeedConfigured: TypedContractEvent<FeedConfiguredEvent.InputTuple, FeedConfiguredEvent.OutputTuple, FeedConfiguredEvent.OutputObject>;
     
 
       'Paused(address)': TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
       Paused: TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
+    
+
+      'PriceSnapshotRecorded(address,address,uint80,uint48,uint256,address)': TypedContractEvent<PriceSnapshotRecordedEvent.InputTuple, PriceSnapshotRecordedEvent.OutputTuple, PriceSnapshotRecordedEvent.OutputObject>;
+      PriceSnapshotRecorded: TypedContractEvent<PriceSnapshotRecordedEvent.InputTuple, PriceSnapshotRecordedEvent.OutputTuple, PriceSnapshotRecordedEvent.OutputObject>;
     
 
       'RoleAdminChanged(bytes32,bytes32,bytes32)': TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;

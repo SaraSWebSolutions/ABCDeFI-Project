@@ -25,7 +25,7 @@ class FixtureProvider {
   constructor({ latest = 130, logs = [] } = {}) {
     this.latest = latest;
     this.logs = logs;
-    this.blocks = new Map(Array.from({ length: latest + 1 }, (_, block) => [block, { number: block, hash: HASH(10_000 + block) }]));
+    this.blocks = new Map(Array.from({ length: latest + 1 }, (_, block) => [block, { number: block, hash: HASH(10_000 + block), timestamp: 1_700_000_000 + block }]));
     this.calls = { logs: [] };
   }
   async getNetwork() { return { chainId: 31337n }; }
@@ -49,11 +49,15 @@ class FixtureModels {
       updateOne: async (_identity, update) => {
         this.checkpoint = { ...(this.checkpoint || {}), ...update.$set };
       },
+      deleteOne: async () => { this.checkpoint = null; },
     };
     this.V2ChainEvent = {
       updateOne: async (identity, update) => {
         if (this.failEventPersistence) throw new Error('fixture event persistence failed');
         if (!this.events.some((event) => event.transactionHash === identity.transactionHash && event.logIndex === identity.logIndex)) this.events.push(update.$setOnInsert);
+      },
+      deleteMany: async (identity) => {
+        this.events = this.events.filter((event) => event.chainId !== identity.chainId || event.deploymentVersion !== identity.deploymentVersion);
       },
     };
   }
@@ -106,6 +110,7 @@ test('a local zero-confirmation caller indexes canonical vault and pool deposit 
     ['130', 'LendingPoolV2', 'CollateralDepositCreated'],
   ]);
   assert.ok(models.events.every((event) => event.args.borrower.toLowerCase() === BORROWER.toLowerCase()));
+  assert.deepEqual(models.events.map((event) => event.blockTimestamp), ['1700000129', '1700000129', '1700000130', '1700000130']);
 });
 
 test('the checkpoint advances only after all V2 event persistence succeeds', async () => {
@@ -150,3 +155,51 @@ test('the canonical V2 indexer persists LendingReferralManagerV2 registration an
   ]);
   assert.equal(models.checkpoint.lastProcessedBlock, '130');
 });
+
+test('the canonical V2 raw-event projection indexes the LoanNFTV2 transfer and three role-specific completion records in log order', async () => {
+  const activeManifest = manifest();
+  const nft = new Interface(artifacts.LoanNFTV2.abi);
+  const roles = ['lender', 'borrower', 'platform'];
+  const logs = roles.flatMap((role, index) => {
+    const tokenId = BigInt(index + 1);
+    const transfer = nft.encodeEventLog(nft.getEvent('Transfer'), [ADDRESS(0), BORROWER, tokenId]);
+    const created = nft.encodeEventLog(nft.getEvent('LoanCertificateCreated'), [7n, tokenId, BigInt(index), BORROWER, 10000000000000000n, `ipfs://canonical-${role}`, HASH(701 + index)]);
+    return [
+      { address: activeManifest.contracts.LoanNFTV2.address, ...transfer, blockNumber: 129, transactionIndex: 0, index: index * 2, transactionHash: HASH(701), blockHash: HASH(10_129) },
+      { address: activeManifest.contracts.LoanNFTV2.address, ...created, blockNumber: 129, transactionIndex: 0, index: index * 2 + 1, transactionHash: HASH(701), blockHash: HASH(10_129) },
+    ];
+  });
+  const provider = new FixtureProvider({ latest: 129, logs });
+  const models = new FixtureModels({ lastProcessedBlock: '128', lastProcessedBlockHash: HASH(10_128) });
+  const indexer = subject(provider, models, { manifest: activeManifest, confirmations: 0 });
+  await indexer.syncOnce();
+  await indexer.syncOnce();
+  assert.deepEqual(models.events.map((event) => event.eventName), ['Transfer', 'LoanCertificateCreated', 'Transfer', 'LoanCertificateCreated', 'Transfer', 'LoanCertificateCreated']);
+  assert.deepEqual(models.events.filter((event) => event.eventName === 'LoanCertificateCreated').map((event) => [event.args.loanId, event.args.certificateId, event.args.certificateRole]), [
+    ['7', '1', '0'], ['7', '2', '1'], ['7', '3', '2'],
+  ]);
+  assert.equal(models.events.length, 6, 'checkpoint replay must not duplicate certificate projection evidence');
+});
+
+test('a checkpoint hash mismatch rebuilds only the deployment-version projection before indexing the replacement canonical chain', async () => {
+  const activeManifest = manifest();
+  const provider = new FixtureProvider({ logs: depositLogs(activeManifest) });
+  const models = new FixtureModels({ lastProcessedBlock: '128', lastProcessedBlockHash: HASH(10_128) });
+  const indexer = subject(provider, models, { manifest: activeManifest, confirmations: 0 });
+  await indexer.syncOnce();
+  expectEventCount(models, 4);
+
+  provider.blocks.set(130, { number: 130, hash: HASH(77_700), timestamp: 1_700_000_130 });
+  const replacement = depositLogs(activeManifest).filter((log) => log.blockNumber === 130).map((log, index) => ({
+    ...log, transactionHash: HASH(77_700), blockHash: HASH(77_700), index,
+  }));
+  provider.logs = replacement;
+  await indexer.syncOnce();
+
+  assert.equal(models.events.length, 2);
+  assert.ok(models.events.every((event) => event.transactionHash === HASH(77_700)));
+  assert.equal(models.checkpoint.lastProcessedBlock, '130');
+  assert.equal(models.checkpoint.lastProcessedBlockHash, HASH(77_700));
+});
+
+function expectEventCount(models, count) { assert.equal(models.events.length, count); }

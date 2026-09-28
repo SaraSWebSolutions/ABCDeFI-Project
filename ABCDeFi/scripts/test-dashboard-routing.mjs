@@ -81,11 +81,15 @@ test('user-facing Franchise and canonical Legion views cannot issue administrato
   assert.doesNotMatch(legionSource, /Mint Legion certificate/);
 });
 
-test('administrator issuance remains structurally isolated in AdminPortalEngine', () => {
+test('legacy issuance controls remain outside the active Phase 12 Admin console', () => {
   const adminSource = fs.readFileSync(new URL('../src/components/AdminPortalEngine.tsx', import.meta.url), 'utf8');
-  assert.match(adminSource, /<AdminNftIssuance\s*\/>/);
-  assert.match(adminSource, /<ICOAdmin\s*\/>/);
-  assert.match(adminSource, /<AdminAuthenticationDiagnostics\s*\/>/);
+  const activeAdminSource = adminSource.slice(
+    adminSource.indexOf('export const AdminPortalEngine'),
+    adminSource.indexOf('// Legacy mock-backed control-center'),
+  );
+  assert.match(activeAdminSource, /<CanonicalAdminDashboard\s*\/>/);
+  assert.match(activeAdminSource, /<AdminAuthenticationDiagnostics\s*\/>/);
+  assert.doesNotMatch(activeAdminSource, /<AdminNftIssuance\s*\/>|<ICOAdmin\s*\/>/);
 });
 
 test('the active admin route is narrow, real-capability-only, and separate from legacy mock controls', () => {
@@ -97,30 +101,35 @@ test('the active admin route is narrow, real-capability-only, and separate from 
 
   assert.match(activeAdminSource, /user\?\.role !== 'admin'/);
   assert.match(activeAdminSource, /Application administrator access does not grant any on-chain role/);
-  assert.match(activeAdminSource, /canonical ICO remains inactive/);
+  assert.match(activeAdminSource, /does not create a universal/);
   assert.match(activeAdminSource, /<AdminAuthenticationDiagnostics\s*\/>/);
-  assert.match(activeAdminSource, /<ICOAdmin\s*\/>/);
-  assert.match(activeAdminSource, /<AdminNftIssuance\s*\/>/);
+  assert.match(activeAdminSource, /<CanonicalAdminDashboard\s*\/>/);
+  assert.doesNotMatch(activeAdminSource, /<ICOAdmin\s*\/>|<AdminNftIssuance\s*\/>/);
   assert.doesNotMatch(activeAdminSource, /mockApiStore/);
   assert.doesNotMatch(activeAdminSource, /RoleManager/);
   assert.doesNotMatch(activeAdminSource, /AdminPanel/);
 });
 
-test('unconfigured governance remains fail-closed instead of exposing mock proposals or votes', () => {
+test('legacy Governance feature is absent from canonical sources, routes, and deployments', () => {
   const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
   const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
-  const governanceServiceSource = fs.readFileSync(new URL('../src/Services/governance.ts', import.meta.url), 'utf8');
+  const financialWellnessSource = fs.readFileSync(new URL('../src/components/FinancialWellnessDashboard.tsx', import.meta.url), 'utf8');
+  const canonicalAdminConfigSource = fs.readFileSync(new URL('../backend/backend/modules/admin/canonicalAdmin/canonicalAdmin.config.cjs', import.meta.url), 'utf8');
   const ecosystemDeploymentSource = fs.readFileSync(new URL('./deploy-ecosystem.ts', import.meta.url), 'utf8');
   const v2DeploymentSource = fs.readFileSync(new URL('./deploy-lending-v2-local.ts', import.meta.url), 'utf8');
 
-  // The whitepaper describes democratic governing as a principle, but does
-  // not specify voting power, quorum, duration, execution authority, or a
-  // proposal payload. Until those mechanics are approved, mock records must
-  // never become an active user-facing governance surface.
-  assert.match(governanceServiceSource, /COMMUNITY_PROPOSALS/);
-  assert.match(governanceServiceSource, /setTimeout/);
+  assert.equal(fs.existsSync(new URL('../contracts/governance/Governance.sol', import.meta.url)), false);
+  assert.equal(fs.existsSync(new URL('../contracts/governance/ABCDeFiGovernor.sol', import.meta.url)), false);
+  assert.equal(fs.existsSync(new URL('../src/Services/governance.ts', import.meta.url)), false);
+  assert.equal(fs.existsSync(new URL('../src/components/AdminGovernanceDashboard.tsx', import.meta.url)), false);
+  assert.equal(fs.existsSync(new URL('../src/components/NFTMarketplaceGovernancePortal.tsx', import.meta.url)), false);
+  assert.equal(fs.existsSync(new URL('../types/ethers-contracts/governance/Governance.ts', import.meta.url)), false);
+  assert.equal(fs.existsSync(new URL('../types/ethers-contracts/governance/ABCDeFiGovernor.sol/ABCDeFiGovernor.ts', import.meta.url)), false);
+  assert.equal(fs.existsSync(new URL('../types/ethers-contracts/factories/governance/Governance__factory.ts', import.meta.url)), false);
   assert.doesNotMatch(appSource, /FinancialWellnessDashboard|AdminGovernanceDashboard|NFTMarketplaceGovernancePortal/);
   assert.doesNotMatch(userDashboardSource, /FinancialWellnessDashboard|AdminGovernanceDashboard|NFTMarketplaceGovernancePortal/);
+  assert.doesNotMatch(financialWellnessSource, /COMMUNITY_PROPOSALS|voteOnProposal|DAO Governance|Vote FOR|Vote AGAINST/);
+  assert.doesNotMatch(canonicalAdminConfigSource, /name: 'Governance'/);
   assert.doesNotMatch(ecosystemDeploymentSource, /getContractFactory\(["'](?:Governance|ABCDeFiGovernor)["']\)/);
   assert.doesNotMatch(v2DeploymentSource, /getContractFactory\(["'](?:Governance|ABCDeFiGovernor)["']\)/);
 });
@@ -138,36 +147,69 @@ test('top-level incomplete navigation renders an explicit state instead of a bla
   assert.match(userDashboardSource, /not implemented in the active canonical runtime/);
 });
 
-test('the primary UserDashboard lending and P2P tabs use the isolated V2 workflow', () => {
+test('the primary UserDashboard groups Lending views while preserving the isolated V2 workflow', () => {
   const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
   const mobileDashboardSource = fs.readFileSync(new URL('../src/components/MobileUserDashboard.tsx', import.meta.url), 'utf8');
-  assert.match(userDashboardSource, /\{ id: 'lending', label: 'Lending'/);
-  assert.match(userDashboardSource, /\{ id: 'lending-v2', label: 'Lending V2'/);
-  assert.match(userDashboardSource, /\{ id: 'p2p-loans', label: 'P2P Loans'/);
+  const navigationSource = userDashboardSource.slice(
+    userDashboardSource.indexOf('const USER_NAVIGATION_GROUPS'),
+    userDashboardSource.indexOf('const LENDING_VIEW_DESCRIPTIONS'),
+  );
+  assert.match(navigationSource, /id: 'lending',\s+label: 'Lending'/);
+  assert.match(navigationSource, /id: 'p2p-loans', label: 'P2P Loans'/);
+  assert.match(navigationSource, /id: 'deposit', label: 'Collateral'/);
+  assert.match(navigationSource, /id: 'emi', label: 'Repayment & EMI'/);
+  assert.doesNotMatch(navigationSource, /id: 'lending-v2'/);
+  assert.doesNotMatch(navigationSource, /id: 'security'|id: 'ai-copilot'|id: 'credit'|id: 'notifications'|id: 'settings'/);
   assert.match(userDashboardSource, /activeTab === 'lending' && <LendingV2\s*\/>/);
-  assert.match(userDashboardSource, /activeTab === 'lending-v2' && <LendingV2\s*\/>/);
-  assert.match(userDashboardSource, /activeTab === 'p2p-loans' && <LendingV2\s*\/>/);
+  assert.match(userDashboardSource, /activeTab === 'p2p-loans' &&/);
+  assert.match(userDashboardSource, /aria-label="P2P lending workspace"/);
   assert.doesNotMatch(userDashboardSource, /from ['"]\.\/LendingPool['"]/);
   assert.doesNotMatch(userDashboardSource, /from ['"]\.\/P2PLendingDashboard['"]/);
   assert.doesNotMatch(mobileDashboardSource, /from ['"]\.\/P2PLendingDashboard['"]/);
 });
 
-test('active summary and NFT surfaces do not query legacy V1 lending or LoanNFT state', () => {
+test('the canonical user shell groups NFT features and keeps administrative routes separate', () => {
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+  const navigationSource = userDashboardSource.slice(
+    userDashboardSource.indexOf('const USER_NAVIGATION_GROUPS'),
+    userDashboardSource.indexOf('const LENDING_VIEW_DESCRIPTIONS'),
+  );
+
+  assert.match(navigationSource, /id: 'nft-ecosystem',\s+label: 'NFT Ecosystem'/);
+  for (const id of ['legion', 'franchise', 'abcd-nft-marketplace', 'legion-marketplace']) {
+    assert.match(navigationSource, new RegExp(`id: '${id}'`));
+  }
+  assert.match(navigationSource, /id: 'account',\s+label: 'Account'/);
+  assert.doesNotMatch(navigationSource, /id: 'admin'/);
+});
+
+test('Profile stays inside the canonical dashboard and no longer targets a dead browser route', () => {
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
+  const navbarSource = fs.readFileSync(new URL('../src/components/Navbar.tsx', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(userDashboardSource, /window\.location\.assign\(['"]\/profile['"]\)/);
+  assert.match(userDashboardSource, /activeTab === 'profile'/);
+  assert.match(navbarSource, /setActiveTab\('profile'\)/);
+  assert.doesNotMatch(navbarSource, /Security & 2FA Settings/);
+});
+
+test('active summary and NFT surfaces use canonical V2 sources rather than the legacy NFT marketplace service', () => {
   const overviewSource = fs.readFileSync(new URL('../src/components/NextGenProtocolDashboard.tsx', import.meta.url), 'utf8');
   const portfolioSource = fs.readFileSync(new URL('../src/components/PortfolioDashboard.tsx', import.meta.url), 'utf8');
-  const ecosystemSource = fs.readFileSync(new URL('../src/components/NFTEcosystem.tsx', import.meta.url), 'utf8');
+  const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
   const ecosystemServiceSource = fs.readFileSync(new URL('../src/Services/nftEcosystem.ts', import.meta.url), 'utf8');
-  const activeSnapshotSource = ecosystemServiceSource.slice(
-    ecosystemServiceSource.indexOf('export async function getNftEcosystemSnapshot'),
-    ecosystemServiceSource.indexOf('interface IndexedEvidence'),
-  );
 
   assert.match(overviewSource, /getV2WalletSummary/);
   assert.match(portfolioSource, /getV2WalletSummary/);
   assert.doesNotMatch(overviewSource, /getCanonicalLendingReadState/);
   assert.doesNotMatch(portfolioSource, /getLendingPoolState/);
-  assert.doesNotMatch(ecosystemSource, /getLoanNftCertificateSnapshot|LoanNFT certificates/);
-  assert.doesNotMatch(activeSnapshotSource, /assertLoanNftDeployment|loan\.balanceOf/);
+  assert.doesNotMatch(overviewSource, /getNftEcosystemSnapshot/);
+  assert.doesNotMatch(portfolioSource, /getNftEcosystemSnapshot/);
+  assert.doesNotMatch(userDashboardSource, /from ['"]\.\/NFTEcosystem['"]/);
+  assert.doesNotMatch(userDashboardSource, /id: 'nft-ecosystem', label: 'Owned NFTs'/);
+  assert.match(userDashboardSource, /id: 'loan-nft-certificates', label: 'Loan Completion NFTs'/);
+  assert.match(userDashboardSource, /LoanNftV2Certificates/);
+  assert.match(ecosystemServiceSource, /Historical\/non-canonical NFT V1 service/);
 });
 
 test('the active dashboard does not route through the retired Treasury mock while Treasury reads remain canonical', () => {

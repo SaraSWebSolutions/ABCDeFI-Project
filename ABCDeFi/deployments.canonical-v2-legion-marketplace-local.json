@@ -1,0 +1,34 @@
+{
+  "deploymentVersion": "legion-marketplace-v2-local-v2-0xc5bfb145e8937a915d1775556221fb75750b7155381fdd478c1063ca1cba2360",
+  "network": "hardhat-local",
+  "chainId": 31337,
+  "rpcUrl": "http://127.0.0.1:8545",
+  "deploymentBlock": 106,
+  "contracts": {
+    "ABCDToken": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "reusedFromManifest": "C:\\ABCDeFi-Stage1-Phase1-Merged-Full\\ABCDeFi-Stage1-updated\\ABCDeFi\\deployments.canonical-v2-root-local.json",
+      "runtimeBytecodeHash": "0x988ba2661276cc58dfbaa90bf0ff6bfa6ee450b78e0d7ce74bb55f9562a479a0"
+    },
+    "LegionNFTV2": {
+      "address": "0xA4899D35897033b927acFCf422bc745916139776",
+      "reusedFromManifest": "C:\\ABCDeFi-Stage1-Phase1-Merged-Full\\ABCDeFi-Stage1-updated\\ABCDeFi\\deployments.canonical-v2-legion-local.json",
+      "artifactIdentity": "contracts/nft/LegionNFTV2.sol:LegionNFTV2",
+      "runtimeBytecodeHash": "0x010d32705541b6dc8cb2ed741f870a3ab7c40f54194f805cf5730c79a38f01cf"
+    },
+    "LegionMarketplaceSettlementAdapterV2": {
+      "address": "0x720472c8ce72c2A2D711333e064ABD3E6BbEAdd3",
+      "deploymentBlock": 106,
+      "settlementRoleGrantTransaction": "0xc1de161771a5519376fee215ce730d8b0cd561617b066e32a79141d269c04a7e",
+      "artifactIdentity": "contracts/marketplace/LegionMarketplaceSettlementAdapterV2.sol:LegionMarketplaceSettlementAdapterV2",
+      "runtimeBytecodeHash": "0xaf474decf4fd1ce4c42c16a8c03dd7e8f8c424e286a59c1981f6dd65da013ab0"
+    }
+  },
+  "roles": {
+    "defaultAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "legionAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "settlementAdmin": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+    "pauser": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+  },
+  "manifestHash": "sha256:ef05c8b1f507d639e9bcde4cadf70a327ef56bfc85325e3902aaefa48ad6822f"
+}

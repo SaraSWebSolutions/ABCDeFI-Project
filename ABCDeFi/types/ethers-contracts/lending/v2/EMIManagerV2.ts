@@ -6,9 +6,9 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 export declare namespace EMIManagerV2 {
       
-    export type InstallmentStruct = {dueAt: BigNumberish, amount: BigNumberish, paid: boolean}
+    export type InstallmentStruct = {dueAt: BigNumberish, amount: BigNumberish, paid: boolean, amountApplied: BigNumberish, state: BigNumberish}
 
-    export type InstallmentStructOutput = [dueAt: bigint, amount: bigint, paid: boolean] & {dueAt: bigint, amount: bigint, paid: boolean }
+    export type InstallmentStructOutput = [dueAt: bigint, amount: bigint, paid: boolean, amountApplied: bigint, state: bigint] & {dueAt: bigint, amount: bigint, paid: boolean, amountApplied: bigint, state: bigint }
   
     }
 
@@ -26,11 +26,12 @@ export declare namespace LoanNFTV2 {
     }
 
   export interface EMIManagerV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "P2P_OPERATOR_ROLE" | "abcd" | "collateralVault" | "createDirectSchedule" | "createSchedule" | "getRoleAdmin" | "getSchedule" | "grantRole" | "hasRole" | "lendingPool" | "lendingReferralManager" | "loanManager" | "loanNFT" | "marketplace" | "nextInstallment" | "pause" | "paused" | "payInstallment" | "payInstallmentWithCompletionMetadata" | "payOutstanding" | "payOutstandingWithCompletionMetadata" | "previewDirectInstallment" | "previewOverdueInstallment" | "recordDirectInstallment" | "renounceRole" | "revokeRole" | "setLendingPool" | "setMarketplace" | "supportsInterface" | "syncLoan" | "totalScheduled" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "OVERDUE_SETTLEMENT_OPERATOR_ROLE" | "P2P_OPERATOR_ROLE" | "abcd" | "collateralVault" | "createDirectSchedule" | "createSchedule" | "getRoleAdmin" | "getSchedule" | "grantRole" | "hasRole" | "lendingPool" | "lendingReferralManager" | "loanManager" | "loanNFT" | "marketplace" | "nextInstallment" | "overdueSettlementEngine" | "pause" | "paused" | "payInstallment" | "payInstallmentWithCompletionMetadata" | "payOutstanding" | "payOutstandingWithCompletionMetadata" | "previewDirectInstallment" | "previewOverdueInstallment" | "recordDirectInstallment" | "recordOverdueSettlement" | "renounceRole" | "revokeRole" | "setLendingPool" | "setMarketplace" | "setOverdueSettlementEngine" | "supportsInterface" | "syncLoan" | "totalScheduled" | "unpause"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "DirectInstallmentRecorded" | "DirectScheduleCreated" | "InstallmentPaid" | "LendingPoolConfigured" | "MarketplaceConfigured" | "P2PCollateralReleased" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "ScheduleCreated" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "DirectInstallmentRecorded" | "DirectScheduleCreated" | "InstallmentPaid" | "LendingPoolConfigured" | "MarketplaceConfigured" | "OverdueInstallmentRecorded" | "OverdueSettlementEngineConfigured" | "P2PCollateralReleased" | "Paused" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "ScheduleCreated" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'OVERDUE_SETTLEMENT_OPERATOR_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'P2P_OPERATOR_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'collateralVault', values?: undefined): string;
@@ -46,6 +47,7 @@ encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanNFT', values?: undefined): string;
 encodeFunctionData(functionFragment: 'marketplace', values?: undefined): string;
 encodeFunctionData(functionFragment: 'nextInstallment', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'overdueSettlementEngine', values?: undefined): string;
 encodeFunctionData(functionFragment: 'pause', values?: undefined): string;
 encodeFunctionData(functionFragment: 'paused', values?: undefined): string;
 encodeFunctionData(functionFragment: 'payInstallment', values: [BigNumberish]): string;
@@ -55,16 +57,19 @@ encodeFunctionData(functionFragment: 'payOutstandingWithCompletionMetadata', val
 encodeFunctionData(functionFragment: 'previewDirectInstallment', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'previewOverdueInstallment', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'recordDirectInstallment', values: [BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'recordOverdueSettlement', values: [BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'revokeRole', values: [BytesLike, AddressLike]): string;
 encodeFunctionData(functionFragment: 'setLendingPool', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'setMarketplace', values: [AddressLike]): string;
+encodeFunctionData(functionFragment: 'setOverdueSettlementEngine', values: [AddressLike]): string;
 encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'syncLoan', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'totalScheduled', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'unpause', values?: undefined): string;
 
     decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'OVERDUE_SETTLEMENT_OPERATOR_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'P2P_OPERATOR_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'abcd', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'collateralVault', data: BytesLike): Result;
@@ -80,6 +85,7 @@ decodeFunctionResult(functionFragment: 'loanManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanNFT', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'marketplace', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'nextInstallment', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'overdueSettlementEngine', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pause', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'paused', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'payInstallment', data: BytesLike): Result;
@@ -89,10 +95,12 @@ decodeFunctionResult(functionFragment: 'payOutstandingWithCompletionMetadata', d
 decodeFunctionResult(functionFragment: 'previewDirectInstallment', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'previewOverdueInstallment', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'recordDirectInstallment', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'recordOverdueSettlement', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'revokeRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setLendingPool', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'setMarketplace', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'setOverdueSettlementEngine', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'supportsInterface', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'syncLoan', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'totalScheduled', data: BytesLike): Result;
@@ -152,6 +160,30 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       export type InputTuple = [marketplace: AddressLike];
       export type OutputTuple = [marketplace: string];
       export interface OutputObject {marketplace: string };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace OverdueInstallmentRecordedEvent {
+      export type InputTuple = [loanId: BigNumberish, installment: BigNumberish, amountApplied: BigNumberish, totalApplied: BigNumberish, remainingDue: BigNumberish, state: BigNumberish];
+      export type OutputTuple = [loanId: bigint, installment: bigint, amountApplied: bigint, totalApplied: bigint, remainingDue: bigint, state: bigint];
+      export interface OutputObject {loanId: bigint, installment: bigint, amountApplied: bigint, totalApplied: bigint, remainingDue: bigint, state: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace OverdueSettlementEngineConfiguredEvent {
+      export type InputTuple = [overdueSettlementEngine: AddressLike];
+      export type OutputTuple = [overdueSettlementEngine: string];
+      export interface OutputObject {overdueSettlementEngine: string };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -286,6 +318,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    OVERDUE_SETTLEMENT_OPERATOR_ROLE: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     P2P_OPERATOR_ROLE: TypedContractMethod<
       [],
       [string],
@@ -406,6 +446,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    overdueSettlementEngine: TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >
+    
+
+    
     pause: TypedContractMethod<
       [],
       [void],
@@ -478,6 +526,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    recordOverdueSettlement: TypedContractMethod<
+      [loanId: BigNumberish, installmentIndex: BigNumberish, amount: BigNumberish, ],
+      [bigint],
+      'nonpayable'
+    >
+    
+
+    
     renounceRole: TypedContractMethod<
       [role: BytesLike, callerConfirmation: AddressLike, ],
       [void],
@@ -504,6 +560,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
     setMarketplace: TypedContractMethod<
       [marketplace_: AddressLike, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    setOverdueSettlementEngine: TypedContractMethod<
+      [engine_: AddressLike, ],
       [void],
       'nonpayable'
     >
@@ -545,6 +609,11 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
     getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'OVERDUE_SETTLEMENT_OPERATOR_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -624,6 +693,11 @@ getFunction(nameOrSignature: 'nextInstallment'): TypedContractMethod<
       [bigint],
       'view'
     >;
+getFunction(nameOrSignature: 'overdueSettlementEngine'): TypedContractMethod<
+      [],
+      [string],
+      'view'
+    >;
 getFunction(nameOrSignature: 'pause'): TypedContractMethod<
       [],
       [void],
@@ -669,6 +743,11 @@ getFunction(nameOrSignature: 'recordDirectInstallment'): TypedContractMethod<
       [void],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'recordOverdueSettlement'): TypedContractMethod<
+      [loanId: BigNumberish, installmentIndex: BigNumberish, amount: BigNumberish, ],
+      [bigint],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'renounceRole'): TypedContractMethod<
       [role: BytesLike, callerConfirmation: AddressLike, ],
       [void],
@@ -686,6 +765,11 @@ getFunction(nameOrSignature: 'setLendingPool'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'setMarketplace'): TypedContractMethod<
       [marketplace_: AddressLike, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'setOverdueSettlementEngine'): TypedContractMethod<
+      [engine_: AddressLike, ],
       [void],
       'nonpayable'
     >;
@@ -715,6 +799,8 @@ getEvent(key: 'DirectScheduleCreated'): TypedContractEvent<DirectScheduleCreated
 getEvent(key: 'InstallmentPaid'): TypedContractEvent<InstallmentPaidEvent.InputTuple, InstallmentPaidEvent.OutputTuple, InstallmentPaidEvent.OutputObject>;
 getEvent(key: 'LendingPoolConfigured'): TypedContractEvent<LendingPoolConfiguredEvent.InputTuple, LendingPoolConfiguredEvent.OutputTuple, LendingPoolConfiguredEvent.OutputObject>;
 getEvent(key: 'MarketplaceConfigured'): TypedContractEvent<MarketplaceConfiguredEvent.InputTuple, MarketplaceConfiguredEvent.OutputTuple, MarketplaceConfiguredEvent.OutputObject>;
+getEvent(key: 'OverdueInstallmentRecorded'): TypedContractEvent<OverdueInstallmentRecordedEvent.InputTuple, OverdueInstallmentRecordedEvent.OutputTuple, OverdueInstallmentRecordedEvent.OutputObject>;
+getEvent(key: 'OverdueSettlementEngineConfigured'): TypedContractEvent<OverdueSettlementEngineConfiguredEvent.InputTuple, OverdueSettlementEngineConfiguredEvent.OutputTuple, OverdueSettlementEngineConfiguredEvent.OutputObject>;
 getEvent(key: 'P2PCollateralReleased'): TypedContractEvent<P2PCollateralReleasedEvent.InputTuple, P2PCollateralReleasedEvent.OutputTuple, P2PCollateralReleasedEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
 getEvent(key: 'RoleAdminChanged'): TypedContractEvent<RoleAdminChangedEvent.InputTuple, RoleAdminChangedEvent.OutputTuple, RoleAdminChangedEvent.OutputObject>;
@@ -743,6 +829,14 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
       'MarketplaceConfigured(address)': TypedContractEvent<MarketplaceConfiguredEvent.InputTuple, MarketplaceConfiguredEvent.OutputTuple, MarketplaceConfiguredEvent.OutputObject>;
       MarketplaceConfigured: TypedContractEvent<MarketplaceConfiguredEvent.InputTuple, MarketplaceConfiguredEvent.OutputTuple, MarketplaceConfiguredEvent.OutputObject>;
+    
+
+      'OverdueInstallmentRecorded(uint256,uint256,uint256,uint256,uint256,uint8)': TypedContractEvent<OverdueInstallmentRecordedEvent.InputTuple, OverdueInstallmentRecordedEvent.OutputTuple, OverdueInstallmentRecordedEvent.OutputObject>;
+      OverdueInstallmentRecorded: TypedContractEvent<OverdueInstallmentRecordedEvent.InputTuple, OverdueInstallmentRecordedEvent.OutputTuple, OverdueInstallmentRecordedEvent.OutputObject>;
+    
+
+      'OverdueSettlementEngineConfigured(address)': TypedContractEvent<OverdueSettlementEngineConfiguredEvent.InputTuple, OverdueSettlementEngineConfiguredEvent.OutputTuple, OverdueSettlementEngineConfiguredEvent.OutputObject>;
+      OverdueSettlementEngineConfigured: TypedContractEvent<OverdueSettlementEngineConfiguredEvent.InputTuple, OverdueSettlementEngineConfiguredEvent.OutputTuple, OverdueSettlementEngineConfiguredEvent.OutputObject>;
     
 
       'P2PCollateralReleased(uint256,address,uint256)': TypedContractEvent<P2PCollateralReleasedEvent.InputTuple, P2PCollateralReleasedEvent.OutputTuple, P2PCollateralReleasedEvent.OutputObject>;

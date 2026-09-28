@@ -33,7 +33,10 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
     address public liquidationEngine;
     bytes32 public constant LIQUIDATION_SETTLEMENT_ROLE = keccak256("LIQUIDATION_SETTLEMENT_ROLE");
     uint256 public nextRequestId = 1;
-    enum RequestState { OPEN, FUNDED, CANCELLED, SETTLED }
+    // RECOVERED is appended so existing persisted request-state values retain
+    // their meaning. It distinguishes collateral settlement from an honoured
+    // borrower repayment and never grants LoanNFT completion eligibility.
+    enum RequestState { OPEN, FUNDED, CANCELLED, SETTLED, RECOVERED }
     // A request does not create a LoanNFT. Completion provenance belongs to
     // the settled loan, not to an unfunded request.
     struct Request { address borrower; uint128 principal; uint128 collateral; uint48 term; RequestState state; address lender; uint256 loanId; uint16 initialLtvBps; }
@@ -42,6 +45,7 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
     event RequestCreated(uint256 indexed requestId, address indexed borrower, uint256 principal, uint256 collateral, uint48 term, uint16 initialLtvBps);
     event RequestFunded(uint256 indexed requestId, uint256 indexed loanId, address indexed lender, uint256 principal, uint256 collateral, uint48 maturity);
     event RequestRepaid(uint256 indexed requestId, uint256 indexed loanId, address indexed borrower, address lender);
+    event RequestRecovered(uint256 indexed requestId, uint256 indexed loanId, address indexed borrower, address lender);
     event RequestCancelled(uint256 indexed requestId);
 
     constructor(address admin, address abcd_, address manager_, address vault_, address oracle_, address loanNFT_, address lendingReferralManager_) {
@@ -67,7 +71,12 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
     }
     function createRequest(uint128 principal, uint48 term) external payable whenNotPaused nonReentrant returns(uint256 requestId) {
         require(principal != 0 && msg.value != 0 && (term==30 days || term==90 days || term==180 days), "invalid request");
-        require(principal <= previewMaxP2PPrincipal(msg.value), "p2p ltv exceeded");
+        // P2P request creation is a price-dependent write, so use fresh
+        // canonical snapshots rather than a stale/off-chain capacity quote.
+        OracleAdapterV2.PriceSnapshot memory ethSnapshot = oracle.snapshotPriceUSD(ETH_ASSET);
+        OracleAdapterV2.PriceSnapshot memory abcdSnapshot = oracle.snapshotPriceUSD(address(abcd));
+        uint256 maxPrincipal = msg.value * ethSnapshot.priceUSD / 1e18 * P2P_INITIAL_LTV_BPS / BPS_DENOMINATOR * 1e18 / abcdSnapshot.priceUSD;
+        require(principal <= maxPrincipal, "p2p ltv exceeded");
         requestId=nextRequestId++; collateralVault.depositForRequest{value:msg.value}(requestId,msg.sender);
         // Record the accepted policy on the request so later policy changes do
         // not change how this historical request is interpreted.
@@ -96,6 +105,20 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
         require(loanManager.getLoan(loanId).state == LoanManagerV2.State.CLOSED, "loan not closed");
         r.state = RequestState.SETTLED;
         emit RequestRepaid(requestId, loanId, r.borrower, r.lender);
+    }
+    /// @notice Called only by the configured risk engine after a collateral
+    /// path has settled the loan debt. It is deliberately distinct from
+    /// `markLoanRepaid` so canonical provenance never labels it as an honoured
+    /// borrower repayment.
+    function markLoanRecovered(uint256 loanId) external {
+        require(msg.sender == liquidationEngine && liquidationEngine != address(0), "not liquidation engine");
+        uint256 requestId = requestByLoanId[loanId];
+        require(requestId != 0, "missing request");
+        Request storage r = requests[requestId];
+        require(r.state == RequestState.FUNDED && r.loanId == loanId, "not funded request");
+        require(loanManager.getLoan(loanId).state == LoanManagerV2.State.LIQUIDATED, "loan not recovered");
+        r.state = RequestState.RECOVERED;
+        emit RequestRecovered(requestId, loanId, r.borrower, r.lender);
     }
     function isP2PLoan(uint256 loanId) external view returns (bool) {
         uint256 requestId = requestByLoanId[loanId];

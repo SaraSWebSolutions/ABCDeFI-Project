@@ -3,10 +3,11 @@ const { Schema } = mongoose;
 const address = { type: String, required: true, lowercase: true, match: /^0x[a-f0-9]{40}$/ };
 const hash = { type: String, required: true, lowercase: true, match: /^0x[a-f0-9]{64}$/ };
 const uint = { type: String, required: true, match: /^\d+$/ };
+const runtime = { runtimeFamily: { type: String, default: null }, rpcUrl: { type: String, default: null }, deploymentIdentity: { type: String, default: null }, contractRuntimeIdentity: { type: String, default: null } };
 const model = (name, schema, collection) => mongoose.models[name] || mongoose.model(name, schema, collection);
 
 const territorySchema = new Schema({
-  chainId: uint, deploymentVersion: { type: String, required: true }, contractAddress: address, tokenId: uint, owner: address,
+  chainId: uint, deploymentVersion: { type: String, required: true }, ...runtime, contractAddress: address, tokenId: uint, owner: address,
   level: { type: String, required: true, enum: ['COUNTRY', 'STATE', 'DISTRICT'] }, parentId: uint, population: uint,
   displayName: { type: String, required: true }, canonicalIdentifier: { type: String, required: true }, metadataURI: { type: String, required: true }, territoryKey: { type: String, required: true },
   activeTransferRequestId: { type: String, default: '0', match: /^\d+$/ }, indexedAt: { type: Date, default: Date.now },
@@ -15,14 +16,14 @@ territorySchema.index({ chainId: 1, deploymentVersion: 1, contractAddress: 1, to
 territorySchema.index({ chainId: 1, deploymentVersion: 1, contractAddress: 1, owner: 1 });
 
 const requestSchema = new Schema({
-  chainId: uint, deploymentVersion: { type: String, required: true }, contractAddress: address, requestId: uint, tokenId: uint,
+  chainId: uint, deploymentVersion: { type: String, required: true }, ...runtime, contractAddress: address, requestId: uint, tokenId: uint,
   currentOwner: address, proposedOwner: address, active: { type: Boolean, required: true }, approved: { type: Boolean, required: true }, indexedAt: { type: Date, default: Date.now },
 }, { versionKey: false });
 requestSchema.index({ chainId: 1, deploymentVersion: 1, contractAddress: 1, requestId: 1 }, { unique: true });
 requestSchema.index({ chainId: 1, deploymentVersion: 1, contractAddress: 1, tokenId: 1, active: 1 });
 
 const eventSchema = new Schema({
-  chainId: uint, deploymentVersion: { type: String, required: true }, contractAddress: address, transactionHash: hash, blockNumber: uint,
+  chainId: uint, deploymentVersion: { type: String, required: true }, ...runtime, contractAddress: address, transactionHash: hash, blockNumber: uint,
   transactionIndex: { type: Number, required: true }, logIndex: { type: Number, required: true }, blockHash: hash,
   eventName: { type: String, required: true }, tokenId: { type: String, default: null }, requestId: { type: String, default: null }, args: { type: Schema.Types.Mixed, required: true }, removed: { type: Boolean, default: false }, indexedAt: { type: Date, default: Date.now },
 }, { versionKey: false });
@@ -30,7 +31,7 @@ eventSchema.index({ chainId: 1, deploymentVersion: 1, transactionHash: 1, logInd
 eventSchema.index({ chainId: 1, deploymentVersion: 1, contractAddress: 1, tokenId: 1, blockNumber: 1, logIndex: 1 });
 
 const checkpointSchema = new Schema({
-  chainId: uint, deploymentVersion: { type: String, required: true }, contractAddress: address, scope: { type: String, required: true },
+  chainId: uint, deploymentVersion: { type: String, required: true }, ...runtime, contractAddress: address, scope: { type: String, required: true },
   lastProcessedBlock: { type: String, default: null, match: /^\d+$/ }, lastProcessedBlockHash: { type: String, default: null }, paused: { type: Boolean, default: false }, indexedAt: { type: Date, default: Date.now },
 }, { versionKey: false });
 checkpointSchema.index({ chainId: 1, deploymentVersion: 1, contractAddress: 1, scope: 1 }, { unique: true });

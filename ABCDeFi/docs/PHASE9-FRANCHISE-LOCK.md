@@ -103,3 +103,8 @@ non-canonical and are not the active Phase 9 dashboard/API path.
 No BSC/Testnet deployment, production transaction, or production IPFS upload
 occurred for Phase 9. Phase 8 LegionNFTV2 remains unchanged and locked; no
 Franchise dependency or automatic cross-product right was introduced.
+# Phase 9 V2 Amendment
+
+The historical standalone Franchise foundation documented below remains preserved as historical evidence. The owner-authorized canonical direction is now `FranchiseNFTV2` + `FranchiseRegistryV2`, bound to the canonical `LegionNFTV2` territory token. See `PHASE9-FRANCHISE-FINAL-SPECIFICATION.md` and `PHASE9-FRANCHISE-IMPLEMENTATION-REPORT.md`. This amendment adds no commercial or financial rights and does not overwrite historical local deployment evidence.
+
+**PHASE 9 — FRANCHISE V2: COMPLETED AND LOCKED.** The lock covers only the owner-approved non-financial Legion-bound assignment/application/lifecycle/read-model scope. Fresh isolated local chain 31337 evidence, contract/indexer/API reconciliation, controlled-transfer security coverage, and Phase 10A/10B regression are recorded in the final implementation report. Broader commercial, eligibility, custody, and metadata-policy questions remain deferred rather than silently approved.

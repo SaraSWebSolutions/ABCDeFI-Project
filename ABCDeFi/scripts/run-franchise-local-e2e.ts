@@ -23,7 +23,7 @@ async function main() {
   events.push(await confirmed("set operator eligible", await registry.setOperatorEligibility(operator.address, true)));
   events.push(await confirmed("set proposed operator eligible", await registry.setOperatorEligibility(proposed.address, true)));
   const territoryKey = key("test-only-phase9-franchise");
-  events.push(await confirmed("register franchise", await registry.registerFranchise(territoryKey, 3, operator.address, "ipfs://test-only-phase9-franchise-metadata")));
+  events.push(await confirmed("register franchise", await registry.registerFranchise(territoryKey, 0, 0n, operator.address, "ipfs://test-only-phase9-franchise-metadata")));
   const tokenId = 1n;
   if ((await nft.ownerOf(tokenId)).toLowerCase() !== operator.address.toLowerCase()) throw new Error("Mint owner mismatch.");
   const operatorRegistry = registry.connect(operator);

@@ -2,7 +2,6 @@
 /* tslint:disable */
 /* eslint-disable */
 export * as bonus from './bonus/index.js';
-export * as governance from './governance/index.js';
 export * as ico from './ico/index.js';
 export * as interfaces from './interfaces/index.js';
 export * as lending from './lending/index.js';

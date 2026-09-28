@@ -1,7 +1,8 @@
 const requiredRuntimeSecrets = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
 const { loadLendingManifest } = require('./lendingManifest.cjs');
+const { isOneQLocalSelected, loadBackendRuntimeFamily } = require('./runtimeFamily.cjs');
 const { resolveAuthMode } = require('./authMode.cjs');
-const canonicalChainId = loadLendingManifest().chainId;
+const canonicalChainId = isOneQLocalSelected() ? loadBackendRuntimeFamily().chainId : loadLendingManifest().chainId;
 const authenticationMode = resolveAuthMode();
 
 function validateRuntimeConfig() {

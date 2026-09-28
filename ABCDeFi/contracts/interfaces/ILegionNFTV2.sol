@@ -27,6 +27,14 @@ interface ILegionNFTV2 {
         string metadataURI;
     }
 
+    struct TransferRequest {
+        uint256 tokenId;
+        address currentOwner;
+        address proposedOwner;
+        bool active;
+        bool approved;
+    }
+
     event TerritoryMinted(
         uint256 indexed tokenId,
         address indexed owner,
@@ -58,4 +66,25 @@ interface ILegionNFTV2 {
     event TransferExecuted(
         uint256 indexed requestId, uint256 indexed tokenId, address indexed previousOwner, address newOwner
     );
+    event MarketplaceTransferExecuted(
+        uint256 indexed requestId,
+        uint256 indexed saleId,
+        uint256 indexed tokenId,
+        address seller,
+        address buyer,
+        address abcdToken,
+        uint256 price,
+        address settlementAuthority
+    );
+
+    function ownerOf(uint256 tokenId) external view returns (address);
+    function getTransferRequest(uint256 requestId) external view returns (TransferRequest memory);
+    function executeMarketplaceTransfer(
+        uint256 requestId,
+        uint256 saleId,
+        address expectedSeller,
+        address expectedBuyer,
+        uint256 price,
+        address abcdToken
+    ) external;
 }

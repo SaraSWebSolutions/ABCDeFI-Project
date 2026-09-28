@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "1.0",
+  "model": "OWNER_APPROVED_1Q_SEVEN_ALLOCATION",
+  "localOnly": true,
+  "chainId": 31337,
+  "deploymentVersion": "abcd-1q-local-0x7c98f09e79f0ac6031299913900f54660676f2c78d4cee8e71ef1358de0e4e37",
+  "deploymentBlock": 1,
+  "contracts": {
+    "ABCDTokenV2": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "deploymentTransactionHash": "0x7c98f09e79f0ac6031299913900f54660676f2c78d4cee8e71ef1358de0e4e37",
+      "deploymentBlock": 1
+    }
+  },
+  "allocations": {
+    "ICO": {
+      "wallet": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "bps": 2000,
+      "amount": "200000000000000000000000000000000"
+    },
+    "FOUNDER": {
+      "wallet": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "bps": 5500,
+      "amount": "550000000000000000000000000000000"
+    },
+    "MARKETING": {
+      "wallet": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+      "bps": 1000,
+      "amount": "100000000000000000000000000000000"
+    },
+    "ADVISORS": {
+      "wallet": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "bps": 200,
+      "amount": "20000000000000000000000000000000"
+    },
+    "FINANCE_RESOURCE": {
+      "wallet": "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc",
+      "bps": 900,
+      "amount": "90000000000000000000000000000000"
+    },
+    "CONTINGENCY": {
+      "wallet": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+      "bps": 200,
+      "amount": "20000000000000000000000000000000"
+    },
+    "RESERVE": {
+      "wallet": "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955",
+      "bps": 200,
+      "amount": "20000000000000000000000000000000"
+    }
+  }
+}

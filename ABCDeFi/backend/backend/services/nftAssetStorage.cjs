@@ -4,7 +4,16 @@ const path = require('node:path');
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const PINATA_V3_FILES_URL = 'https://uploads.pinata.cloud/v3/files';
+const PINATA_PUBLIC_GATEWAY = 'https://gateway.pinata.cloud/ipfs/';
+const DEFAULT_PINATA_UPLOAD_TIMEOUT_MS = 15_000;
 const localOrigin = () => String(process.env.NFT_STORAGE_PUBLIC_ORIGIN || 'http://127.0.0.1:5000').replace(/\/$/, '');
+
+function pinataUploadTimeoutMs() {
+  const configured = Number(process.env.PINATA_UPLOAD_TIMEOUT_MS);
+  return Number.isInteger(configured) && configured >= 100 && configured <= 60_000
+    ? configured
+    : DEFAULT_PINATA_UPLOAD_TIMEOUT_MS;
+}
 
 function storageProvider() {
   const configured = String(process.env.NFT_STORAGE_PROVIDER || '').toLowerCase();
@@ -54,16 +63,21 @@ async function pinataStore(file, metadata) {
     body.append('file', blob, filename);
 
     let response;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), pinataUploadTimeoutMs());
     try {
       response = await fetch(PINATA_V3_FILES_URL, {
         method: 'POST',
         headers: { Authorization: `Bearer ${process.env.PINATA_JWT}` },
         body,
+        signal: controller.signal,
       });
     } catch {
       const error = new Error('NFT storage provider is temporarily unavailable.');
       error.status = 503;
       throw error;
+    } finally {
+      clearTimeout(timeout);
     }
     const result = await response.json().catch(() => ({}));
     const cid = result?.data?.cid;
@@ -102,4 +116,27 @@ async function storeNftAsset(file, metadata) {
   return provider === 'local' ? localStore(file, metadata) : pinataStore(file, metadata);
 }
 
-module.exports = { storeNftAsset, storageProvider, PINATA_V3_FILES_URL };
+async function readPublicIpfsJson(metadataCid) {
+  if (typeof metadataCid !== 'string' || !/^[a-zA-Z0-9]+$/.test(metadataCid)) {
+    const error = new Error('NFT storage provider returned an invalid metadata CID.');
+    error.status = 503;
+    throw error;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), pinataUploadTimeoutMs());
+  try {
+    const response = await fetch(`${PINATA_PUBLIC_GATEWAY}${metadataCid}`, { signal: controller.signal });
+    if (!response.ok) throw new Error('unavailable');
+    const document = await response.json();
+    if (!document || typeof document !== 'object' || Array.isArray(document)) throw new Error('invalid');
+    return document;
+  } catch {
+    const error = new Error('NFT storage provider is temporarily unavailable.');
+    error.status = 503;
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+module.exports = { storeNftAsset, storageProvider, readPublicIpfsJson, PINATA_V3_FILES_URL, PINATA_PUBLIC_GATEWAY, DEFAULT_PINATA_UPLOAD_TIMEOUT_MS, pinataUploadTimeoutMs };

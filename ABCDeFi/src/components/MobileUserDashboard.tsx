@@ -31,7 +31,7 @@ import { CeFiDashboard } from './CeFiDashboard';
 import { TransactionHistory } from './TransactionHistory';
 import { NFTEcosystem } from './NFTEcosystem';
 import { GuruNFTSystem } from './GuruNFTSystem';
-import LegionApp from '../Legion/LegionApp';
+import { LegionNFTV2Dashboard } from './LegionNFTV2Dashboard';
 import { ClaimPortal } from './ClaimPortal';
 import { ReferralSystem } from './ReferralSystem';
 import { AIFinancialAssistant } from './AIFinancialAssistant';
@@ -423,7 +423,7 @@ export const MobileUserDashboard: React.FC<MobileUserDashboardProps> = (props) =
           case 'sell':
             return <div className="pb-20"><GuruNFTSystem /></div>;
           case 'legion':
-            return <div className="pb-20"><LegionApp /></div>;
+            return <div className="pb-20"><LegionNFTV2Dashboard /></div>;
           case 'franchise':
             return <div className="pb-20"><FranchiseSubModuleManager tab={activeSubTab} /></div>;
           default:

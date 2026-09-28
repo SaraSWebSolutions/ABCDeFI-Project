@@ -1,0 +1,292 @@
+{
+  "schemaVersion": "1.0",
+  "deploymentVersion": "local-ecosystem-0x443aa4bb83e432e7a6dbc64aca6dc67c3780ce35e3ee494c4a54fd5fe2f8810c",
+  "network": "localhost",
+  "chainId": "31337",
+  "rpcUrl": "http://127.0.0.1:8545",
+  "deploymentBlock": 1,
+  "deploymentTimestamp": "2026-09-23T05:01:22.000Z",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "contracts": {
+    "ABCDToken": {
+      "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "deploymentTransactionHash": "0x926455069f70021d37323fccf5eb1e41b95ae1662d7b19f58af1f0a3e63022a7",
+      "deploymentBlock": 1
+    },
+    "Treasury": {
+      "address": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "deploymentTransactionHash": "0x570647ec02497782939cf6045fcbc0db0b4e611512290e15ea24d2cb844e5ac9",
+      "deploymentBlock": 2
+    },
+    "TokenVesting": {
+      "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "deploymentTransactionHash": "0xd611794a96d5ad5e3a89b3bfa05fe3cea6ca585ed0f7f181d0b383837b8635da",
+      "deploymentBlock": 3
+    },
+    "Presale": {
+      "address": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+      "deploymentTransactionHash": "0x1a50cc830822324acdecac0e7ab66531672b0afcaa7fea64b5e05c4f08d3b938",
+      "deploymentBlock": 4
+    },
+    "LendingPool": {
+      "address": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+      "deploymentTransactionHash": "0x9a30f74ccbca8bf7630ef4fa38d54d8e011bab33cc302a42b4d05393ffcb7dd5",
+      "deploymentBlock": 5
+    },
+    "CollateralVault": {
+      "address": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+      "deploymentTransactionHash": "0x92578cd0aa2a9a1ffe388b3221356115d3a33c6c45bc1c824c83a20dd6fcc35d",
+      "deploymentBlock": 6
+    },
+    "LoanManager": {
+      "address": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+      "deploymentTransactionHash": "0x4bf6331f33c02ca106597c13198a3309def782df94729aff31190340b4c0193c",
+      "deploymentBlock": 7
+    },
+    "LoanMarketplace": {
+      "address": "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+      "deploymentTransactionHash": "0xb975c151eba3df39a27d11cad81b8c0b2b86a3ab0d233b470f9633548d88b009",
+      "deploymentBlock": 8
+    },
+    "EMIManager": {
+      "address": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+      "deploymentTransactionHash": "0xab89a23874aad7e0306aa9e4ddf4b823e3182d6395cef01c112c54d8a0437573",
+      "deploymentBlock": 9
+    },
+    "Liquidation": {
+      "address": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
+      "deploymentTransactionHash": "0x3750366dd1968167987a79192cbf53c0b515909c319b2da7f466df0788d3b7ea",
+      "deploymentBlock": 10
+    },
+    "NFTMarketplace": {
+      "address": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788",
+      "deploymentTransactionHash": "0x68c475f7da80707de4e4221900b1ebf9508233c5e91798bf56adf464364f6dc1",
+      "deploymentBlock": 11
+    },
+    "ParticipantNFT": {
+      "address": "0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e",
+      "deploymentTransactionHash": "0x908631e4ee5d26727d027de50ab4667c4ec355851d896b12a2b85008b7ef0c6b",
+      "deploymentBlock": 12
+    },
+    "ReputationNFT": {
+      "address": "0xA51c1fc2f0D1a1b8494Ed1FE312d7C3a78Ed91C0",
+      "deploymentTransactionHash": "0x23fcd484b4367c9c9a71454a207ccefc2841285d468ee2535da79adaac5ff957",
+      "deploymentBlock": 13
+    },
+    "GuruNFT": {
+      "address": "0x0DCd1Bf9A1b36cE34237eEaFef220932846BCD82",
+      "deploymentTransactionHash": "0x0de6f687b8b75f9595a2887f0a2a1e41caeccb2f19cae4bf1188f81c4c3ae20b",
+      "deploymentBlock": 14
+    },
+    "LegionNFT": {
+      "address": "0x9A676e781A523b5d0C0e43731313A708CB607508",
+      "deploymentTransactionHash": "0xaf8e50ea675de1269ef2287cceea8919ad1c63fec238ddebd5343ce685f3a615",
+      "deploymentBlock": 15
+    },
+    "LoanNFT": {
+      "address": "0x0B306BF915C4d645ff596e518fAf3F9669b97016",
+      "deploymentTransactionHash": "0xf26dc35705f19ee77afb7ee0139a688e550c0f2c181b8045fa7878ba70a512b0",
+      "deploymentBlock": 16
+    },
+    "ReferralManager": {
+      "address": "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1",
+      "deploymentTransactionHash": "0x021287606cce99c7f266181cb22dda08adb8a9b71f68aaaa439bb16c5e285021",
+      "deploymentBlock": 17
+    },
+    "BonusEngine": {
+      "address": "0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE",
+      "deploymentTransactionHash": "0xe991c2617e745be23067a4689264cea65c975cd291224daa9be620bc866a12e2",
+      "deploymentBlock": 18
+    },
+    "BonusManager": {
+      "address": "0x68B1D87F95878fE05B998F19b66F4baba5De1aed",
+      "deploymentTransactionHash": "0xc91e962746117a2cae42b0078e0f55cfc10eba675859fe4e3ba7e86fd2961ded",
+      "deploymentBlock": 19
+    }
+  },
+  "lendingV2": {
+    "version": "2",
+    "deploymentVersion": "lending-v2-local-0x33af50180deb30be90685a94ebd3e848c1419730c1e640efb2d58598ef98ef66",
+    "network": "localhost",
+    "chainId": "31337",
+    "deploymentBlock": 38,
+    "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "localOnly": true,
+    "contracts": {
+      "MockAggregatorV3V2_ETH_USD": {
+        "address": "0x851356ae760d987E095750cCeb3bC6014560891C",
+        "deploymentTransactionHash": "0x8f2b19bc78958b1320c4159992460382ac60a0a16879d4852a8b36f1037faf7d",
+        "deploymentBlock": 38
+      },
+      "MockAggregatorV3V2_ABCD_USD": {
+        "address": "0xf5059a5D33d5853360D16C683c16e67980206f36",
+        "deploymentTransactionHash": "0x85609a50c5db822221131a1d9aa3eeb7a5f61e3dd2250a89ce89799e23c9f15e",
+        "deploymentBlock": 39
+      },
+      "OracleAdapterV2": {
+        "address": "0x95401dc811bb5740090279Ba06cfA8fcF6113778",
+        "deploymentTransactionHash": "0x264be370891e1c3ba9e8e1b8a666fe0b9e7b0e4b65da27616611002ff49d9b48",
+        "deploymentBlock": 40
+      },
+      "CollateralVaultV2": {
+        "address": "0x998abeb3E57409262aE5b751f60747921B33613E",
+        "deploymentTransactionHash": "0x5288144f2ddc7cc0b850f7ea11b848893b8dd302d1883bad28dbdea5084dfbd8",
+        "deploymentBlock": 41
+      },
+      "LoanManagerV2": {
+        "address": "0x70e0bA845a1A0F2DA3359C97E0285013525FFC49",
+        "deploymentTransactionHash": "0x00707a5491f41b7b664704173841883a8edeeba4ba563d7b74fd36729b3f7794",
+        "deploymentBlock": 42
+      },
+      "LendingReferralManagerV2": {
+        "address": "0x4826533B4897376654Bb4d4AD88B7faFD0C98528",
+        "deploymentTransactionHash": "0xcd693731049c22f38664bce39d64f3e7f71a4de846bcaed8ec008112b91cc02d",
+        "deploymentBlock": 43
+      },
+      "LoanNFTV2": {
+        "address": "0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf",
+        "deploymentTransactionHash": "0xc0b64d6635479aa0e0445757e15ac1b8497390ce31779197a613be4c24a46db0",
+        "deploymentBlock": 44
+      },
+      "LendingPoolV2": {
+        "address": "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
+        "deploymentTransactionHash": "0x273d334b98113e06ee632f5187d03e006ac5f5ae3c26763cf9a9ea94a90445ea",
+        "deploymentBlock": 45
+      },
+      "InsuranceReserveV2": {
+        "address": "0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf",
+        "deploymentTransactionHash": "0xd2e285a66c44ac9ef57ac3de5724e18f89a30a0be7a08c5ed96da7d8ffcc318c",
+        "deploymentBlock": 46
+      },
+      "LoanMarketplaceV2": {
+        "address": "0x9d4454B023096f34B160D6B654540c56A1F81688",
+        "deploymentTransactionHash": "0x552e67d0a76c44cb57e961137f5a1e85fea5fbec4c91588d8a0071bcde42eb78",
+        "deploymentBlock": 47
+      },
+      "LiquidationV2": {
+        "address": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+        "deploymentTransactionHash": "0xb234586c1703ef25d88fecd114ada9337890f80d2e1ee0a6f6e7265a5048efec",
+        "deploymentBlock": 48
+      },
+      "EMIManagerV2": {
+        "address": "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570",
+        "deploymentTransactionHash": "0x6df06cd0d4787725797afeb7b5e4773052a2689995352e325aaeb55b28fb216a",
+        "deploymentBlock": 49
+      },
+      "MockWETHV2": {
+        "address": "0x809d550fca64d94Bd9F66E60752A544199cfAC3D",
+        "deploymentTransactionHash": "0x41579703fbf6e81154e535d51c8b73020c8920ebc81bff238be4eb53e94e658b",
+        "deploymentBlock": 50
+      },
+      "MockPancakeSwapRouterV2": {
+        "address": "0x4c5859f0F772848b2D91F1D83E2Fe57935348029",
+        "deploymentTransactionHash": "0x175a11878f08cae75c0d80543ec00992e184f91bca6e0607b8386b3acce84b28",
+        "deploymentBlock": 51
+      },
+      "ChainlinkLiquidationPriceValidatorV2": {
+        "address": "0x1291Be112d480055DaFd8a610b7d1e203891C274",
+        "deploymentTransactionHash": "0x43e82b47f5dc71a3280814129c278b29e40745634362c3f93cb3e2f246a13644",
+        "deploymentBlock": 52
+      },
+      "LiquidationSaleAdapterV2": {
+        "address": "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154",
+        "deploymentTransactionHash": "0xd02681f99fb73928c2cb62fa338d4970cbc95c3d89ce63597c0dd2a91701bc31",
+        "deploymentBlock": 53
+      }
+    },
+    "oracle": {
+      "mode": "local-mock-test-only",
+      "ethAsset": "0x0000000000000000000000000000000000000001",
+      "feeds": {
+        "ETH_USD": {
+          "address": "0x851356ae760d987E095750cCeb3bC6014560891C",
+          "deploymentTransactionHash": "0x8f2b19bc78958b1320c4159992460382ac60a0a16879d4852a8b36f1037faf7d",
+          "deploymentBlock": 38
+        },
+        "ABCD_USD": {
+          "address": "0xf5059a5D33d5853360D16C683c16e67980206f36",
+          "deploymentTransactionHash": "0x85609a50c5db822221131a1d9aa3eeb7a5f61e3dd2250a89ce89799e23c9f15e",
+          "deploymentBlock": 39
+        }
+      },
+      "heartbeatSeconds": 86400,
+      "maxDeviationBps": 10000,
+      "expectedFeedDecimals": 8
+    },
+    "configuration": {
+      "maxInitialLtvBps": 3500,
+      "p2pInitialLtvBps": 3500,
+      "marginCallThresholdBps": 7000,
+      "marginCallCureSeconds": 259200,
+      "aprBps": 925,
+      "directCryptoOriginationFeeBps": 0,
+      "p2pCryptoOriginationFeeBps": 0,
+      "liquidationThresholdBps": 8000,
+      "partialLiquidationTargetLtvBps": 7000,
+      "partialLiquidationExecution": "LOCAL_TEST_ONLY_CONFIGURED",
+      "liquidationSlippageBps": 100,
+      "liquidationSaleRounding": "CEILING",
+      "localTestOnlySaleAdapter": "0x5f3f1dBD7B74C6B46e8c44f98792A1dAf8d69154",
+      "localTestOnlyWeth": "0x809d550fca64d94Bd9F66E60752A544199cfAC3D",
+      "localTestOnlyRouter": "0x4c5859f0F772848b2D91F1D83E2Fe57935348029",
+      "localTestOnlyReserveCoverCapABCD": "100000000000000000000000",
+      "supportedTermSeconds": [
+        2592000,
+        7776000,
+        15552000
+      ],
+      "maturityGracePeriodSeconds": 604800,
+      "liquidity": "1000000000000000000000000",
+      "reserveFunding": "100000000000000000000000",
+      "localSwapLiquidity": "1000000000000000000000000",
+      "lendingReferralMonthlyRewardBps": 5,
+      "referralNftValueBps": 50,
+      "referralRewardAllowance": "10000000000000000000000",
+      "referralRewardVault": "0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+    },
+    "roles": {
+      "defaultAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "oracleAdmin": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "oracleSnapshotters": [
+        "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
+        "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+        "0x9d4454B023096f34B160D6B654540c56A1F81688",
+        "0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf"
+      ],
+      "rateManager": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "liquidityManager": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "reserveFunder": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      "loanOperators": [
+        "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
+        "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+        "0x9d4454B023096f34B160D6B654540c56A1F81688",
+        "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570"
+      ],
+      "riskSettlementOperator": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+      "vaultOperators": [
+        "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
+        "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+        "0x9d4454B023096f34B160D6B654540c56A1F81688",
+        "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570"
+      ],
+      "loanNftMinters": [
+        "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
+        "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+        "0x9d4454B023096f34B160D6B654540c56A1F81688",
+        "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570"
+      ],
+      "loanNftDirectCompletionOperator": "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
+      "loanNftP2pCompletionOperator": "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570",
+      "reserveOperator": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+      "liquidationRecoveryOperator": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+      "p2pOperator": "0x9d4454B023096f34B160D6B654540c56A1F81688",
+      "p2pLiquidationSettlementOperator": "0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00",
+      "lendingReferralOperators": [
+        "0x0E801D84Fa97b50751Dbf25036d067dCf18858bF",
+        "0x9d4454B023096f34B160D6B654540c56A1F81688",
+        "0x36C02dA8a0983159322a80FFE9F24b1acfF8B570"
+      ],
+      "platformRecipient": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+    }
+  }
+}

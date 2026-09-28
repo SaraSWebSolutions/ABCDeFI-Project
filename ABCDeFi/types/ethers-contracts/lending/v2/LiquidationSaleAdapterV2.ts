@@ -11,24 +11,28 @@ export declare namespace ILiquidationSaleAdapterV2 {
     export type RecoveryStructOutput = [collateralAmount: bigint, realizedRecoveryABCD: bigint, finalized: boolean, consumed: boolean] & {collateralAmount: bigint, realizedRecoveryABCD: bigint, finalized: boolean, consumed: boolean }
   
 
-    export type SaleQuoteStruct = {collateralAmount: BigNumberish, minOut: BigNumberish, deadline: BigNumberish}
+    export type SaleQuoteStruct = {collateralAmount: BigNumberish, requiredRecovery: BigNumberish, minOut: BigNumberish, deadline: BigNumberish}
 
-    export type SaleQuoteStructOutput = [collateralAmount: bigint, minOut: bigint, deadline: bigint] & {collateralAmount: bigint, minOut: bigint, deadline: bigint }
+    export type SaleQuoteStructOutput = [collateralAmount: bigint, requiredRecovery: bigint, minOut: bigint, deadline: bigint] & {collateralAmount: bigint, requiredRecovery: bigint, minOut: bigint, deadline: bigint }
   
     }
 
   export interface LiquidationSaleAdapterV2Interface extends Interface {
-    getFunction(nameOrSignature: "CONFIG_ADMIN_ROLE" | "DEFAULT_ADMIN_ROLE" | "abcd" | "collateralVault" | "configure" | "configured" | "consumeRecovery" | "executeSale" | "getRoleAdmin" | "grantRole" | "hasRole" | "liquidation" | "maxDeadlineSeconds" | "pendingCollateral" | "quote" | "receiveCollateral" | "recoveryOf" | "renounceRole" | "revokeRole" | "router" | "supportsInterface" | "validator" | "weth"): FunctionFragment;
+    getFunction(nameOrSignature: "BPS" | "CONFIG_ADMIN_ROLE" | "DEFAULT_ADMIN_ROLE" | "MAX_SLIPPAGE_BPS" | "abcd" | "collateralVault" | "configure" | "configured" | "configuredRoute" | "consumeRecovery" | "executeInstallmentSale" | "executeSale" | "getRoleAdmin" | "grantRole" | "hasRole" | "liquidation" | "maxDeadlineSeconds" | "pendingCollateral" | "quote" | "quoteInstallment" | "receiveCollateral" | "recoveryOf" | "renounceRole" | "revokeRole" | "router" | "supportsInterface" | "validator" | "weth"): FunctionFragment;
 
     getEvent(nameOrSignatureOrTopic: "CollateralReceived" | "CollateralRecoveryFinalized" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "SaleConfigured"): EventFragment;
 
-    encodeFunctionData(functionFragment: 'CONFIG_ADMIN_ROLE', values?: undefined): string;
+    encodeFunctionData(functionFragment: 'BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'CONFIG_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
+encodeFunctionData(functionFragment: 'MAX_SLIPPAGE_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'collateralVault', values?: undefined): string;
 encodeFunctionData(functionFragment: 'configure', values: [AddressLike, AddressLike, AddressLike, AddressLike, AddressLike, BigNumberish, AddressLike[]]): string;
 encodeFunctionData(functionFragment: 'configured', values?: undefined): string;
+encodeFunctionData(functionFragment: 'configuredRoute', values?: undefined): string;
 encodeFunctionData(functionFragment: 'consumeRecovery', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'executeInstallmentSale', values: [BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'executeSale', values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'getRoleAdmin', values: [BytesLike]): string;
 encodeFunctionData(functionFragment: 'grantRole', values: [BytesLike, AddressLike]): string;
@@ -37,6 +41,7 @@ encodeFunctionData(functionFragment: 'liquidation', values?: undefined): string;
 encodeFunctionData(functionFragment: 'maxDeadlineSeconds', values?: undefined): string;
 encodeFunctionData(functionFragment: 'pendingCollateral', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'quote', values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'quoteInstallment', values: [BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'receiveCollateral', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'recoveryOf', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'renounceRole', values: [BytesLike, AddressLike]): string;
@@ -46,13 +51,17 @@ encodeFunctionData(functionFragment: 'supportsInterface', values: [BytesLike]): 
 encodeFunctionData(functionFragment: 'validator', values?: undefined): string;
 encodeFunctionData(functionFragment: 'weth', values?: undefined): string;
 
-    decodeFunctionResult(functionFragment: 'CONFIG_ADMIN_ROLE', data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: 'BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'CONFIG_ADMIN_ROLE', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'DEFAULT_ADMIN_ROLE', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'MAX_SLIPPAGE_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'abcd', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'collateralVault', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'configure', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'configured', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'configuredRoute', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'consumeRecovery', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'executeInstallmentSale', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'executeSale', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'getRoleAdmin', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'grantRole', data: BytesLike): Result;
@@ -61,6 +70,7 @@ decodeFunctionResult(functionFragment: 'liquidation', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'maxDeadlineSeconds', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'pendingCollateral', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'quote', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'quoteInstallment', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'receiveCollateral', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'recoveryOf', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'renounceRole', data: BytesLike): Result;
@@ -178,6 +188,14 @@ decodeFunctionResult(functionFragment: 'weth', data: BytesLike): Result;
 
     
     
+    BPS: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     CONFIG_ADMIN_ROLE: TypedContractMethod<
       [],
       [string],
@@ -189,6 +207,14 @@ decodeFunctionResult(functionFragment: 'weth', data: BytesLike): Result;
     DEFAULT_ADMIN_ROLE: TypedContractMethod<
       [],
       [string],
+      'view'
+    >
+    
+
+    
+    MAX_SLIPPAGE_BPS: TypedContractMethod<
+      [],
+      [bigint],
       'view'
     >
     
@@ -226,9 +252,25 @@ decodeFunctionResult(functionFragment: 'weth', data: BytesLike): Result;
     
 
     
+    configuredRoute: TypedContractMethod<
+      [],
+      [string[]],
+      'view'
+    >
+    
+
+    
     consumeRecovery: TypedContractMethod<
       [loanId: BigNumberish, ],
       [ILiquidationSaleAdapterV2.RecoveryStructOutput],
+      'nonpayable'
+    >
+    
+
+    
+    executeInstallmentSale: TypedContractMethod<
+      [loanId: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
+      [bigint],
       'nonpayable'
     >
     
@@ -292,6 +334,14 @@ decodeFunctionResult(functionFragment: 'weth', data: BytesLike): Result;
     
     quote: TypedContractMethod<
       [loanId: BigNumberish, debt: BigNumberish, collateral: BigNumberish, targetLtvBps: BigNumberish, ],
+      [ILiquidationSaleAdapterV2.SaleQuoteStructOutput],
+      'view'
+    >
+    
+
+    
+    quoteInstallment: TypedContractMethod<
+      [loanId: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
       [ILiquidationSaleAdapterV2.SaleQuoteStructOutput],
       'view'
     >
@@ -364,7 +414,12 @@ decodeFunctionResult(functionFragment: 'weth', data: BytesLike): Result;
 
     getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
-    getFunction(nameOrSignature: 'CONFIG_ADMIN_ROLE'): TypedContractMethod<
+    getFunction(nameOrSignature: 'BPS'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
+getFunction(nameOrSignature: 'CONFIG_ADMIN_ROLE'): TypedContractMethod<
       [],
       [string],
       'view'
@@ -372,6 +427,11 @@ decodeFunctionResult(functionFragment: 'weth', data: BytesLike): Result;
 getFunction(nameOrSignature: 'DEFAULT_ADMIN_ROLE'): TypedContractMethod<
       [],
       [string],
+      'view'
+    >;
+getFunction(nameOrSignature: 'MAX_SLIPPAGE_BPS'): TypedContractMethod<
+      [],
+      [bigint],
       'view'
     >;
 getFunction(nameOrSignature: 'abcd'): TypedContractMethod<
@@ -394,9 +454,19 @@ getFunction(nameOrSignature: 'configured'): TypedContractMethod<
       [boolean],
       'view'
     >;
+getFunction(nameOrSignature: 'configuredRoute'): TypedContractMethod<
+      [],
+      [string[]],
+      'view'
+    >;
 getFunction(nameOrSignature: 'consumeRecovery'): TypedContractMethod<
       [loanId: BigNumberish, ],
       [ILiquidationSaleAdapterV2.RecoveryStructOutput],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'executeInstallmentSale'): TypedContractMethod<
+      [loanId: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
+      [bigint],
       'nonpayable'
     >;
 getFunction(nameOrSignature: 'executeSale'): TypedContractMethod<
@@ -436,6 +506,11 @@ getFunction(nameOrSignature: 'pendingCollateral'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'quote'): TypedContractMethod<
       [loanId: BigNumberish, debt: BigNumberish, collateral: BigNumberish, targetLtvBps: BigNumberish, ],
+      [ILiquidationSaleAdapterV2.SaleQuoteStructOutput],
+      'view'
+    >;
+getFunction(nameOrSignature: 'quoteInstallment'): TypedContractMethod<
+      [loanId: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
       [ILiquidationSaleAdapterV2.SaleQuoteStructOutput],
       'view'
     >;

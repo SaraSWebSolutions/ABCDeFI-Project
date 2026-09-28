@@ -54,7 +54,9 @@ export default defineConfig({
     localhost: {
       type: "http",
       chainType: "l1",
-      url: "http://127.0.0.1:8545",
+      // Defaults to the shared local node. ABCDEFI_LOCAL_RPC_URL is used only
+      // by explicitly isolated local validation families (for example 1Q).
+      url: process.env.ABCDEFI_LOCAL_RPC_URL || "http://127.0.0.1:8545",
       chainId: 31337,
     },
     sepolia: {

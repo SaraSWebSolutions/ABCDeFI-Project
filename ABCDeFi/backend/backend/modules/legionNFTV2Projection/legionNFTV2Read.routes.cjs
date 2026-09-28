@@ -1,9 +1,10 @@
 const express = require('express');
+const { JsonRpcProvider } = require('ethers');
 const models = require('./models.cjs');
 const { loadLegionNFTV2Manifest } = require('../../config/legionNFTV2Manifest.cjs');
 const { createLegionNFTV2ReadController } = require('./legionNFTV2Read.controller.cjs');
 const router = express.Router();
-const controller = createLegionNFTV2ReadController({ models, manifestLoader: loadLegionNFTV2Manifest });
+const controller = createLegionNFTV2ReadController({ models, manifestLoader: loadLegionNFTV2Manifest, providerFactory: (manifest) => new JsonRpcProvider(manifest.rpcUrl) });
 router.get('/status', controller.status);
 router.get('/wallet/:address', controller.wallet);
 router.get('/territories/:tokenId', controller.territory);

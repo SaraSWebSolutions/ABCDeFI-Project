@@ -16,3 +16,4 @@ deployments-bsc.json
 artifacts/
 cache/
 .env.local
+.e2e-runtime/

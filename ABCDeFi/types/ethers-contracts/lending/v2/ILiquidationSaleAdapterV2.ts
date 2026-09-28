@@ -11,28 +11,32 @@ export declare namespace ILiquidationSaleAdapterV2 {
     export type RecoveryStructOutput = [collateralAmount: bigint, realizedRecoveryABCD: bigint, finalized: boolean, consumed: boolean] & {collateralAmount: bigint, realizedRecoveryABCD: bigint, finalized: boolean, consumed: boolean }
   
 
-    export type SaleQuoteStruct = {collateralAmount: BigNumberish, minOut: BigNumberish, deadline: BigNumberish}
+    export type SaleQuoteStruct = {collateralAmount: BigNumberish, requiredRecovery: BigNumberish, minOut: BigNumberish, deadline: BigNumberish}
 
-    export type SaleQuoteStructOutput = [collateralAmount: bigint, minOut: bigint, deadline: bigint] & {collateralAmount: bigint, minOut: bigint, deadline: bigint }
+    export type SaleQuoteStructOutput = [collateralAmount: bigint, requiredRecovery: bigint, minOut: bigint, deadline: bigint] & {collateralAmount: bigint, requiredRecovery: bigint, minOut: bigint, deadline: bigint }
   
     }
 
   export interface ILiquidationSaleAdapterV2Interface extends Interface {
-    getFunction(nameOrSignature: "configured" | "consumeRecovery" | "executeSale" | "quote" | "receiveCollateral" | "recoveryOf"): FunctionFragment;
+    getFunction(nameOrSignature: "configured" | "consumeRecovery" | "executeInstallmentSale" | "executeSale" | "quote" | "quoteInstallment" | "receiveCollateral" | "recoveryOf"): FunctionFragment;
 
     
 
     encodeFunctionData(functionFragment: 'configured', values?: undefined): string;
 encodeFunctionData(functionFragment: 'consumeRecovery', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'executeInstallmentSale', values: [BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'executeSale', values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'quote', values: [BigNumberish, BigNumberish, BigNumberish, BigNumberish]): string;
+encodeFunctionData(functionFragment: 'quoteInstallment', values: [BigNumberish, BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'receiveCollateral', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'recoveryOf', values: [BigNumberish]): string;
 
     decodeFunctionResult(functionFragment: 'configured', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'consumeRecovery', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'executeInstallmentSale', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'executeSale', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'quote', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'quoteInstallment', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'receiveCollateral', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'recoveryOf', data: BytesLike): Result;
   }
@@ -89,6 +93,14 @@ decodeFunctionResult(functionFragment: 'recoveryOf', data: BytesLike): Result;
     
 
     
+    executeInstallmentSale: TypedContractMethod<
+      [loanId: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
+      [bigint],
+      'nonpayable'
+    >
+    
+
+    
     executeSale: TypedContractMethod<
       [loanId: BigNumberish, debt: BigNumberish, collateral: BigNumberish, targetLtvBps: BigNumberish, ],
       [bigint],
@@ -99,6 +111,14 @@ decodeFunctionResult(functionFragment: 'recoveryOf', data: BytesLike): Result;
     
     quote: TypedContractMethod<
       [loanId: BigNumberish, debt: BigNumberish, collateral: BigNumberish, targetLtvBps: BigNumberish, ],
+      [ILiquidationSaleAdapterV2.SaleQuoteStructOutput],
+      'view'
+    >
+    
+
+    
+    quoteInstallment: TypedContractMethod<
+      [loanId: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
       [ILiquidationSaleAdapterV2.SaleQuoteStructOutput],
       'view'
     >
@@ -133,6 +153,11 @@ getFunction(nameOrSignature: 'consumeRecovery'): TypedContractMethod<
       [ILiquidationSaleAdapterV2.RecoveryStructOutput],
       'nonpayable'
     >;
+getFunction(nameOrSignature: 'executeInstallmentSale'): TypedContractMethod<
+      [loanId: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
+      [bigint],
+      'nonpayable'
+    >;
 getFunction(nameOrSignature: 'executeSale'): TypedContractMethod<
       [loanId: BigNumberish, debt: BigNumberish, collateral: BigNumberish, targetLtvBps: BigNumberish, ],
       [bigint],
@@ -140,6 +165,11 @@ getFunction(nameOrSignature: 'executeSale'): TypedContractMethod<
     >;
 getFunction(nameOrSignature: 'quote'): TypedContractMethod<
       [loanId: BigNumberish, debt: BigNumberish, collateral: BigNumberish, targetLtvBps: BigNumberish, ],
+      [ILiquidationSaleAdapterV2.SaleQuoteStructOutput],
+      'view'
+    >;
+getFunction(nameOrSignature: 'quoteInstallment'): TypedContractMethod<
+      [loanId: BigNumberish, due: BigNumberish, collateral: BigNumberish, ],
       [ILiquidationSaleAdapterV2.SaleQuoteStructOutput],
       'view'
     >;

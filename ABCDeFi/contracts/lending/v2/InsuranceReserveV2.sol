@@ -18,6 +18,9 @@ contract InsuranceReserveV2 is AccessControl, Pausable, ReentrancyGuard {
     IERC20 public immutable asset;
     LoanManagerV2 public immutable loanManager;
     address public liquidationEngine;
+    /// @notice Owner/deployment supplied maximum ABCD cover for one approved
+    /// recovery. Zero means the reserve is intentionally fail-closed.
+    uint256 public reserveCoverCapABCD;
     mapping(uint256 => uint256) public reserveUsedByLoan;
     mapping(uint256 => bool) public reserveSettlementProcessed;
 
@@ -27,6 +30,7 @@ contract InsuranceReserveV2 is AccessControl, Pausable, ReentrancyGuard {
     /// events remain stable for existing indexers.
     event ReserveBalanceUpdated(uint256 indexed loanId, address indexed recipient, uint256 paid, uint256 balanceAfter);
     event LiquidationEngineConfigured(address indexed liquidationEngine);
+    event ReserveCoverCapConfigured(uint256 indexed capABCD, address indexed configuredBy);
 
     constructor(address admin, address asset_, address manager_) {
         require(admin != address(0) && asset_ != address(0) && manager_ != address(0), "invalid address");
@@ -47,6 +51,15 @@ contract InsuranceReserveV2 is AccessControl, Pausable, ReentrancyGuard {
         emit LiquidationEngineConfigured(liquidationEngine_);
     }
 
+    /// @notice Configured once per deployment; the source contains no
+    /// financial default. A future cap requires an explicit owner/deployment
+    /// change rather than silently changing live coverage economics.
+    function setReserveCoverCapABCD(uint256 capABCD) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(reserveCoverCapABCD == 0 && capABCD != 0, "invalid reserve cover cap");
+        reserveCoverCapABCD = capABCD;
+        emit ReserveCoverCapConfigured(capABCD, msg.sender);
+    }
+
     function fund(uint256 amount) external onlyRole(RESERVE_FUNDER_ROLE) whenNotPaused nonReentrant {
         require(amount != 0, "zero amount");
         asset.safeTransferFrom(msg.sender, address(this), amount);
@@ -60,14 +73,19 @@ contract InsuranceReserveV2 is AccessControl, Pausable, ReentrancyGuard {
     function cover(uint256 loanId, address recipient, uint256 requested)
         external
         onlyRole(RESERVE_OPERATOR_ROLE)
+        whenNotPaused
         nonReentrant
         returns (uint256 paid)
     {
         require(msg.sender == liquidationEngine && liquidationEngine != address(0), "liquidation engine required");
         require(recipient != address(0) && requested != 0 && !reserveSettlementProcessed[loanId], "invalid reserve settlement");
+        require(reserveCoverCapABCD != 0, "reserve cover cap required");
         LoanManagerV2.Loan memory loan = loanManager.getLoan(loanId);
         require(recipient == loan.lender, "recipient not lender");
-        paid = requested > asset.balanceOf(address(this)) ? asset.balanceOf(address(this)) : requested;
+        uint256 available = asset.balanceOf(address(this));
+        paid = requested;
+        if (paid > available) paid = available;
+        if (paid > reserveCoverCapABCD) paid = reserveCoverCapABCD;
         reserveSettlementProcessed[loanId] = true;
         reserveUsedByLoan[loanId] = paid;
         if (paid != 0) asset.safeTransfer(recipient, paid);
