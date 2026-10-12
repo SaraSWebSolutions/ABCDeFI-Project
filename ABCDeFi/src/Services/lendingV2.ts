@@ -1,5 +1,6 @@
 import { Contract, Interface, ZeroAddress, formatEther, getAddress, id, isAddress, parseEther } from 'ethers';
 import { DEPLOYMENT_CHAIN_ID, LENDING_V2_CONTRACTS, CONTRACTS, getLendingV2Configuration, getLendingV2DeploymentBlock, getLendingV2DeploymentVersion } from '../Config/contracts';
+import { ONE_Q_RUNTIME_FAMILY, ONE_Q_RUNTIME_RPC_URL, oneQRuntime } from '../Config/oneQRuntime';
 import { provider as canonicalProvider } from './contractProvider';
 import { clearWalletCache, getProvider, getSigner } from './wallet';
 import PoolArtifact from '../../artifacts/contracts/lending/v2/LendingPoolV2.sol/LendingPoolV2.json';
@@ -113,8 +114,13 @@ export type V2Read = {
 };
 export type V2PendingDeposit = { depositId: string; borrower: string; collateralETH: string; maxBorrowable: string; collateralUSD: string; active: boolean };
 export type V2Request = { requestId: string; borrower: string; lender: string; principal: string; collateralETH: string; termSeconds: string; state: number; loanId: string; initialLtvBps: string };
+/**
+ * A shared, current OPEN request returned by the canonical Lending V2
+ * projection. It is discovery data, never wallet ownership evidence.
+ */
+export type V2OpenP2PRequest = V2Request & { createdEvidence: V2P2PRequestLifecycleEvent };
 export type V2P2PRequestLifecycleEvent = {
-  eventName: 'RequestCreated' | 'RequestFunded' | 'RequestCancelled' | 'RequestRepaid' | 'RequestRecovered';
+  eventName: 'RequestCreated' | 'RequestFunded' | 'RequestCancelled' | 'RequestRepaid' | 'RequestRecovered' | 'RequestDefaulted';
   blockNumber: string;
   transactionHash: string;
   logIndex: number;
@@ -126,6 +132,57 @@ export type V2P2PRequestHistory = {
   history: V2P2PRequestLifecycleEvent[];
   nextCursor: string | null;
 };
+/**
+ * Deployment-scoped, API-backed P2P loan evidence for the Admin read plane.
+ * Values remain canonical contract/read-model values in decimal wei strings;
+ * this type deliberately has no signer or transaction capability.
+ */
+export type V2CanonicalP2PLoan = {
+  checkpoint: string;
+  deploymentVersion: string;
+  sourceContracts: Record<string, string>;
+  loan: {
+    borrower: string; lender: string; collateralETH: string; originalCollateralETH: string; currentVaultCollateralETH: string;
+    principal: string; principalOutstanding: string; accruedInterest: string; fees: string; aprBps: string;
+    start: string; maturity: string; state: string; reserveContribution: string; badDebt: string; totalRepaid: string; isP2P: boolean;
+  };
+  previews: {
+    accruedInterest: string; outstanding: string; totalRepayment: string; state: string;
+    currentLtvBps: string | null; healthFactor: string | null; liquidatable: boolean | null; riskError: string | null; partialLiquidationExecution: string;
+  };
+  schedule: Array<{ dueAt: string; amount: string; paid: boolean; amountApplied: string; remainingDue: string; state: string }>;
+  certificates: Array<{
+    role: string; tokenId: string; owner: string; tokenURI: string;
+    certificate: { loanId: string; requestId: string; borrower: string; lender: string; platform: string; principal: string; collateral: string; metadataHash: string; isP2P: boolean; status: string };
+  }>;
+  /**
+   * Canonical, deployment-scoped indexed evidence only. This deliberately
+   * remains an append-only event list rather than a client-derived recovery
+   * status; numeric event arguments remain decimal base-unit strings.
+   */
+  adverseRecovery: Array<{ eventName: string; blockNumber: string; transactionHash: string; logIndex: number; args: Record<string, unknown> }>;
+};
+/**
+ * Deployment-scoped, API-backed Direct Lending evidence for the Admin read
+ * plane. This type has no signer or transaction capability. It deliberately
+ * rejects P2P loans even though the canonical API serves both V2 variants.
+ */
+export type V2CanonicalDirectLoan = {
+  checkpoint: string;
+  checkpointBlockHash: string;
+  chainId: string;
+  deploymentVersion: string;
+  deploymentIdentity: string;
+  runtimeFamily: string;
+  rpcUrl: string;
+  sourceContracts: Record<string, string>;
+  loan: V2CanonicalP2PLoan['loan'];
+  previews: V2CanonicalP2PLoan['previews'];
+  schedule: V2CanonicalP2PLoan['schedule'];
+  certificates: V2CanonicalP2PLoan['certificates'];
+};
+export type V2LoanLifecycleEvent = { eventName: string; blockNumber: string; transactionHash: string; logIndex: number; args: Record<string, unknown> };
+export type V2CanonicalDirectLoanHistory = { history: V2LoanLifecycleEvent[]; nextCursor: string | null };
 export type V2P2PCapacity = { collateralETH: string; collateralUSD: string; maxPrincipal: string; initialLtvBps: string };
 export type V2WalletHistory = { status: string; source?: { kind?: string }; directPositions: V2PendingDeposit[]; loans: Array<Record<string, unknown>>; requests: V2Request[]; events: Array<Record<string, unknown>> };
 export type V2IndexerStatus = { status: string; checkpoint: string | null; deploymentVersion: string | null };
@@ -454,7 +511,51 @@ export async function getV2Request(requestId: string): Promise<V2Request> {
   return { requestId, borrower: request.borrower, lender: request.lender, principal: formatEther(request.principal), collateralETH: formatEther(request.collateral), termSeconds: request.term.toString(), state: Number(request.state), loanId: request.loanId.toString(), initialLtvBps: request.initialLtvBps.toString() };
 }
 
-const p2pRequestLifecycleEvents = new Set<V2P2PRequestLifecycleEvent['eventName']>(['RequestCreated', 'RequestFunded', 'RequestCancelled', 'RequestRepaid', 'RequestRecovered']);
+/**
+ * Reads the existing, deployment-scoped OPEN P2P request discovery endpoint.
+ * The backend derives this list from canonical RequestCreated evidence and
+ * current LoanMarketplaceV2 state; the UI must never reconstruct it locally.
+ */
+export async function getV2OpenP2PRequests(limit = 100): Promise<V2OpenP2PRequest[]> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('Open P2P request limit must be between 1 and 100.');
+  const response = await apiGet<{
+    status?: string;
+    source?: { kind?: string; chainId?: string; deploymentVersion?: string };
+    data?: Array<{ requestId?: string; request?: { borrower?: string; lender?: string; principal?: string; collateral?: string; term?: string; state?: string; loanId?: string; initialLtvBps?: string }; createdEvidence?: { eventName?: string; blockNumber?: string; transactionHash?: string; logIndex?: number; args?: Record<string, unknown> } }>;
+  }>(`/api/lending-v2/requests/open?limit=${limit}`);
+  const source = response.source;
+  if (response.status !== 'AVAILABLE' || source?.kind !== 'canonical-v2-indexed-on-chain' || source.chainId !== DEPLOYMENT_CHAIN_ID.toString() || source.deploymentVersion !== getLendingV2DeploymentVersion() || !Array.isArray(response.data)) {
+    throw new Error('Canonical open P2P request discovery is unavailable for the active Lending V2 deployment.');
+  }
+  return response.data.map((entry) => {
+    const requestId = String(entry.requestId || '');
+    const request = entry.request;
+    const createdEvidence = entry.createdEvidence;
+    const borrower = String(request?.borrower || '');
+    const lender = String(request?.lender || '');
+    const logIndex = createdEvidence?.logIndex;
+    if (!/^\d+$/.test(requestId) || BigInt(requestId) === 0n || !request || request.state !== '0' || !isAddress(borrower) || typeof request.principal !== 'string' || typeof request.collateral !== 'string' || typeof request.term !== 'string' || typeof request.initialLtvBps !== 'string' || !createdEvidence || createdEvidence.eventName !== 'RequestCreated' || typeof createdEvidence.blockNumber !== 'string' || typeof createdEvidence.transactionHash !== 'string' || typeof logIndex !== 'number' || !Number.isInteger(logIndex) || !createdEvidence.args || typeof createdEvidence.args !== 'object') {
+      throw new Error('Canonical open P2P request discovery contains malformed or non-open request data.');
+    }
+    return {
+      requestId,
+      borrower: getAddress(borrower),
+      lender: isAddress(lender) ? getAddress(lender) : ZeroAddress,
+      principal: formatEther(BigInt(request.principal)),
+      collateralETH: formatEther(BigInt(request.collateral)),
+      termSeconds: request.term,
+      state: 0,
+      loanId: String(request.loanId || '0'),
+      initialLtvBps: request.initialLtvBps,
+      createdEvidence: {
+        eventName: 'RequestCreated', blockNumber: createdEvidence.blockNumber, transactionHash: createdEvidence.transactionHash,
+        logIndex, args: createdEvidence.args,
+      },
+    };
+  });
+}
+
+const p2pRequestLifecycleEvents = new Set<V2P2PRequestLifecycleEvent['eventName']>(['RequestCreated', 'RequestFunded', 'RequestCancelled', 'RequestRepaid', 'RequestRecovered', 'RequestDefaulted']);
 
 /** Reads the canonical, deployment-scoped P2P marketplace request lifecycle. */
 export async function getV2P2PRequestHistory(requestId: string, options: { limit?: number; cursor?: string | null } = {}): Promise<V2P2PRequestHistory> {
@@ -491,6 +592,134 @@ export async function getV2P2PRequestHistory(requestId: string, options: { limit
     history: normalizedHistory,
     nextCursor: typeof response.page?.nextCursor === 'string' ? response.page.nextCursor : null,
   };
+}
+
+/**
+ * Reads the existing deployment-scoped Lending V2 loan API for the Admin
+ * P2P drill-down. This is intentionally not getV2Loan(): the Admin surface
+ * must show canonical API/indexer provenance and fail closed with it.
+ */
+export async function getV2CanonicalP2PLoan(loanId: string): Promise<V2CanonicalP2PLoan> {
+  requireId(loanId, 'Loan ID');
+  const response = await apiGet<{
+    status?: string; checkpoint?: string;
+    source?: { kind?: string; chainId?: string; deploymentVersion?: string; contracts?: Record<string, string> };
+    data?: V2CanonicalP2PLoan extends infer _Ignored ? Omit<V2CanonicalP2PLoan, 'checkpoint' | 'deploymentVersion' | 'sourceContracts'> : never;
+  }>(`/api/lending-v2/loans/${loanId}`);
+  const source = response.source;
+  const contracts = source?.contracts;
+  const expectedContracts: Record<string, string> = {
+    LoanMarketplaceV2: LENDING_V2_CONTRACTS.marketplace,
+    LoanManagerV2: LENDING_V2_CONTRACTS.manager,
+    EMIManagerV2: LENDING_V2_CONTRACTS.emi,
+    CollateralVaultV2: LENDING_V2_CONTRACTS.vault,
+    LoanNFTV2: LENDING_V2_CONTRACTS.loanNFT,
+  };
+  const validContracts = Boolean(contracts) && Object.entries(expectedContracts).every(([name, address]) => contracts?.[name]?.toLowerCase() === address.toLowerCase());
+  const data = response.data;
+  if (response.status !== 'AVAILABLE' || source?.kind !== 'canonical-v2-indexed-on-chain' || source.chainId !== DEPLOYMENT_CHAIN_ID.toString() || source.deploymentVersion !== getLendingV2DeploymentVersion() || !validContracts || !response.checkpoint || !data?.loan?.isP2P || !Array.isArray(data.schedule) || !Array.isArray(data.certificates) || !Array.isArray(data.adverseRecovery)) {
+    throw new Error('Canonical P2P loan evidence is unavailable or does not match the active Lending V2 deployment.');
+  }
+  return {
+    checkpoint: response.checkpoint,
+    deploymentVersion: source.deploymentVersion,
+    sourceContracts: contracts!,
+    ...data,
+  };
+}
+
+/**
+ * Reads a Direct Lending loan from the same deployment-scoped canonical API
+ * used by the indexer. A P2P loan is an invalid result for this Admin surface,
+ * never a fallback. The backend availability gate validates runtime identity,
+ * bytecode, checkpoint block hash, and indexer freshness before responding.
+ */
+export async function getV2CanonicalDirectLoan(loanId: string): Promise<V2CanonicalDirectLoan> {
+  requireId(loanId, 'Loan ID');
+  await assertV2Read();
+  const response = await apiGet<{
+    status?: string; checkpoint?: string;
+    source?: { kind?: string; chainId?: string; deploymentVersion?: string; contracts?: Record<string, string> };
+    data?: Omit<V2CanonicalDirectLoan, 'checkpoint' | 'checkpointBlockHash' | 'chainId' | 'deploymentVersion' | 'deploymentIdentity' | 'runtimeFamily' | 'rpcUrl' | 'sourceContracts'>;
+  }>(`/api/lending-v2/loans/${loanId}`);
+  const source = response.source;
+  const contracts = source?.contracts;
+  // The API's `source.contracts` is the exact REQUIRED + OPTIONAL contract set
+  // constructed by backend/config/lendingV2Manifest.cjs. It deliberately
+  // excludes ABCDTokenV2: that root-manifest authority is independently
+  // bytecode-checked by assertV2Read() above. Derive every address from the
+  // canonical frontend runtime; no source address is duplicated here.
+  const childContracts = oneQRuntime.children.lending.contracts as Record<string, { address: string }>;
+  const expectedContracts: Record<string, string> = {
+    OracleAdapterV2: LENDING_V2_CONTRACTS.oracle,
+    CollateralVaultV2: LENDING_V2_CONTRACTS.vault,
+    LoanManagerV2: LENDING_V2_CONTRACTS.manager,
+    LendingPoolV2: LENDING_V2_CONTRACTS.pool,
+    LiquidationV2: LENDING_V2_CONTRACTS.liquidation,
+    InsuranceReserveV2: LENDING_V2_CONTRACTS.reserve,
+    LoanMarketplaceV2: LENDING_V2_CONTRACTS.marketplace,
+    EMIManagerV2: LENDING_V2_CONTRACTS.emi,
+    LoanNFTV2: LENDING_V2_CONTRACTS.loanNFT,
+  };
+  for (const name of ['LendingReferralManagerV2', 'LiquidationSaleAdapterV2']) {
+    if (childContracts[name]?.address) expectedContracts[name] = childContracts[name].address;
+  }
+  const validContracts = Boolean(contracts)
+    && Object.keys(contracts!).length === Object.keys(expectedContracts).length
+    && Object.entries(expectedContracts).every(([name, address]) => contracts?.[name]?.toLowerCase() === address.toLowerCase());
+  const data = response.data;
+  if (response.status !== 'AVAILABLE' || source?.kind !== 'canonical-v2-indexed-on-chain' || source.chainId !== DEPLOYMENT_CHAIN_ID.toString() || source.deploymentVersion !== getLendingV2DeploymentVersion() || !validContracts || !response.checkpoint || !data || data.loan?.isP2P || !Array.isArray(data.schedule) || !Array.isArray(data.certificates)) {
+    throw new Error('Canonical Direct Lending loan evidence is unavailable or does not match the active Lending V2 deployment.');
+  }
+  const checkpointBlock = await canonicalProvider.getBlock(Number(response.checkpoint));
+  // A lending child manifest has its own deployment *version*, not a second
+  // deploymentIdentity field. The strict runtime resolver already proves that
+  // this child version is the one pinned by the root unified manifest. Keep
+  // both root identity and child-version provenance explicit here rather than
+  // comparing the root identity with an undefined child field.
+  const canonicalLendingVersion = oneQRuntime.children.lending.deploymentVersion;
+  const validRootIdentity = typeof oneQRuntime.manifest.deploymentIdentity === 'string'
+    && oneQRuntime.manifest.deploymentIdentity.trim() !== '';
+  if (!checkpointBlock?.hash || ONE_Q_RUNTIME_FAMILY !== '1Q_LOCAL' || !validRootIdentity || canonicalLendingVersion !== getLendingV2DeploymentVersion() || source.deploymentVersion !== canonicalLendingVersion) {
+    throw new Error('Canonical Direct Lending provenance is unavailable for the active 1Q runtime.');
+  }
+  return {
+    checkpoint: response.checkpoint,
+    checkpointBlockHash: checkpointBlock.hash,
+    chainId: source.chainId,
+    deploymentVersion: source.deploymentVersion,
+    deploymentIdentity: oneQRuntime.manifest.deploymentIdentity,
+    runtimeFamily: ONE_Q_RUNTIME_FAMILY,
+    rpcUrl: ONE_Q_RUNTIME_RPC_URL,
+    sourceContracts: contracts!,
+    ...data,
+  };
+}
+
+/** Reads deterministic, cursor-paginated canonical lifecycle evidence for a Direct loan. */
+export async function getV2CanonicalDirectLoanHistory(loanId: string, options: { limit?: number; cursor?: string | null } = {}): Promise<V2CanonicalDirectLoanHistory> {
+  requireId(loanId, 'Loan ID');
+  const limit = options.limit ?? 20;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new Error('Direct loan-history limit must be between 1 and 100.');
+  const query = new URLSearchParams({ limit: String(limit) });
+  if (options.cursor) query.set('cursor', options.cursor);
+  const response = await apiGet<{
+    status?: string;
+    source?: { kind?: string; chainId?: string; deploymentVersion?: string; contracts?: Record<string, string> };
+    data?: Array<{ eventName?: string; blockNumber?: string; transactionHash?: string; logIndex?: number; args?: Record<string, unknown> }>;
+    page?: { nextCursor?: string | null };
+  }>(`/api/lending-v2/loans/${loanId}/history?${query.toString()}`);
+  const source = response.source;
+  if (response.status !== 'AVAILABLE' || source?.kind !== 'canonical-v2-indexed-on-chain' || source.chainId !== DEPLOYMENT_CHAIN_ID.toString() || source.deploymentVersion !== getLendingV2DeploymentVersion() || !Array.isArray(response.data)) {
+    throw new Error('Canonical Direct Lending history is unavailable for the active Lending V2 deployment.');
+  }
+  const history = response.data.map((event) => {
+    if (!event.eventName || typeof event.blockNumber !== 'string' || typeof event.transactionHash !== 'string' || typeof event.logIndex !== 'number' || !Number.isInteger(event.logIndex) || !event.args || typeof event.args !== 'object') {
+      throw new Error('Canonical Direct Lending history contains malformed event evidence.');
+    }
+    return { eventName: event.eventName, blockNumber: event.blockNumber, transactionHash: event.transactionHash, logIndex: event.logIndex, args: event.args };
+  });
+  return { history, nextCursor: typeof response.page?.nextCursor === 'string' ? response.page.nextCursor : null };
 }
 /** Reads the P2P marketplace's own oracle-priced ETH capacity; React is never the financial authority. */
 export async function getV2P2PRequestCapacity(collateral: string): Promise<V2P2PCapacity> {
@@ -767,7 +996,7 @@ export async function liquidateV2(loanId: string, progress?: V2ProgressListener)
 export async function settleV2Default(requestId: string, progress?: V2ProgressListener) {
   requireId(requestId, 'Request ID');
   progress;
-  throw new Error('P2P default settlement is blocked until the whitepaper-undefined recovery and bad-debt policy is approved.');
+  throw new Error('P2P adverse recovery is loan-scoped and must be initiated only through the canonical risk path after live eligibility validation.');
 }
 export const metadataHashForUri = (uri: string) => id(uri.trim());
 export { stateLabel };

@@ -13,6 +13,7 @@ const definitions = {
   marketplace10A: ["ABCD_NFT_MARKETPLACE_1Q_MANIFEST_PATH", "Phase 10A"],
   marketplace10B: ["LEGION_MARKETPLACE_1Q_MANIFEST_PATH", "Phase 10B"],
 };
+const excludeFranchise = process.env.ABCDEFI_1Q_FRANCHISE_STATUS === "excluded";
 
 function read(name, label) {
   const value = process.env[name];
@@ -34,25 +35,39 @@ function address(manifest, contract, label) {
   return value;
 }
 
-const inputs = Object.fromEntries(Object.entries(definitions).map(([key, [environment, label]]) => [key, read(environment, label)]));
-const { root, ico, lending, legion, franchise, marketplace10A, marketplace10B } = Object.fromEntries(Object.entries(inputs).map(([key, value]) => [key, value.manifest]));
+const inputs = Object.fromEntries(Object.entries(definitions)
+  .filter(([key]) => !(excludeFranchise && key === "franchise"))
+  .map(([key, [environment, label]]) => [key, read(environment, label)]));
+const { root, ico, lending, legion, marketplace10A, marketplace10B } = Object.fromEntries(Object.entries(inputs).map(([key, value]) => [key, value.manifest]));
+const franchise = inputs.franchise?.manifest;
 const token = address(root, "ABCDTokenV2", "Root");
 for (const [label, manifest] of [["ICO", ico], ["Lending", lending], ["Phase 10A", marketplace10A], ["Phase 10B", marketplace10B]]) {
   if (address(manifest, "ABCDTokenV2", label).toLowerCase() !== token.toLowerCase()) throw new Error(`${label} binds a different ABCDTokenV2.`);
 }
 const legionAddress = address(legion, "LegionNFTV2", "Legion");
-for (const [label, manifest] of [["Franchise", franchise], ["Phase 10B", marketplace10B]]) {
+for (const [label, manifest] of [["Phase 10B", marketplace10B], ...(franchise ? [["Franchise", franchise]] : [])]) {
   if (address(manifest, "LegionNFTV2", label).toLowerCase() !== legionAddress.toLowerCase()) throw new Error(`${label} binds a different LegionNFTV2.`);
 }
 if (ico.rootDeploymentVersion !== root.deploymentVersion || lending.rootDeploymentVersion !== root.deploymentVersion || marketplace10A.rootDeploymentVersion !== root.deploymentVersion || marketplace10B.rootDeploymentVersion !== root.deploymentVersion) {
   throw new Error("A child manifest does not bind the selected root deployment version.");
 }
-if (marketplace10B.legionDeploymentVersion !== legion.deploymentVersion || franchise.contracts.LegionNFTV2.deploymentVersion !== legion.deploymentVersion) {
+if (marketplace10B.legionDeploymentVersion !== legion.deploymentVersion || (franchise && franchise.contracts.LegionNFTV2.deploymentVersion !== legion.deploymentVersion)) {
   throw new Error("A Legion-bound child does not bind the selected Legion deployment version.");
 }
 if (fs.existsSync(output)) throw new Error(`Refusing to overwrite an existing unified 1Q manifest: ${output}`);
 
 const childManifests = Object.fromEntries(Object.entries(inputs).map(([key, value]) => [key, { path: value.file, deploymentVersion: value.manifest.deploymentVersion, manifestHash: value.manifest.manifestHash }]));
+if (excludeFranchise) {
+  const exclusionPath = path.resolve(path.dirname(output), "franchise.excluded.json");
+  if (fs.existsSync(exclusionPath)) throw new Error(`Refusing to overwrite an existing Franchise exclusion descriptor: ${exclusionPath}`);
+  const exclusion = {
+    schemaVersion: "1.0", status: "excluded", unavailable: true, module: "Franchise",
+    reason: "Phase 9 Franchise is explicitly excluded from the owner-authorized 1Q_LOCAL_BASELINE_V2 topology.",
+    chainId: 31337, rpcUrl: RPC_URL, deploymentVersion: "excluded",
+  };
+  fs.writeFileSync(exclusionPath, `${JSON.stringify(exclusion, null, 2)}\n`, "utf8");
+  childManifests.franchise = { path: exclusionPath, deploymentVersion: "excluded", status: "excluded", unavailable: true, reason: exclusion.reason };
+}
 const manifest = {
   schemaVersion: "1.0",
   identity: "1Q CANONICAL CANDIDATE — LOCAL ONLY",
@@ -62,6 +77,7 @@ const manifest = {
   rootDeploymentVersion: root.deploymentVersion,
   deploymentIdentity: createHash("sha256").update(JSON.stringify(childManifests)).digest("hex"),
   childManifests,
+  ...(excludeFranchise ? { topology: { name: "1Q_LOCAL_BASELINE_V2", excludedModules: { franchise: { status: "excluded", reason: childManifests.franchise.reason } } } } : {}),
   contracts: {
     ABCDTokenV2: root.contracts.ABCDTokenV2,
     ICOManagerV3: ico.contracts.ICOManagerV3,
@@ -70,8 +86,7 @@ const manifest = {
     LendingReferralManagerV2: lending.contracts.LendingReferralManagerV2,
     InsuranceReserveV2: lending.contracts.InsuranceReserveV2,
     LegionNFTV2: legion.contracts.LegionNFTV2,
-    FranchiseNFTV2: franchise.contracts.FranchiseNFTV2,
-    FranchiseRegistryV2: franchise.contracts.FranchiseRegistryV2,
+    ...(franchise ? { FranchiseNFTV2: franchise.contracts.FranchiseNFTV2, FranchiseRegistryV2: franchise.contracts.FranchiseRegistryV2 } : {}),
     ABCDNFTMarketplaceV2: marketplace10A.contracts.ABCDNFTMarketplaceV2,
     LegionMarketplaceSettlementAdapterV2: marketplace10B.contracts.LegionMarketplaceSettlementAdapterV2,
   },

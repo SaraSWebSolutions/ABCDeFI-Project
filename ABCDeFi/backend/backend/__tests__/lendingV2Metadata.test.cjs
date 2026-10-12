@@ -1,7 +1,10 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 const { keccak256, toUtf8Bytes } = require('ethers');
 const { completionCertificateMetadata, createLoanMetadataController } = require('../modules/lendingV2Metadata/lendingV2Metadata.controller.cjs');
+const auth = require('../middleware/authMiddleware');
 
 const borrower = '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC';
 const lender = '0x976EA74026E726554dB657fA54763abd0C3a0aa9';
@@ -16,7 +19,7 @@ function successStore(index) {
   const cid = `${metadataCid}${index}`;
   return { provider: 'pinata', cid, metadataCid: cid, imageCid: `bafkimage${index}`, imageUri: `ipfs://bafkimage${index}`, metadataUri: `ipfs://${cid}`, uri: `ipfs://${cid}` };
 }
-function controller({ linkedWallet = borrower, loan = { borrower, lender, principal: 100000000000000000000n, principalOutstanding: 100000000000000000000n, collateralETH: 100000000000000000n, aprBps: 1200n, start: 1000n, maturity: 1000n + 30n * 86_400n, state: 0n }, store, provider, readMetadata, auditModel } = {}) {
+function controller({ linkedWallet = borrower, loan = { borrower, lender, principal: 100000000000000000000n, principalOutstanding: 100000000000000000000n, collateralETH: 100000000000000000n, aprBps: 1200n, start: 1000n, maturity: 1000n + 30n * 86_400n, state: 0n }, store, provider, readMetadata, auditModel, walletModel, loanNFT } = {}) {
   let stores = 0;
   return createLoanMetadataController({
     manifest,
@@ -24,8 +27,8 @@ function controller({ linkedWallet = borrower, loan = { borrower, lender, princi
     provider: provider || { getNetwork: async () => ({ chainId: 31337n }) },
     loanManager: { getLoan: async () => loan },
     marketplace: { requestByLoanId: async () => 0n },
-    loanNFT: { platformRecipient: async () => platform },
-    walletModel: { findOne: () => ({ lean: async () => ({ walletAddress: linkedWallet }) }) },
+    loanNFT: loanNFT || { platformRecipient: async () => platform },
+    walletModel: walletModel || { findOne: () => ({ lean: async () => ({ walletAddress: linkedWallet }) }) },
     platformArtwork: async () => ({ buffer: png, mimetype: 'image/png', originalname: 'platform-certificate.png' }),
     store: store || (async (_asset, metadata) => { stores += 1; return { ...successStore(stores), metadata }; }),
     readMetadata: readMetadata || (async (cid) => ({ attributes: [{ trait_type: 'Loan ID', value: '7' }, { trait_type: 'Chain ID', value: '31337' }, { trait_type: 'Borrower', value: borrower }, { trait_type: 'Certificate role', value: cid.endsWith('1') ? 'Lender' : cid.endsWith('2') ? 'Borrower' : 'Platform' }] })),
@@ -37,6 +40,13 @@ async function invoke(handler, req) {
   await handler(req, res, error => { failure = error; });
   if (failure) throw failure;
   return res;
+}
+async function invokeFailure(handler, req) {
+  const res = response(); let failure;
+  await handler(req, res, error => { failure = error; });
+  assert.ok(failure, 'the controller must delegate a failure instead of returning a success response');
+  assert.equal(res.body, null, 'a failed metadata operation must not produce a success response');
+  return failure;
 }
 function withPinata(testBody) {
   return async () => {
@@ -93,8 +103,9 @@ test('completion certificate metadata records the canonical loan and explicitly 
   assert.match(metadata.description, /intentionally not recorded/i);
 });
 
-function auditStore() {
+function auditStore({ failOnSave } = {}) {
   const entries = [];
+  let saveAttempts = 0;
   const matching = (criteria) => entries.filter((entry) => Object.entries(criteria).every(([key, value]) => {
     if (key === 'status' && value?.$in) return value.$in.includes(entry.status);
     return entry[key] === value;
@@ -108,6 +119,8 @@ function auditStore() {
     async create(document) {
       const entry = { ...document, records: document.records.map((record) => ({ ...record })) };
       entry.save = async () => {
+        saveAttempts += 1;
+        if (failOnSave?.({ saveAttempts, entry, entries })) throw new Error('audit save unavailable');
         const index = entries.findIndex((value) => value.correlationId === entry.correlationId);
         const stored = { ...entry, records: entry.records.map((record) => ({ ...record })) };
         delete stored.save;
@@ -185,4 +198,151 @@ test('a provider timeout leaves an unresolved audit record and a retry cannot up
   assert.equal(audits.entries[0].status, 'OUTCOME_UNKNOWN');
   await assert.rejects(invoke(instance.prepareCompletion, request()), /outcome is unresolved/i);
   assert.equal(attempts, 1);
+}));
+
+test('the completion route remains protected by auth and an unauthenticated request is rejected before its controller runs', async () => {
+  const routeSource = fs.readFileSync(path.join(__dirname, '../modules/lendingV2Metadata/lendingV2Metadata.routes.cjs'), 'utf8');
+  assert.match(routeSource, /router\.post\('\/metadata\/completion',\s*auth,\s*controller\.prepareCompletion\)/);
+  const req = { headers: {} };
+  const res = response();
+  let nextCalled = false;
+  auth(req, res, () => { nextCalled = true; });
+  assert.equal(res.statusCode, 401);
+  assert.equal(res.body?.message, 'Authorization header missing');
+  assert.equal(nextCalled, false, 'missing authentication must never reach completion preparation');
+});
+
+test('missing and unverified wallet records are rejected before audit creation or Pinata upload', withPinata(async () => {
+  for (const [label, walletModel] of [
+    ['missing', { findOne: () => ({ lean: async () => null }) }],
+    ['unverified', { findOne: (criteria) => {
+      assert.deepEqual(criteria, { userId: 'development-user', verified: true });
+      return { lean: async () => null };
+    } }],
+  ]) {
+    let uploads = 0;
+    let audits = 0;
+    const failure = await invokeFailure(controller({
+      walletModel,
+      store: async () => { uploads += 1; return successStore(uploads); },
+      auditModel: { create: async () => { audits += 1; throw new Error('audit must not be created'); } },
+    }).prepareCompletion, request());
+    assert.match(failure.message, /link and verify the borrower wallet/i, label);
+    assert.equal(uploads, 0, `${label} wallet must not reach Pinata`);
+    assert.equal(audits, 0, `${label} wallet must not create audit state`);
+  }
+}));
+
+test('a Pinata upload failure is fail-closed, produces no success response or certificate action, and blocks blind retry', withPinata(async () => {
+  const audits = auditStore();
+  let certificateActions = 0;
+  const failure = await invokeFailure(controller({
+    auditModel: audits,
+    store: async () => { throw new Error('Pinata upload failed'); },
+    loanNFT: { platformRecipient: async () => platform, mintCompletionCertificates: async () => { certificateActions += 1; } },
+  }).prepareCompletion, request());
+  assert.match(failure.message, /pinata upload failed/i);
+  assert.equal(certificateActions, 0, 'metadata preparation must never mint a certificate');
+  assert.equal(audits.entries.length, 1);
+  assert.equal(audits.entries[0].status, 'OUTCOME_UNKNOWN');
+  let uploads = 0;
+  const retry = controller({ auditModel: audits, store: async () => { uploads += 1; return successStore(uploads); } });
+  const retryFailure = await invokeFailure(retry.prepareCompletion, request());
+  assert.match(retryFailure.message, /outcome is unresolved/i);
+  assert.equal(uploads, 0, 'an unresolved upload outcome must not be retried automatically');
+}));
+
+test('public read-back validation failure is fail-closed and marks the public outcome as requiring manual resolution', withPinata(async () => {
+  const audits = auditStore();
+  let uploads = 0;
+  const failure = await invokeFailure(controller({
+    auditModel: audits,
+    store: async () => { uploads += 1; return successStore(uploads); },
+    readMetadata: async () => ({ attributes: [{ trait_type: 'Loan ID', value: 'wrong-loan' }] }),
+  }).prepareCompletion, request());
+  assert.match(failure.message, /canonical loan validation/i);
+  assert.equal(uploads, 1);
+  assert.equal(audits.entries[0].status, 'POST_UPLOAD_VALIDATION_FAILED');
+}));
+
+test('audit create and audit save failures are fail-closed and never return a completion success response', withPinata(async () => {
+  let uploadsBeforeAudit = 0;
+  const createFailure = await invokeFailure(controller({
+    auditModel: { findOne: async () => null, create: async () => { throw new Error('audit database unavailable'); } },
+    store: async () => { uploadsBeforeAudit += 1; return successStore(uploadsBeforeAudit); },
+  }).prepareCompletion, request());
+  assert.match(createFailure.message, /audit database unavailable/i);
+  assert.equal(uploadsBeforeAudit, 0, 'audit creation precedes external publication');
+
+  let uploadsBeforeSaveFailure = 0;
+  const brokenAudit = { save: async () => { throw new Error('audit save unavailable'); } };
+  const saveFailure = await invokeFailure(controller({
+    auditModel: { findOne: async () => null, create: async () => brokenAudit },
+    store: async () => { uploadsBeforeSaveFailure += 1; return successStore(uploadsBeforeSaveFailure); },
+  }).prepareCompletion, request());
+  assert.match(saveFailure.message, /audit save unavailable/i);
+  assert.equal(uploadsBeforeSaveFailure, 1, 'the first upload may already be public, but the request must fail closed');
+}));
+
+test('a final audit save failure after all public uploads and read-backs leaves the persisted request unresolved and blocks a duplicate upload', withPinata(async () => {
+  // Save #1 persists PENDING_UPLOAD during create; saves #2-#4 persist the
+  // role records; save #5 is the final VALIDATED transition and fails.
+  const audits = auditStore({ failOnSave: ({ saveAttempts }) => saveAttempts === 5 });
+  const documents = new Map();
+  let uploads = 0;
+  const instance = controller({
+    auditModel: audits,
+    store: async (_asset, metadata) => {
+      uploads += 1;
+      const stored = successStore(uploads);
+      documents.set(stored.metadataCid, { ...metadata, image: stored.imageUri });
+      return stored;
+    },
+    readMetadata: async (cid) => documents.get(cid),
+  });
+
+  const failure = await invokeFailure(instance.prepareCompletion, request());
+  assert.match(failure.message, /audit save unavailable/i);
+  assert.equal(uploads, 3, 'all three public records may already exist when final audit persistence fails');
+  assert.equal(audits.entries.length, 1);
+  assert.equal(audits.entries[0].status, 'PENDING_UPLOAD', 'the failed final transition must not report validation');
+  assert.deepEqual(audits.entries[0].records.map((record) => record.validationStatus), ['VALIDATED', 'VALIDATED', 'VALIDATED']);
+
+  let retryUploads = 0;
+  const retry = controller({
+    auditModel: audits,
+    store: async () => { retryUploads += 1; return successStore(retryUploads); },
+    readMetadata: async (cid) => documents.get(cid),
+  });
+  const retryFailure = await invokeFailure(retry.prepareCompletion, request());
+  assert.match(retryFailure.message, /outcome is unresolved/i);
+  assert.equal(retryUploads, 0, 'a persisted uncertain audit must block automatic re-publication');
+}));
+
+test('an exact validated duplicate is reused without uploading a second public record', withPinata(async () => {
+  const audits = auditStore();
+  const documents = new Map();
+  let initialUploads = 0;
+  const original = controller({
+    auditModel: audits,
+    store: async (_asset, metadata) => {
+      initialUploads += 1;
+      const stored = successStore(initialUploads);
+      documents.set(stored.metadataCid, { ...metadata, image: stored.imageUri });
+      return stored;
+    },
+    readMetadata: async (cid) => documents.get(cid),
+  });
+  const first = await invoke(original.prepareCompletion, request());
+  assert.equal(first.statusCode, 201);
+  let uploads = 0;
+  const retry = controller({
+    auditModel: audits,
+    store: async () => { uploads += 1; throw new Error('validated duplicate must not upload'); },
+    readMetadata: async (cid) => documents.get(cid),
+  });
+  const reused = await invoke(retry.prepareCompletion, request());
+  assert.equal(reused.statusCode, 200);
+  assert.equal(reused.body.data.reused, true);
+  assert.equal(uploads, 0);
 }));

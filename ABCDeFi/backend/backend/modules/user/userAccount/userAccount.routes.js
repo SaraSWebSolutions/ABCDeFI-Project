@@ -28,6 +28,7 @@ const {
     refreshToken,
     logout,
   developmentDashboardSession,
+  r3TestDashboardSession,
   developmentLoginOtpForAutomation,
     walletLoginNonce,
   walletLogin,
@@ -36,7 +37,7 @@ const {
 
 const upload = require("../../../middleware/fileUpload");
 const auth = require("../../../middleware/authMiddleware");
-const { requireAdmin } = require("../../../middleware/authMiddleware");
+const { requireAdmin, requireAdminPermission } = require("../../../middleware/authMiddleware");
 const express = require("express");
 const walletRouter = require("./wallet.routes");
 
@@ -58,6 +59,9 @@ router.post("/wallet-login", walletLogin);
 // Local-only convenience route. The controller fails closed unless both
 // NODE_ENV/AUTH_MODE development and a localhost MongoDB database are active.
 router.post("/development-dashboard-session", developmentDashboardSession);
+// Sealed test-only browser fixture. The controller validates the exact R3
+// runtime, descriptor, Mongo namespace, and explicit server-side enable flag.
+router.post("/r3-test-dashboard-session", r3TestDashboardSession);
 // Local loopback development automation only; the controller fails closed in
 // production, non-local-database, and non-loopback contexts.
 router.get("/development-login-otp/:userId", developmentLoginOtpForAutomation);
@@ -96,11 +100,15 @@ router.post("/get-fcm", userFcmToken);
 router.post("/get-address", auth, getAddress);
 
 // Admin Management
-router.get("/admin/users", auth, requireAdmin, adminGetUsers);
-router.post("/admin/users/status", auth, requireAdmin, adminUpdateUserStatus);
-router.post("/admin/users/kyc", auth, requireAdmin, adminUpdateUserKyc);
-router.post("/admin/users/reset-password", auth, requireAdmin, adminResetUserPassword);
+router.get("/admin/users", auth, requireAdminPermission("users.read"), adminGetUsers);
+router.post("/admin/users/status", auth, requireAdminPermission("users.support"), adminUpdateUserStatus);
+router.post("/admin/users/kyc", auth, requireAdminPermission("compliance.review"), adminUpdateUserKyc);
+router.post("/admin/users/reset-password", auth, requireAdminPermission("users.support"), adminResetUserPassword);
 // Never available in production; controller also enforces development mode.
-router.get("/admin/auth-debug/:userId", auth, requireAdmin, adminAuthDebug);
+// The local OTP inspector can reveal short-lived authentication material, so
+// only security administrators (and super_admin through the canonical
+// permission registry) may call it. The controller still fails closed outside
+// explicitly enabled local development.
+router.get("/admin/auth-debug/:userId", auth, requireAdminPermission("security.read"), adminAuthDebug);
 
 module.exports = router;

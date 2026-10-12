@@ -1,6 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { assertBootstrapEnabled, ensureDevelopmentAdmin } = require('../scripts/ensureDevelopmentAdmin.cjs');
+const {
+  assertBootstrapEnabled,
+  applicationRoleForLocalTestIdentity,
+  ensureDevelopmentAdmin,
+} = require('../scripts/ensureDevelopmentAdmin.cjs');
 
 const localEnv = {
   NODE_ENV: 'development',
@@ -31,7 +35,7 @@ test('development admin bootstrap creates a persisted active admin with a bcrypt
       },
     },
   });
-  assert.deepEqual(result, { created: true, email: 'admin@example.test' });
+  assert.deepEqual(result, { created: true, email: 'admin@example.test', adminRole: null });
   assert.deepEqual(created, {
     name: 'Local Development Administrator', email: 'admin@example.test', password: 'bcrypt-hash',
     role: 'admin', status: true, is2FAEnabled: true, country: 'Local development', privacyData: true,
@@ -46,11 +50,55 @@ test('development admin bootstrap reuses only the same persisted local admin pas
     model: { findOne: async () => user, create: async () => assert.fail('must not create') },
     passwordHasher: { compare: async (password, hash) => password === 'LocalAdmin1!' && hash === 'bcrypt-hash' },
   });
-  assert.deepEqual(result, { created: false, email: 'admin@example.test' });
+  assert.deepEqual(result, { created: false, email: 'admin@example.test', adminRole: null });
   assert.equal(user.role, 'admin');
   assert.equal(user.status, true);
   assert.equal(user.is2FAEnabled, true);
   assert.equal(saved, true);
+});
+
+test('application roles can be assigned only to explicitly marked local test identities', async () => {
+  const testEnv = {
+    ...localEnv,
+    DEV_ADMIN_EMAIL: 'admin-role-security-test@abcdefi.test',
+    DEV_ADMIN_APPLICATION_ROLE: 'security_admin',
+    DEV_ADMIN_TEST_IDENTITY: 'true',
+  };
+  let created = null;
+  const result = await ensureDevelopmentAdmin({
+    env: testEnv,
+    model: { findOne: async () => null, create: async (document) => { created = document; } },
+    passwordHasher: { hash: async () => 'bcrypt-hash' },
+  });
+  assert.deepEqual(result, {
+    created: true,
+    email: 'admin-role-security-test@abcdefi.test',
+    adminRole: 'security_admin',
+  });
+  assert.equal(created.adminRole, 'security_admin');
+  assert.match(created.name, /Local Application Role Test Administrator/);
+  assert.equal(created.walletAddress, undefined);
+});
+
+test('application role fixture assignment rejects non-test identities, missing gates, and unknown roles', () => {
+  assert.throws(
+    () => applicationRoleForLocalTestIdentity({
+      env: { DEV_ADMIN_APPLICATION_ROLE: 'security_admin' }, email: 'admin-role-security-test@abcdefi.test',
+    }),
+    /DEV_ADMIN_TEST_IDENTITY=true/,
+  );
+  assert.throws(
+    () => applicationRoleForLocalTestIdentity({
+      env: { DEV_ADMIN_APPLICATION_ROLE: 'security_admin', DEV_ADMIN_TEST_IDENTITY: 'true' }, email: 'real-admin@abcdefi.test',
+    }),
+    /isolated/,
+  );
+  assert.throws(
+    () => applicationRoleForLocalTestIdentity({
+      env: { DEV_ADMIN_APPLICATION_ROLE: 'unknown_admin', DEV_ADMIN_TEST_IDENTITY: 'true' }, email: 'admin-role-security-test@abcdefi.test',
+    }),
+    /canonical application admin roles/,
+  );
 });
 
 test('development admin bootstrap rejects a mismatched existing password instead of replacing it', async () => {

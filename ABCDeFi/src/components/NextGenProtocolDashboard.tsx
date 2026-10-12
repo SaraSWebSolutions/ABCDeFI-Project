@@ -24,6 +24,10 @@ function formatAbcdWithUnit(value: string | null | undefined) {
   return value === null || value === undefined ? 'Unavailable' : `${value} ABCD`;
 }
 
+function hasNoActiveLendingPosition(value: string | null | undefined) {
+  return value !== null && value !== undefined && /^0(?:\.0+)?$/.test(value.trim());
+}
+
 interface OnChainDashboardData {
   completionCertificateCount: string | null;
   treasuryAbcd: string | null;
@@ -58,6 +62,19 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
   const isWalletConnected = wallet.isConnected;
   const isRegistered = isWalletConnected || !!wallet.address;
   const networkName = wallet.networkName || 'Not Connected';
+  // The local hosted-KYC path is not configured. Preserve any real pending or
+  // rejected backend decision instead of relabeling it as an environment state.
+  const isHardhatLocal = networkName === 'Hardhat Local';
+  const localKycUnavailable = isHardhatLocal && normalizedKycStatus === 'unverified';
+  const kycDisplay = isKycApproved
+    ? 'Approved ✅'
+    : localKycUnavailable
+      ? 'Unavailable on Hardhat Local'
+      : normalizedKycStatus === 'rejected'
+        ? 'Rejected'
+        : normalizedKycStatus === 'pending'
+          ? 'Pending'
+          : 'Unverified';
 
   const [onChainData, setOnChainData] = useState<OnChainDashboardData>(EMPTY_ON_CHAIN_DATA);
   const [onChainLoading, setOnChainLoading] = useState(false);
@@ -130,11 +147,11 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 font-mono">
           <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
             <div className="text-[10px] text-slate-400 uppercase font-bold">Your ABCD debt</div>
-            <div className="text-sm font-black text-emerald-400 mt-0.5">{onChainLoading ? 'Loading…' : formatAbcdWithUnit(onChainData.borrowedAbcd)}</div>
+            <div className="text-sm font-black text-emerald-400 mt-0.5">{onChainLoading ? 'Loading…' : hasNoActiveLendingPosition(onChainData.borrowedAbcd) ? 'No active lending position' : formatAbcdWithUnit(onChainData.borrowedAbcd)}</div>
           </div>
           <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
-            <div className="text-[10px] text-slate-400 uppercase font-bold">Loan completion certificates</div>
-            <div className="text-sm font-black text-slate-300 mt-0.5">{onChainLoading ? 'Loading…' : onChainData.completionCertificateCount === null ? 'Unavailable' : onChainData.completionCertificateCount}</div>
+            <div className="text-[10px] text-slate-400 uppercase font-bold">Your LoanNFT Certificates</div>
+            <div className="text-sm font-black text-slate-300 mt-0.5">{onChainLoading ? 'Loading…' : onChainData.completionCertificateCount === null ? 'Unavailable' : `${onChainData.completionCertificateCount} owned`}</div>
           </div>
           <div className="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80">
             <div className="text-[10px] text-slate-400 uppercase font-bold">Treasury ABCD</div>
@@ -167,11 +184,11 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-400">KYC Status</span>
-              <span className={isKycApproved ? 'font-bold text-emerald-400 flex items-center gap-1' : 'font-bold text-amber-400 flex items-center gap-1'}>{isKycApproved ? 'Approved ✅' : normalizedKycStatus === 'rejected' ? 'Rejected' : normalizedKycStatus === 'pending' ? 'Pending' : 'Unverified'}</span>
+              <span className={isKycApproved ? 'font-bold text-emerald-400 flex items-center gap-1' : 'font-bold text-amber-400 flex items-center gap-1'}>{kycDisplay}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-400">AML Screen</span>
-              <span className="font-bold text-slate-300 flex items-center gap-1">Not available</span>
+              <span className="font-bold text-slate-300 flex items-center gap-1">{isHardhatLocal ? 'Unavailable on Hardhat Local' : 'Not available'}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-slate-400">Network</span>
@@ -237,11 +254,11 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
             </div>
             <div className="flex items-center justify-between text-xs bg-slate-950 p-2.5 rounded-xl border border-slate-800/60">
               <span className="text-slate-300 font-bold">KYC</span>
-              <span className={isKycApproved ? 'text-emerald-400 font-black flex items-center gap-1' : 'text-amber-400 font-black flex items-center gap-1'}>{isKycApproved ? 'Approved ✅' : 'Pending'}</span>
+              <span className={isKycApproved ? 'text-emerald-400 font-black flex items-center gap-1' : 'text-amber-400 font-black flex items-center gap-1'}>{isKycApproved ? 'Approved ✅' : localKycUnavailable ? 'Unavailable on Hardhat Local' : normalizedKycStatus === 'rejected' ? 'Rejected' : normalizedKycStatus === 'pending' ? 'Pending' : 'Unverified'}</span>
             </div>
             <div className="flex items-center justify-between text-xs bg-slate-950 p-2.5 rounded-xl border border-slate-800/60">
               <span className="text-slate-300 font-bold">Platform</span>
-              <span className="text-slate-300 font-black flex items-center gap-1">{isWalletConnected && isKycApproved ? 'Eligible' : 'Restricted'}</span>
+              <span className="text-slate-300 font-black flex items-center gap-1">{isWalletConnected && isKycApproved ? 'Eligible' : isWalletConnected && localKycUnavailable ? 'Limited — KYC unavailable on Hardhat Local' : 'Restricted'}</span>
             </div>
           </div>
         </div>
@@ -257,14 +274,14 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
           <div className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Portfolio</span>
             <div className="text-2xl font-black text-white">Not available</div>
-            <span className="text-[9px] text-slate-400 font-bold block">A portfolio valuation is not available.</span>
+            <span className="text-[9px] text-slate-400 font-bold block">USD valuation is unavailable because no approved canonical price source is configured for this environment.</span>
           </div>
 
           {/* Card 2: Borrowed */}
           <div className="bg-slate-900 border border-slate-800 hover:border-rose-500/40 rounded-2xl p-4.5 space-y-1.5 shadow-xl transition duration-350">
             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block">Borrowed</span>
-            <div className="text-2xl font-black text-rose-400">{onChainLoading ? 'Loading…' : formatAbcdWithUnit(onChainData.borrowedAbcd)}</div>
-            <span className="text-[9px] text-slate-400 block">Your current direct lending position</span>
+            <div className="text-2xl font-black text-rose-400">{onChainLoading ? 'Loading…' : hasNoActiveLendingPosition(onChainData.borrowedAbcd) ? 'No active lending position' : formatAbcdWithUnit(onChainData.borrowedAbcd)}</div>
+            <span className="text-[9px] text-slate-400 block">{hasNoActiveLendingPosition(onChainData.borrowedAbcd) ? 'No outstanding direct lending debt is indexed for this wallet.' : 'Your current direct lending position'}</span>
           </div>
 
           {/* Card 3: Lent */}
@@ -310,14 +327,14 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
             className="p-4 bg-slate-950 hover:bg-emerald-600/10 border border-slate-800/80 hover:border-emerald-500 text-xs font-black rounded-2xl transition cursor-pointer text-center space-y-1.5"
           >
             <Coins className="w-5 h-5 text-emerald-400 mx-auto" />
-            <div className="text-slate-200">Borrow</div>
+            <div className="text-slate-200">Direct Lending</div>
           </button>
           <button
-            onClick={() => onNavigateTab?.('view-all-loans')}
+            onClick={() => onNavigateTab?.('p2p-loans')}
             className="p-4 bg-slate-950 hover:bg-indigo-600/10 border border-slate-800/80 hover:border-indigo-500 text-xs font-black rounded-2xl transition cursor-pointer text-center space-y-1.5"
           >
             <DollarSign className="w-5 h-5 text-indigo-400 mx-auto" />
-            <div className="text-slate-200">Lend</div>
+            <div className="text-slate-200">P2P Marketplace</div>
           </button>
           <button
             onClick={() => onNavigateTab?.('ico')}
@@ -326,13 +343,14 @@ export const NextGenProtocolDashboard: React.FC<NextGenProtocolDashboardProps> =
             <Coins className="w-5 h-5 text-amber-400 mx-auto" />
             <div className="text-slate-200">ICO</div>
           </button>
-          <button
-            onClick={() => onNavigateTab?.('nft-ecosystem')}
-            className="p-4 bg-slate-950 hover:bg-pink-600/10 border border-slate-800/80 hover:border-pink-500 text-xs font-black rounded-2xl transition cursor-pointer text-center space-y-1.5"
+          <div
+            aria-label="Franchise coming soon"
+            className="p-4 bg-slate-950 border border-slate-800/80 text-xs font-black rounded-2xl text-center space-y-1.5 opacity-75"
           >
             <ImageIcon className="w-5 h-5 text-pink-400 mx-auto" />
-            <div className="text-slate-200">Franchise NFTs</div>
-          </button>
+            <div className="text-slate-200">Franchise</div>
+            <div className="text-[10px] text-slate-400">Coming soon</div>
+          </div>
           <button
             onClick={() => onNavigateTab?.('emi')}
             className="p-4 bg-slate-950 hover:bg-cyan-600/10 border border-slate-800/80 hover:border-cyan-500 text-xs font-black rounded-2xl transition cursor-pointer text-center space-y-1.5"

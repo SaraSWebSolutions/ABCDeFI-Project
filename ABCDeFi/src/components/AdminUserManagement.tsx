@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../Context/AuthContext';
 import { Users, ShieldAlert, CheckCircle2, XCircle, Search, RefreshCw, KeyRound, Ban } from 'lucide-react';
+import { can, type AdminCapability } from '../Services/adminCapability';
 
-export const AdminUserManagement: React.FC = () => {
+export const AdminUserManagement: React.FC<{ applicationCapability: AdminCapability }> = ({ applicationCapability }) => {
   const { token } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -12,10 +13,12 @@ export const AdminUserManagement: React.FC = () => {
   // Reset password modal state
   const [resetModalUser, setResetModalUser] = useState<any | null>(null);
   const [adminNewPassword, setAdminNewPassword] = useState('');
+  const canSupportUsers = can(applicationCapability, 'users.support');
+  const canReviewCompliance = can(applicationCapability, 'compliance.review');
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [token, applicationCapability.role]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -24,16 +27,12 @@ export const AdminUserManagement: React.FC = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) {
-        setUsers(data.users || []);
-      }
+      if (!res.ok || !data.success) throw new Error(data.message || 'Canonical user directory is unavailable.');
+      setUsers(data.users || []);
     } catch (e) {
-      // Mock fallback users
-      setUsers([
-        { _id: '1', name: 'John Doe', email: 'john@abcdefi.io', country: 'United States', isKYC: true, isSuspended: false, createdAt: new Date().toISOString() },
-        { _id: '2', name: 'Alice Smith', email: 'alice@crypto.org', country: 'Canada', isKYC: false, isSuspended: false, createdAt: new Date().toISOString() },
-        { _id: '3', name: 'Robert Chen', email: 'robert@asia.io', country: 'Singapore', isKYC: true, isSuspended: true, createdAt: new Date().toISOString() }
-      ]);
+      setUsers([]);
+      const detail = e instanceof Error ? e.message : 'Canonical user directory is unavailable.';
+      setMsg({ type: 'error', text: `Canonical source unavailable — ${detail}` });
     } finally {
       setLoading(false);
     }
@@ -51,12 +50,13 @@ export const AdminUserManagement: React.FC = () => {
         body: JSON.stringify({ targetUserId, isSuspended: !currentSuspended })
       });
       const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || `User-status update was rejected (${res.status}).`);
       if (data.success) {
         setUsers(users.map(u => u._id === targetUserId ? { ...u, isSuspended: !currentSuspended } : u));
         setMsg({ type: 'success', text: `User account ${!currentSuspended ? 'suspended' : 'activated'} successfully.` });
       }
     } catch (e) {
-      setMsg({ type: 'error', text: 'Failed to update user status.' });
+      setMsg({ type: 'error', text: `Canonical source unavailable — ${e instanceof Error ? e.message : 'failed to update user status.'}` });
     }
   };
 
@@ -72,12 +72,13 @@ export const AdminUserManagement: React.FC = () => {
         body: JSON.stringify({ targetUserId, isKYC: !currentKyc })
       });
       const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || `KYC review was rejected (${res.status}).`);
       if (data.success) {
         setUsers(users.map(u => u._id === targetUserId ? { ...u, isKYC: !currentKyc } : u));
         setMsg({ type: 'success', text: `KYC status updated for user.` });
       }
     } catch (e) {
-      setMsg({ type: 'error', text: 'Failed to update user KYC.' });
+      setMsg({ type: 'error', text: `Canonical source unavailable — ${e instanceof Error ? e.message : 'failed to update user KYC.'}` });
     }
   };
 
@@ -95,15 +96,14 @@ export const AdminUserManagement: React.FC = () => {
         body: JSON.stringify({ targetUserId: resetModalUser._id, newPassword: adminNewPassword })
       });
       const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || `Password reset was rejected (${res.status}).`);
       if (data.success) {
         setMsg({ type: 'success', text: `Password reset successfully for ${resetModalUser.email}` });
         setResetModalUser(null);
         setAdminNewPassword('');
-      } else {
-        setMsg({ type: 'error', text: data.message || 'Failed to reset password.' });
       }
     } catch (e) {
-      setMsg({ type: 'error', text: 'Error resetting password.' });
+      setMsg({ type: 'error', text: `Canonical source unavailable — ${e instanceof Error ? e.message : 'error resetting password.'}` });
     }
   };
 
@@ -123,7 +123,7 @@ export const AdminUserManagement: React.FC = () => {
           </div>
           <div>
             <h2 className="text-xl font-bold text-white">Admin User Directory & Security Controls</h2>
-            <p className="text-xs text-slate-400">Manage protocol members, KYC approvals, account suspensions & credentials</p>
+            <p className="text-xs text-slate-400">Existing application-account views and controls. KYC profile status does not grant or alter on-chain eligibility.</p>
           </div>
         </div>
 
@@ -168,13 +168,14 @@ export const AdminUserManagement: React.FC = () => {
                 <th className="px-4 py-3">Country</th>
                 <th className="px-4 py-3">KYC Status</th>
                 <th className="px-4 py-3">Account Status</th>
-                <th className="px-4 py-3 text-right">Admin Actions</th>
+                <th className="px-4 py-3">Application Admin role</th>
+                <th className="px-4 py-3 text-right">Authorized actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                     No users found matching query.
                   </td>
                 </tr>
@@ -187,7 +188,7 @@ export const AdminUserManagement: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-slate-300">{u.country || 'N/A'}</td>
                     <td className="px-4 py-3">
-                      <button
+                      {canReviewCompliance ? <button
                         onClick={() => toggleUserKyc(u._id, u.isKYC)}
                         className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold cursor-pointer transition ${
                           u.isKYC
@@ -197,7 +198,7 @@ export const AdminUserManagement: React.FC = () => {
                       >
                         {u.isKYC ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                         {u.isKYC ? 'VERIFIED' : 'PENDING'}
-                      </button>
+                      </button> : <span className="text-slate-400">{u.isKYC ? 'VERIFIED' : 'PENDING'} · review unavailable</span>}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
@@ -208,16 +209,17 @@ export const AdminUserManagement: React.FC = () => {
                         {u.isSuspended ? 'SUSPENDED' : 'ACTIVE'}
                       </span>
                     </td>
+                    <td className="px-4 py-3"><div className="text-[10px] text-slate-300">{u.role || 'user'}{u.role === 'admin' ? ` · ${u.adminRole || 'ADMIN_ROLE_NOT_CONFIGURED'}` : ''}</div></td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button
+                        {canSupportUsers && <button
                           onClick={() => setResetModalUser(u)}
                           className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
                           title="Reset Password"
                         >
                           <KeyRound className="w-3.5 h-3.5" />
-                        </button>
-                        <button
+                        </button>}
+                        {canSupportUsers && <button
                           onClick={() => toggleUserSuspension(u._id, u.isSuspended)}
                           className={`p-1.5 rounded-lg transition ${
                             u.isSuspended ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400' : 'bg-red-500/10 hover:bg-red-500/20 text-red-400'
@@ -225,7 +227,8 @@ export const AdminUserManagement: React.FC = () => {
                           title={u.isSuspended ? 'Activate User' : 'Suspend User'}
                         >
                           <Ban className="w-3.5 h-3.5" />
-                        </button>
+                        </button>}
+                        {!canSupportUsers && <span className="text-[10px] text-slate-500">No support action permission</span>}
                       </div>
                     </td>
                   </tr>

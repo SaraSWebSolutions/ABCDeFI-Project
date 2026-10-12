@@ -11,7 +11,7 @@ assert.match(service, /\/api\/lending-v2\/certificates\/loans/);
 assert.match(service, /\/api\/lending-v2\/certificates\/\$\{tokenId\}\/history/);
 assert.match(service, /status !== 'AVAILABLE'/);
 assert.match(service, /deploymentVersion/);
-assert.match(view, /Your LoanNFTV2 completion certificates/);
+assert.match(view, /Your LoanNFT Certificates/);
 assert.match(view, /Certificate provenance and transfer history/);
 assert.match(view, /Informational 1% USD valuation/);
 assert.match(view, /Read certificates for canonical loan/);

@@ -17,9 +17,12 @@ declare module '@react-native-async-storage/async-storage' {
 
 declare module '@abcdefi/oneq-unified-manifest' { const manifest: unknown; export default manifest; }
 declare module '@abcdefi/oneq-root-manifest' { const manifest: unknown; export default manifest; }
+declare module '@abcdefi/oneq-treasury-manifest' { const manifest: unknown; export default manifest; }
 declare module '@abcdefi/oneq-ico-manifest' { const manifest: unknown; export default manifest; }
 declare module '@abcdefi/oneq-lending-manifest' { const manifest: unknown; export default manifest; }
 declare module '@abcdefi/oneq-legion-manifest' { const manifest: unknown; export default manifest; }
 declare module '@abcdefi/oneq-franchise-manifest' { const manifest: unknown; export default manifest; }
 declare module '@abcdefi/oneq-marketplace10A-manifest' { const manifest: unknown; export default manifest; }
 declare module '@abcdefi/oneq-marketplace10B-manifest' { const manifest: unknown; export default manifest; }
+declare module '@abcdefi/oneq-r3-descriptor' { const descriptor: unknown; export default descriptor; }
+declare module '@abcdefi/oneq-r3-provenance' { const provenance: unknown; export default provenance; }

@@ -13,6 +13,7 @@ import ICOAdmin from './ICOAdmin';
 import { AdminAuthenticationDiagnostics } from './AdminAuthenticationDiagnostics';
 import { CanonicalAdminDashboard } from './CanonicalAdminDashboard';
 import { useAuth } from '../Context/AuthContext';
+import { adminCapability, can } from '../Services/adminCapability';
 
 export interface AdminUserRole {
   role: 'Super Admin' | 'Admin' | 'KYC Officer' | 'Support' | 'Finance';
@@ -28,6 +29,7 @@ export interface AdminUserRole {
  */
 export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> = ({ onOpenUserDashboard }) => {
   const { user, sessionVerified } = useAuth();
+  const applicationCapability = adminCapability(user?.adminRole);
 
   if (!sessionVerified || user?.role !== 'admin') {
     return (
@@ -64,7 +66,7 @@ export const AdminPortalEngine: React.FC<{ onOpenUserDashboard?: () => void }> =
         because this deployment has no canonical backend or on-chain source for them.
       </p>
     </div>
-    <AdminAuthenticationDiagnostics />
+    {can(applicationCapability, 'security.read') && <AdminAuthenticationDiagnostics />}
     <CanonicalAdminDashboard />
   </section>
   );

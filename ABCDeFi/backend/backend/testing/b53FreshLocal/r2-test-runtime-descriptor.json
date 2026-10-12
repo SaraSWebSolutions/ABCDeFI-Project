@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "runtimeFamily": "1Q_LOCAL_R2_TEST",
+  "environment": "B5.3-FRESH-LOCAL-R2",
+  "sealedArtifacts": {
+    "projectionEvidence": {
+      "path": ".e2e-runtime/b5.3-fresh-local-r2-live-20261008/live-projection-result.json",
+      "sha256": "49cd2b275a0f8d89d89d4444983d9fb8cebdc83fd825ad3280e895ea246cdc6e"
+    },
+    "root": {
+      "path": ".e2e-runtime/b5.3-fresh-local-r2-live-20261008/root.json",
+      "sha256": "33929435665b564e400df84f3960baef45c6ac8b58ea42b6f3ca14b6710f09f7"
+    },
+    "lending": {
+      "path": ".e2e-runtime/b5.3-fresh-local-r2-live-20261008/lending.json",
+      "sha256": "a8c10533e1299b3f314b43ddea91f1adaabfad6316ff0e199afa6bb50b3b15d3"
+    }
+  },
+  "topology": {
+    "modules": ["root", "lending"],
+    "exclusions": {
+      "franchise": {
+        "status": "excluded",
+        "reason": "B5.3 R2 is a certified lending-only disposable test topology; no Franchise child manifest or contract is part of this runtime."
+      }
+    }
+  }
+}

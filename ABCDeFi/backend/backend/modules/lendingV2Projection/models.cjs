@@ -4,7 +4,7 @@ const address = { type: String, required: true, lowercase: true, match: /^0x[a-f
 const hash = { type: String, required: true, lowercase: true, match: /^0x[a-f0-9]{64}$/ };
 const uint = { type: String, required: true, match: /^\d+$/ };
 const runtime = { runtimeFamily: { type: String, default: null }, rpcUrl: { type: String, default: null }, deploymentIdentity: { type: String, default: null }, contractRuntimeIdentity: { type: String, default: null } };
-function model(name, schema, collection) { return mongoose.models[name] || mongoose.model(name, schema, collection); }
+function model(name, schema, collection, connection = mongoose) { return connection.models[name] || connection.model(name, schema, collection); }
 
 const eventSchema = new Schema({
   chainId: uint, deploymentVersion: { type: String, required: true }, ...runtime, contractAddress: address, contractName: { type: String, required: true },
@@ -48,8 +48,16 @@ const completionMetadataAuditSchema = new Schema({
 }, { versionKey: false });
 completionMetadataAuditSchema.index({ chainId: 1, deploymentVersion: 1, loanId: 1, borrower: 1, requestedAt: -1 });
 
+const V2ChainEvent = model('LendingV2ChainEvent', eventSchema, 'lending_v2_chain_events');
+const V2BlockCheckpoint = model('LendingV2BlockCheckpoint', checkpointSchema, 'lending_v2_block_checkpoints');
+const V2CompletionMetadataAudit = model('LendingV2CompletionMetadataAudit', completionMetadataAuditSchema, 'lending_v2_completion_metadata_audits');
+function createProjectionModels({ checkpointConnection } = {}) {
+  return Object.freeze({
+    V2ChainEvent,
+    V2BlockCheckpoint: checkpointConnection ? model('LendingV2BlockCheckpoint', checkpointSchema, 'lending_v2_block_checkpoints', checkpointConnection) : V2BlockCheckpoint,
+    V2CompletionMetadataAudit,
+  });
+}
 module.exports = Object.freeze({
-  V2ChainEvent: model('LendingV2ChainEvent', eventSchema, 'lending_v2_chain_events'),
-  V2BlockCheckpoint: model('LendingV2BlockCheckpoint', checkpointSchema, 'lending_v2_block_checkpoints'),
-  V2CompletionMetadataAudit: model('LendingV2CompletionMetadataAudit', completionMetadataAuditSchema, 'lending_v2_completion_metadata_audits'),
+  V2ChainEvent, V2BlockCheckpoint, V2CompletionMetadataAudit, createProjectionModels,
 });

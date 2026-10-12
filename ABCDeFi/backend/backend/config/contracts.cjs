@@ -1,37 +1,17 @@
-const fs = require('node:fs');
-const { resolveManifestPath, loadLendingManifest } = require('./lendingManifest.cjs');
-const { isOneQLocalSelected, loadBackendRuntimeFamily } = require('./runtimeFamily.cjs');
+const { loadBackendRuntimeFamily } = require('./runtimeFamily.cjs');
 
-function loadCanonicalContractAddress(contractName) {
-  const manifestPath = resolveManifestPath();
-  let manifest;
-
-  try {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  } catch (error) {
-    throw new Error(`Cannot load canonical deployment manifest for ${contractName}: ${error.message}`);
-  }
-
-  const address = manifest.contracts?.[contractName]?.address;
-  if (typeof address !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-    throw new Error(`Canonical deployment manifest is missing a valid ${contractName} address`);
-  }
-
-  return address;
-}
-
-const oneQRuntime = isOneQLocalSelected() ? loadBackendRuntimeFamily() : null;
+const oneQRuntime = loadBackendRuntimeFamily();
 
 // Event listeners must use the same RPC endpoint as the selected canonical deployment.
-const RPC_URL = oneQRuntime ? oneQRuntime.rpcUrl : loadLendingManifest().rpcUrl;
+const RPC_URL = oneQRuntime.rpcUrl;
 
 const CONTRACT_ADDRESSES = {
   // LoanNFT is part of the deployed local ecosystem and must follow its manifest.
-  LoanNFT: oneQRuntime ? oneQRuntime.children.lending.contracts.LoanNFTV2.address : loadCanonicalContractAddress('LoanNFT'),
+  LoanNFT: oneQRuntime.children.lending.contracts.LoanNFTV2.address,
   // These legacy NFT contracts are not in the canonical local deployment.
   // Leave them disabled unless an explicitly configured deployment provides them.
-  FranchiseNFT: oneQRuntime ? undefined : process.env.FRANCHISE_NFT_ADDRESS,
-  LegionNFT: oneQRuntime ? undefined : process.env.LEGION_NFT_ADDRESS,
+  FranchiseNFT: undefined,
+  LegionNFT: undefined,
 };
 
 const LoanNFT_ABI = [

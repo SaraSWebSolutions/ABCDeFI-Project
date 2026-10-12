@@ -28,12 +28,15 @@ const childManifest = name => {
 const manifestAliases = {
   '@abcdefi/oneq-unified-manifest': unifiedManifest,
   '@abcdefi/oneq-root-manifest': childManifest('root'),
+  '@abcdefi/oneq-treasury-manifest': childManifest('lending'),
   '@abcdefi/oneq-ico-manifest': childManifest('ico'),
   '@abcdefi/oneq-lending-manifest': childManifest('lending'),
   '@abcdefi/oneq-legion-manifest': childManifest('legion'),
   '@abcdefi/oneq-franchise-manifest': childManifest('franchise'),
   '@abcdefi/oneq-marketplace10A-manifest': childManifest('marketplace10A'),
   '@abcdefi/oneq-marketplace10B-manifest': childManifest('marketplace10B'),
+  '@abcdefi/oneq-r3-descriptor': { unavailable: true },
+  '@abcdefi/oneq-r3-provenance': { unavailable: true },
 };
 function load(relative, overrides = {}, expose = '') {
   const absolute = path.resolve(root, relative);
@@ -188,10 +191,12 @@ test('V2 loan actions reject empty, foreign, terminal or unsettled loans', () =>
   assert.equal(flow.loanActions({ ...baseLoan, state: 1, outstanding: '0' }, borrower).withdraw, true);
   for (const state of [3, 4, 5]) assert.equal(flow.loanActions({ ...baseLoan, state }, borrower).repay, false);
 });
-test('V2 initial dashboard separates P2P and retains useful inactive steps', () => {
+test('V2 initial dashboard separates the P2P Marketplace and retains useful inactive steps', () => {
   const html = renderToStaticMarkup(React.createElement(component.LendingV2));
   const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
-  assert.match(html, /Direct Lending/); assert.match(html, /P2P Lending/);
+  assert.match(html, /Direct Lending/); assert.match(html, /P2P Marketplace/);
+  assert.match(source, /Borrow Requests/); assert.match(source, /My P2P/); assert.match(source, /P2P Position \/ Status/);
+  assert.match(source, /getV2OpenP2PRequests/);
   assert.match(html, /Repayment becomes available after a loan is created/);
   assert.match(html, /Collateral top-ups become available/);
   assert.match(html, /Collateral can be withdrawn after the loan is fully settled/);
@@ -203,6 +208,55 @@ test('V2 initial dashboard separates P2P and retains useful inactive steps', () 
   assert.match(source, /Bad debt/);
   assert.doesNotMatch(html, /Approve ABCD &amp; fund request/);
   assert.match(html, /sm:grid-cols-2/);
+});
+
+test('Direct Lending keeps the borrower summary primary and technical evidence progressively disclosed', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  for (const label of ['Active Loan Summary', 'Loan Lifecycle', 'Repayment', 'Collateral', 'Completion Certificates', 'On-chain Verification & Positions', 'Advanced Protocol Details', 'Developer / Certification Details', 'Lending Referral']) assert.match(source, new RegExp(label));
+  assert.match(source, /Certificates are created after successful full repayment/);
+  assert.match(source, /Canonical values appear only after the loan is read/);
+  assert.match(source, /Not configured — fail closed/);
+  assert.doesNotMatch(source, /Lender Offers|Choose a Lender|Automatic Matching|Ranked Offers/);
+});
+
+test('P2P Marketplace discovery consumes only the existing canonical OPEN-request endpoint and rejects non-open data', async () => {
+  const originalFetch = global.fetch;
+  const calls = [];
+  global.fetch = async url => {
+    calls.push(String(url));
+    return {
+      ok: true,
+      json: async () => ({
+        status: 'AVAILABLE',
+        source: { kind: 'canonical-v2-indexed-on-chain', chainId: '31337', deploymentVersion: 'lending-v2-test' },
+        data: [{
+          requestId: '12',
+          request: { borrower, lender: ethers.ZeroAddress, principal: ethers.parseEther('70').toString(), collateral: ethers.parseEther('0.1').toString(), term: '7776000', state: '0', loanId: '0', initialLtvBps: '3500' },
+          createdEvidence: { eventName: 'RequestCreated', blockNumber: '101', transactionHash: '0xcreated', logIndex: 0, args: { requestId: '12' } },
+        }],
+      }),
+    };
+  };
+  try {
+    const service = load('src/Services/lendingV2.ts', {
+      '../Config/contracts': { DEPLOYMENT_CHAIN_ID: 31337n, CONTRACTS: {}, LENDING_V2_CONTRACTS: {}, getLendingV2DeploymentBlock: () => 1, getLendingV2DeploymentVersion: () => 'lending-v2-test' },
+      './contractProvider': { provider: {} }, './wallet': { getProvider: async () => ({}) },
+    });
+    const requests = await service.getV2OpenP2PRequests();
+    assert.equal(calls[0], '/api/lending-v2/requests/open?limit=100');
+    assert.deepEqual(requests.map(request => ({ requestId: request.requestId, borrower: request.borrower, state: request.state })), [{ requestId: '12', borrower, state: 0 }]);
+  } finally { global.fetch = originalFetch; }
+});
+
+test('P2P Marketplace keeps discovery separate from wallet-scoped ownership and preserves wallet-switch clearing', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const openP2PRequests = useRead\(contracts \? 'p2p-open-requests' : null, getV2OpenP2PRequests\)/);
+  assert.match(source, /const ownRequests = requests\.filter\(request => sameWallet\(request\.borrower, wallet\)\)/);
+  assert.match(source, /Boolean\(loan\?\.isP2P\) && \(sameWallet\(String\(loan\?\.borrower \|\| ''\), wallet\) \|\| sameWallet\(String\(loan\?\.lender \|\| ''\), wallet\)\)/);
+  assert.match(source, /setSelection\(emptySelection\(wallet\)\); setDepositReceipt\(null\); setTransaction\(null\); setOperation\(null\);/);
+  assert.match(source, /request === serial\.current && currentKey\.current === requestKey/);
+  assert.match(source, /!borrowerOwnsRequest && <button/);
+  assert.doesNotMatch(source, /Lender Offers|Choose a Lender|Automatic Matching|Ranked Offers|Request Expiry/);
 });
 
 test('P2P funding loads an explicitly selected canonical request before exposing funding', () => {
@@ -217,10 +271,10 @@ test('P2P funding loads an explicitly selected canonical request before exposing
   assert.match(service, /market\.fundRequest\.estimateGas\(requestId\)/);
 });
 
-test('P2P recovered requests retain the canonical marketplace state label', () => {
+test('P2P recovered and residual-default requests retain distinct canonical marketplace state labels', () => {
   assert.equal(component.p2pRequestStateLabel(0), 'Open');
   assert.equal(component.p2pRequestStateLabel(4), 'Recovered');
-  assert.equal(component.p2pRequestStateLabel(5), 'Unknown (5)');
+  assert.equal(component.p2pRequestStateLabel(5), 'Defaulted — residual debt remains');
 });
 
 test('P2P request history uses only canonical lifecycle events with deterministic cursor continuation', async () => {
@@ -524,15 +578,19 @@ test('P2P request capacity is read from LoanMarketplaceV2 and blocks an over-cap
   assert.match(source, /!p2pWithinCapacity/);
 });
 
-test('due-installment recovery uses the approved canonical path while P2P partial/default settlement stays fail-closed', () => {
+test('due-installment recovery and P2P adverse-recovery state presentation use canonical protocol evidence', () => {
   const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
   const service = fs.readFileSync(new URL('../src/Services/lendingV2.ts', import.meta.url), 'utf8');
   assert.match(source, /Execute due collateral recovery/);
-  assert.match(source, /DUE → PARTIALLY_SETTLED → SETTLED/);
+  assert.match(source, /partial recovery remains ACTIVE\/FUNDED with locked collateral/);
   assert.match(service, /liquidation\.executeOverdueInstallment\.estimateGas\(loanId\)/);
   assert.match(service, /Due-installment collateral recovery/);
-  assert.match(service, /P2P default settlement is blocked/);
-  assert.match(source, /P2P partial liquidation, reserve\/bad-debt settlement, and terminal default recovery remain fail-closed/);
+  assert.match(service, /P2P adverse recovery is loan-scoped/);
+  assert.match(source, /LIQUIDATED\/RECOVERED or RESIDUAL_DEBT\/DEFAULTED/);
+  assert.match(source, /Canonical P2P adverse recovery evidence/);
+  assert.match(source, /getV2CanonicalP2PLoan\(p2pLoanId\)/);
+  assert.match(source, /A submitted transaction is not recovery confirmation/);
+  assert.match(service, /Array\.isArray\(data\.adverseRecovery\)/);
   assert.doesNotMatch(service, /Math\.random\(\)|mock.*overdue|fake.*overdue/i);
 });
 
@@ -581,4 +639,50 @@ test('a P2P borrower can cure a margin call through the canonical loan-scoped co
   assert.match(source, /addV2LoanCollateral\(p2pLoanId, p2pTopUp, progress\)/);
   assert.match(source, /P2P risk-state synchronization/);
   assert.doesNotMatch(source, /P2P.*Math\.random|fake.*P2P/i);
+});
+
+test('closed loans render recovery as not applicable and expose no repayment or recovery control', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const directLoanClosed = loan\?\.state === 5;/);
+  assert.match(source, /const p2pLoanClosed = p2pLoan\?\.state === 5;/);
+  assert.match(source, /directLoanClosed \? <ClosedLoanRecoveryNotice \/>/);
+  assert.match(source, /p2pLoanClosed \? <ClosedLoanRecoveryNotice \/>/);
+  assert.match(source, /function ClosedLoanRecoveryNotice\(\)/);
+  assert.match(source, /Recovery state" value="Not applicable"/);
+  assert.match(source, /Loan is closed and has no outstanding debt\./);
+  assert.match(source, /Partial liquidation" value=\{loan\.state === 5 \? 'Not applicable — loan closed'/);
+  assert.match(source, /Loan closed; collateral released\./);
+});
+
+test('dashboard distinguishes unavailable valuation, local KYC state, zero positions, and owned certificates', () => {
+  const source = fs.readFileSync(new URL('../src/components/NextGenProtocolDashboard.tsx', import.meta.url), 'utf8');
+  assert.match(source, /Unavailable on Hardhat Local/);
+  assert.match(source, /Limited — KYC unavailable on Hardhat Local/);
+  assert.match(source, /USD valuation is unavailable because no approved canonical price source is configured for this environment\./);
+  assert.match(source, /No active lending position/);
+  assert.match(source, /No outstanding direct lending debt is indexed for this wallet\./);
+  assert.match(source, /Your LoanNFT Certificates/);
+  assert.match(source, /\$\{onChainData\.completionCertificateCount\} owned/);
+  assert.match(source, /Franchise coming soon/);
+  assert.doesNotMatch(source, /onNavigateTab\?\.\('franchise'\)/);
+});
+
+test('wallet balance display preserves large token precision without Number coercion', () => {
+  const display = load('src/Utils/amountDisplay.ts');
+  assert.equal(display.formatTokenDisplay('20000000000069.999499999999'), '20,000,000,000,069.9994');
+  assert.equal(display.formatTokenDisplay('0.000000000000000001'), '<0.0001');
+  const wallet = fs.readFileSync(new URL('../src/Context/WalletContext.tsx', import.meta.url), 'utf8');
+  assert.match(wallet, /formatTokenDisplay\(abcd\)/);
+  assert.doesNotMatch(wallet, /Number\(abcd\)\.toLocaleString/);
+});
+
+test('referral controls are described as optional wallet controls without changing canonical contract actions', () => {
+  const source = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  assert.match(source, /optional wallet-level controls/);
+  assert.match(source, /Choose your lending referral code/);
+  assert.match(source, /Enter a referrer’s lending code/);
+  assert.match(source, /Claim available lending reward/);
+  assert.match(source, /createLendingReferralCode\(code\)/);
+  assert.match(source, /bindLendingReferrer\(bindCode\)/);
+  assert.match(source, /claimLendingAccruedReward\(claimLoanId, referred\)/);
 });

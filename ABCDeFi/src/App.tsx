@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { WalletProvider } from './Context/WalletContext';
 import { AuthProvider, useAuth } from './Context/AuthContext';
 import { DEVELOPMENT_AUTH_ENABLED } from './Config/auth';
+import { LOCAL_TEST_DASHBOARD_SESSION_ENABLED } from './Config/r3TestAuth';
 import { LoginPage } from './pages/LoginPage';
 import { Navbar } from './components/Navbar';
 import { UserDashboard } from './components/UserDashboard';
@@ -14,7 +15,12 @@ import {
   isAdminLoginPath,
   isApplicationAdmin,
   pathForDashboardMode,
+  pathForUserDashboardNavigation,
   resolveDashboardMode,
+  resolveUserDashboardNavigation,
+  userDashboardNavigationForTab,
+  type LendingNavigationContext,
+  type UserDashboardNavigation,
 } from './Utils/dashboardMode';
 
 export function AppContent() {
@@ -22,8 +28,8 @@ export function AppContent() {
   // The UserDashboard owns the only user-facing feature navigation. App keeps
   // this single shared selection so header actions can still open a dashboard
   // view without creating a competing navigation state.
-  const [activeTab, setActiveTab] = useState('overview');
   const [pathname, setPathname] = useState(() => window.location.pathname);
+  const [userNavigation, setUserNavigation] = useState<UserDashboardNavigation>(() => resolveUserDashboardNavigation(window.location.pathname, window.location.search));
   const [kycModalOpen, setKycModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
 
@@ -43,16 +49,28 @@ export function AppContent() {
   const adminAccessDenied = Boolean(user && token && sessionVerified && isAdminDashboardPath(pathname) && !canAccessAdmin);
 
   const navigateDashboard = useCallback((mode: DashboardMode, replace = false) => {
-    const destination = pathForDashboardMode(mode);
-    if (window.location.pathname !== destination) {
+    const destination = mode === 'user' ? pathForUserDashboardNavigation(userNavigation) : pathForDashboardMode(mode);
+    if (`${window.location.pathname}${window.location.search}` !== destination) {
       window.history[replace ? 'replaceState' : 'pushState']({ dashboardMode: mode }, '', destination);
     }
-    setPathname(destination);
-    if (mode === 'user') setActiveTab('overview');
+    setPathname(window.location.pathname);
+    if (mode === 'user') setUserNavigation(resolveUserDashboardNavigation(window.location.pathname, window.location.search));
+  }, [userNavigation]);
+
+  const navigateUserDashboard = useCallback((next: UserDashboardNavigation, replace = false) => {
+    const destination = pathForUserDashboardNavigation(next);
+    if (`${window.location.pathname}${window.location.search}` !== destination) {
+      window.history[replace ? 'replaceState' : 'pushState']({ dashboardMode: 'user' }, '', destination);
+    }
+    setPathname(window.location.pathname);
+    setUserNavigation(resolveUserDashboardNavigation(window.location.pathname, window.location.search));
   }, []);
 
   useEffect(() => {
-    const handlePopState = () => setPathname(window.location.pathname);
+    const handlePopState = () => {
+      setPathname(window.location.pathname);
+      setUserNavigation(resolveUserDashboardNavigation(window.location.pathname, window.location.search));
+    };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
@@ -76,15 +94,15 @@ export function AppContent() {
     // A local development bootstrap always starts at the ordinary existing
     // user dashboard. The persisted backend role still governs any explicit
     // later /admin navigation.
-    if (DEVELOPMENT_AUTH_ENABLED && pathname === '/') {
+    if ((DEVELOPMENT_AUTH_ENABLED || LOCAL_TEST_DASHBOARD_SESSION_ENABLED) && pathname === '/') {
       navigateDashboard('user', true);
       return;
     }
-    const canonicalPath = pathForDashboardMode(dashboardMode);
-    if (window.location.pathname !== canonicalPath) {
+    const canonicalPath = dashboardMode === 'user' ? pathForUserDashboardNavigation(userNavigation) : pathForDashboardMode(dashboardMode);
+    if (`${window.location.pathname}${window.location.search}` !== canonicalPath) {
       navigateDashboard(dashboardMode, true);
     }
-  }, [adminAccessDenied, dashboardMode, navigateDashboard, onAdminLoginRoute, token, user]);
+  }, [adminAccessDenied, dashboardMode, navigateDashboard, onAdminLoginRoute, token, user, userNavigation]);
 
   useEffect(() => {
     if (onAdminLoginRoute && user && token && sessionVerified && canAccessAdmin) {
@@ -96,7 +114,7 @@ export function AppContent() {
   // Guest/demo access is intentionally disabled so the UI cannot imply that
   // simulated protocol actions are real user activity.
   if (!user || !token) {
-    if (DEVELOPMENT_AUTH_ENABLED && !sessionVerified) {
+    if ((DEVELOPMENT_AUTH_ENABLED || LOCAL_TEST_DASHBOARD_SESSION_ENABLED) && !sessionVerified) {
       return <div className="min-h-screen bg-slate-950 text-slate-100 grid place-items-center p-6"><p className="text-sm text-slate-300">Preparing local development session…</p></div>;
     }
     return <LoginPage variant={onAdminLoginRoute ? 'admin' : 'user'} />;
@@ -134,7 +152,7 @@ export function AppContent() {
             return;
           }
           if (dashboardMode === 'admin') navigateDashboard('user');
-          setActiveTab(tab);
+          navigateUserDashboard(userDashboardNavigationForTab(tab, userNavigation));
         }}
         dashboardMode={dashboardMode || 'user'}
         canAccessAdmin={canAccessAdmin}
@@ -164,8 +182,10 @@ export function AppContent() {
             formatUnits={formatUnits}
             formatDuration={formatDuration}
             paused={false}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
+            activeTab={userNavigation.tab}
+            lendingContext={userNavigation.lending}
+            setActiveTab={(tab) => navigateUserDashboard(userDashboardNavigationForTab(tab, userNavigation))}
+            setLendingContext={(lending: LendingNavigationContext) => navigateUserDashboard({ tab: 'lending', lending })}
             canAccessAdmin={canAccessAdmin}
             onOpenAdminDashboard={() => navigateDashboard('admin')}
           />

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { Contract, parseEther, parseUnits, formatUnits } from 'ethers';
+import { formatTokenDisplay } from '../Utils/amountDisplay';
 import {
   connectWallet as connectWalletService,
   requestWalletAccountSelection,
@@ -100,7 +101,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ]);
 
       setBalanceBNB(native === null ? null : Number(native).toFixed(6));
-      setBalanceABCD(abcd === null ? null : Number(abcd).toLocaleString(undefined, { maximumFractionDigits: 6 }));
+      setBalanceABCD(abcd === null ? null : formatTokenDisplay(abcd));
     } catch (error) {
       console.error("Token balance loading failed:", error);
       setBalanceBNB(null);

@@ -18,15 +18,16 @@ export declare namespace LoanNFTV2 {
     }
 
   export interface LiquidationV2Interface extends Interface {
-    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "LIQUIDATION_THRESHOLD_BPS" | "MARGIN_CALL_THRESHOLD_BPS" | "P2P_PARTIAL_TARGET_LTV_BPS" | "PARTIAL_LIQUIDATION_TARGET_LTV_BPS" | "abcd" | "collateralVault" | "currentCollateralValueUSD" | "currentDebtValueUSD" | "currentLtvBps" | "emiManager" | "executeOverdueInstallment" | "executeP2POverdueInstallment" | "executeP2POverdueInstallmentWithCompletionMetadata" | "getRoleAdmin" | "grantRole" | "hasRole" | "healthFactor" | "isLiquidatable" | "liquidate" | "loanManager" | "loanNFT" | "oracle" | "p2pMarketplace" | "pause" | "paused" | "previewLiquidation" | "previewP2PPartialLiquidation" | "renounceRole" | "reserve" | "revokeRole" | "saleAdapter" | "setEMIManager" | "setSaleAdapter" | "settlementPool" | "supportsInterface" | "syncRisk" | "totalDebt" | "unpause"): FunctionFragment;
+    getFunction(nameOrSignature: "DEFAULT_ADMIN_ROLE" | "ETH_ASSET" | "LIQUIDATION_THRESHOLD_BPS" | "MARGIN_CALL_THRESHOLD_BPS" | "P2P_PARTIAL_TARGET_LTV_BPS" | "P2P_RESERVE_CAP_ABCD" | "PARTIAL_LIQUIDATION_TARGET_LTV_BPS" | "abcd" | "collateralVault" | "currentCollateralValueUSD" | "currentDebtValueUSD" | "currentLtvBps" | "emiManager" | "executeOverdueInstallment" | "executeP2POverdueInstallment" | "executeP2POverdueInstallmentWithCompletionMetadata" | "getRoleAdmin" | "grantRole" | "hasRole" | "healthFactor" | "isLiquidatable" | "liquidate" | "liquidateP2P" | "loanManager" | "loanNFT" | "oracle" | "p2pMarketplace" | "pause" | "paused" | "previewLiquidation" | "previewP2PPartialLiquidation" | "renounceRole" | "reserve" | "revokeRole" | "saleAdapter" | "setEMIManager" | "setSaleAdapter" | "settlementPool" | "supportsInterface" | "syncRisk" | "totalDebt" | "unpause"): FunctionFragment;
 
-    getEvent(nameOrSignatureOrTopic: "EMIManagerConfigured" | "OverdueInstallmentSettled" | "PartialLiquidationExecuted" | "Paused" | "ReserveShortfallSettled" | "RiskStateSynced" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "SaleAdapterConfigured" | "Unpaused"): EventFragment;
+    getEvent(nameOrSignatureOrTopic: "EMIManagerConfigured" | "OverdueInstallmentSettled" | "P2PPartialLiquidationExecuted" | "P2PTerminalRecoveryExecuted" | "PartialLiquidationExecuted" | "Paused" | "ReserveShortfallSettled" | "RiskStateSynced" | "RoleAdminChanged" | "RoleGranted" | "RoleRevoked" | "SaleAdapterConfigured" | "Unpaused"): EventFragment;
 
     encodeFunctionData(functionFragment: 'DEFAULT_ADMIN_ROLE', values?: undefined): string;
 encodeFunctionData(functionFragment: 'ETH_ASSET', values?: undefined): string;
 encodeFunctionData(functionFragment: 'LIQUIDATION_THRESHOLD_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'MARGIN_CALL_THRESHOLD_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'P2P_PARTIAL_TARGET_LTV_BPS', values?: undefined): string;
+encodeFunctionData(functionFragment: 'P2P_RESERVE_CAP_ABCD', values?: undefined): string;
 encodeFunctionData(functionFragment: 'PARTIAL_LIQUIDATION_TARGET_LTV_BPS', values?: undefined): string;
 encodeFunctionData(functionFragment: 'abcd', values?: undefined): string;
 encodeFunctionData(functionFragment: 'collateralVault', values?: undefined): string;
@@ -43,6 +44,7 @@ encodeFunctionData(functionFragment: 'hasRole', values: [BytesLike, AddressLike]
 encodeFunctionData(functionFragment: 'healthFactor', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'isLiquidatable', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'liquidate', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'liquidateP2P', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'loanManager', values?: undefined): string;
 encodeFunctionData(functionFragment: 'loanNFT', values?: undefined): string;
 encodeFunctionData(functionFragment: 'oracle', values?: undefined): string;
@@ -68,6 +70,7 @@ decodeFunctionResult(functionFragment: 'ETH_ASSET', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'LIQUIDATION_THRESHOLD_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'MARGIN_CALL_THRESHOLD_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'P2P_PARTIAL_TARGET_LTV_BPS', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'P2P_RESERVE_CAP_ABCD', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'PARTIAL_LIQUIDATION_TARGET_LTV_BPS', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'abcd', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'collateralVault', data: BytesLike): Result;
@@ -84,6 +87,7 @@ decodeFunctionResult(functionFragment: 'hasRole', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'healthFactor', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'isLiquidatable', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'liquidate', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'liquidateP2P', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanManager', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'loanNFT', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'oracle', data: BytesLike): Result;
@@ -122,6 +126,30 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
       export type InputTuple = [loanId: BigNumberish, installmentIndex: BigNumberish, keeper: AddressLike, dueAt: BigNumberish, ethFeed: AddressLike, ethRoundId: BigNumberish, ethUpdatedAt: BigNumberish, abcdFeed: AddressLike, abcdRoundId: BigNumberish, abcdUpdatedAt: BigNumberish, collateralSold: BigNumberish, actualABCDReceived: BigNumberish, paymentApplied: BigNumberish, remainingInstallmentDue: BigNumberish, borrowerSurplus: BigNumberish, remainingDebt: BigNumberish, terminalRecovery: boolean];
       export type OutputTuple = [loanId: bigint, installmentIndex: bigint, keeper: string, dueAt: bigint, ethFeed: string, ethRoundId: bigint, ethUpdatedAt: bigint, abcdFeed: string, abcdRoundId: bigint, abcdUpdatedAt: bigint, collateralSold: bigint, actualABCDReceived: bigint, paymentApplied: bigint, remainingInstallmentDue: bigint, borrowerSurplus: bigint, remainingDebt: bigint, terminalRecovery: boolean];
       export interface OutputObject {loanId: bigint, installmentIndex: bigint, keeper: string, dueAt: bigint, ethFeed: string, ethRoundId: bigint, ethUpdatedAt: bigint, abcdFeed: string, abcdRoundId: bigint, abcdUpdatedAt: bigint, collateralSold: bigint, actualABCDReceived: bigint, paymentApplied: bigint, remainingInstallmentDue: bigint, borrowerSurplus: bigint, remainingDebt: bigint, terminalRecovery: boolean };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace P2PPartialLiquidationExecutedEvent {
+      export type InputTuple = [loanId: BigNumberish, keeper: AddressLike, collateralSold: BigNumberish, actualABCDReceived: BigNumberish, requiredRecovery: BigNumberish, remainingDebt: BigNumberish, remainingCollateral: BigNumberish, resultingLtvBps: BigNumberish];
+      export type OutputTuple = [loanId: bigint, keeper: string, collateralSold: bigint, actualABCDReceived: bigint, requiredRecovery: bigint, remainingDebt: bigint, remainingCollateral: bigint, resultingLtvBps: bigint];
+      export interface OutputObject {loanId: bigint, keeper: string, collateralSold: bigint, actualABCDReceived: bigint, requiredRecovery: bigint, remainingDebt: bigint, remainingCollateral: bigint, resultingLtvBps: bigint };
+      export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
+      export type Filter = TypedDeferredTopicFilter<Event>
+      export type Log = TypedEventLog<Event>
+      export type LogDescription = TypedLogDescription<Event>
+    }
+
+  
+
+    export namespace P2PTerminalRecoveryExecutedEvent {
+      export type InputTuple = [loanId: BigNumberish, keeper: AddressLike, collateralSold: BigNumberish, actualABCDReceived: BigNumberish, lenderCollateralRecovery: BigNumberish, reserveRecovery: BigNumberish, borrowerSurplus: BigNumberish, residualDebt: BigNumberish, recovered: boolean];
+      export type OutputTuple = [loanId: bigint, keeper: string, collateralSold: bigint, actualABCDReceived: bigint, lenderCollateralRecovery: bigint, reserveRecovery: bigint, borrowerSurplus: bigint, residualDebt: bigint, recovered: boolean];
+      export interface OutputObject {loanId: bigint, keeper: string, collateralSold: bigint, actualABCDReceived: bigint, lenderCollateralRecovery: bigint, reserveRecovery: bigint, borrowerSurplus: bigint, residualDebt: bigint, recovered: boolean };
       export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>
       export type Filter = TypedDeferredTopicFilter<Event>
       export type Log = TypedEventLog<Event>
@@ -312,6 +340,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
     
 
     
+    P2P_RESERVE_CAP_ABCD: TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >
+    
+
+    
     PARTIAL_LIQUIDATION_TARGET_LTV_BPS: TypedContractMethod<
       [],
       [bigint],
@@ -433,6 +469,14 @@ decodeFunctionResult(functionFragment: 'unpause', data: BytesLike): Result;
 
     
     liquidate: TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
+    liquidateP2P: TypedContractMethod<
       [loanId: BigNumberish, ],
       [void],
       'nonpayable'
@@ -619,6 +663,11 @@ getFunction(nameOrSignature: 'P2P_PARTIAL_TARGET_LTV_BPS'): TypedContractMethod<
       [bigint],
       'view'
     >;
+getFunction(nameOrSignature: 'P2P_RESERVE_CAP_ABCD'): TypedContractMethod<
+      [],
+      [bigint],
+      'view'
+    >;
 getFunction(nameOrSignature: 'PARTIAL_LIQUIDATION_TARGET_LTV_BPS'): TypedContractMethod<
       [],
       [bigint],
@@ -695,6 +744,11 @@ getFunction(nameOrSignature: 'isLiquidatable'): TypedContractMethod<
       'view'
     >;
 getFunction(nameOrSignature: 'liquidate'): TypedContractMethod<
+      [loanId: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >;
+getFunction(nameOrSignature: 'liquidateP2P'): TypedContractMethod<
       [loanId: BigNumberish, ],
       [void],
       'nonpayable'
@@ -797,6 +851,8 @@ getFunction(nameOrSignature: 'unpause'): TypedContractMethod<
 
     getEvent(key: 'EMIManagerConfigured'): TypedContractEvent<EMIManagerConfiguredEvent.InputTuple, EMIManagerConfiguredEvent.OutputTuple, EMIManagerConfiguredEvent.OutputObject>;
 getEvent(key: 'OverdueInstallmentSettled'): TypedContractEvent<OverdueInstallmentSettledEvent.InputTuple, OverdueInstallmentSettledEvent.OutputTuple, OverdueInstallmentSettledEvent.OutputObject>;
+getEvent(key: 'P2PPartialLiquidationExecuted'): TypedContractEvent<P2PPartialLiquidationExecutedEvent.InputTuple, P2PPartialLiquidationExecutedEvent.OutputTuple, P2PPartialLiquidationExecutedEvent.OutputObject>;
+getEvent(key: 'P2PTerminalRecoveryExecuted'): TypedContractEvent<P2PTerminalRecoveryExecutedEvent.InputTuple, P2PTerminalRecoveryExecutedEvent.OutputTuple, P2PTerminalRecoveryExecutedEvent.OutputObject>;
 getEvent(key: 'PartialLiquidationExecuted'): TypedContractEvent<PartialLiquidationExecutedEvent.InputTuple, PartialLiquidationExecutedEvent.OutputTuple, PartialLiquidationExecutedEvent.OutputObject>;
 getEvent(key: 'Paused'): TypedContractEvent<PausedEvent.InputTuple, PausedEvent.OutputTuple, PausedEvent.OutputObject>;
 getEvent(key: 'ReserveShortfallSettled'): TypedContractEvent<ReserveShortfallSettledEvent.InputTuple, ReserveShortfallSettledEvent.OutputTuple, ReserveShortfallSettledEvent.OutputObject>;
@@ -815,6 +871,14 @@ getEvent(key: 'Unpaused'): TypedContractEvent<UnpausedEvent.InputTuple, Unpaused
 
       'OverdueInstallmentSettled(uint256,uint256,address,uint48,address,uint80,uint48,address,uint80,uint48,uint256,uint256,uint256,uint256,uint256,uint256,bool)': TypedContractEvent<OverdueInstallmentSettledEvent.InputTuple, OverdueInstallmentSettledEvent.OutputTuple, OverdueInstallmentSettledEvent.OutputObject>;
       OverdueInstallmentSettled: TypedContractEvent<OverdueInstallmentSettledEvent.InputTuple, OverdueInstallmentSettledEvent.OutputTuple, OverdueInstallmentSettledEvent.OutputObject>;
+    
+
+      'P2PPartialLiquidationExecuted(uint256,address,uint256,uint256,uint256,uint256,uint256,uint256)': TypedContractEvent<P2PPartialLiquidationExecutedEvent.InputTuple, P2PPartialLiquidationExecutedEvent.OutputTuple, P2PPartialLiquidationExecutedEvent.OutputObject>;
+      P2PPartialLiquidationExecuted: TypedContractEvent<P2PPartialLiquidationExecutedEvent.InputTuple, P2PPartialLiquidationExecutedEvent.OutputTuple, P2PPartialLiquidationExecutedEvent.OutputObject>;
+    
+
+      'P2PTerminalRecoveryExecuted(uint256,address,uint256,uint256,uint256,uint256,uint256,uint256,bool)': TypedContractEvent<P2PTerminalRecoveryExecutedEvent.InputTuple, P2PTerminalRecoveryExecutedEvent.OutputTuple, P2PTerminalRecoveryExecutedEvent.OutputObject>;
+      P2PTerminalRecoveryExecuted: TypedContractEvent<P2PTerminalRecoveryExecutedEvent.InputTuple, P2PTerminalRecoveryExecutedEvent.OutputTuple, P2PTerminalRecoveryExecutedEvent.OutputObject>;
     
 
       'PartialLiquidationExecuted(uint256,address,address,uint80,uint48,address,uint80,uint48,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)': TypedContractEvent<PartialLiquidationExecutedEvent.InputTuple, PartialLiquidationExecutedEvent.OutputTuple, PartialLiquidationExecutedEvent.OutputObject>;

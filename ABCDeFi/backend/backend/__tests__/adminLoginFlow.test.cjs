@@ -170,6 +170,27 @@ test('administrator login rejects a non-admin and invalid credentials before iss
   }
 });
 
+test('administrator login fails closed with 503 while the authentication database is unavailable', async () => {
+  const original = { ready: UserAccount.db.readyState, findOne: UserAccount.findOne };
+  let queried = false;
+  try {
+    UserAccount.db.readyState = 0;
+    UserAccount.findOne = async () => { queried = true; return null; };
+    const unavailable = response();
+    await controller.adminLogin(
+      { body: { email: 'admin@example.test', password: 'StrongPass1!' }, ip: '127.0.0.1', headers: {} },
+      unavailable, (error) => { throw error; },
+    );
+    assert.equal(unavailable.statusCode, 503);
+    assert.equal(unavailable.body.success, false);
+    assert.match(unavailable.body.message, /database is unavailable/i);
+    assert.equal(queried, false, 'login must not query a disconnected MongoDB model');
+  } finally {
+    UserAccount.db.readyState = original.ready;
+    UserAccount.findOne = original.findOne;
+  }
+});
+
 test('administrator login never bypasses the OTP challenge for a legacy 2FA-disabled account', async () => {
   const original = {
     nodeEnv: config.node_env, developmentEnabled: config.development_auth_enabled,

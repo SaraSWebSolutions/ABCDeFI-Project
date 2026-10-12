@@ -24,8 +24,9 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ setActiveTab, onOpenKyc, onOpenAuth, dashboardMode, canAccessAdmin, onSwitchDashboard }) => {
-  const { isConnected, shortAddress, chain, balances, profile, connectWallet, disconnectWallet, switchChain } = useWallet();
+  const { isConnected, shortAddress, chain, balanceABCD, balances, profile, connectWallet, disconnectWallet, switchChain } = useWallet();
   const { user, logout } = useAuth();
+  const adminView = dashboardMode === 'admin';
   const [showNetworkMenu, setShowNetworkMenu] = useState(false);
   const [showWalletDetails, setShowWalletDetails] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -36,7 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setActiveTab, onOpenKyc, onOpenA
   return (
     <header className="sticky top-0 z-40 w-full glass-panel border-b border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex min-w-0 items-center justify-between gap-3 h-16">
           {/* Logo */}
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('overview')}>
             <img
@@ -47,17 +48,18 @@ export const Navbar: React.FC<NavbarProps> = ({ setActiveTab, onOpenKyc, onOpenA
                 (e.currentTarget as HTMLImageElement).src = '/images/abcdefi-logo.svg';
               }}
             />
-            <div>
+            <div className="min-w-0">
               <span className="font-extrabold text-xl tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
                 ABCDeFi
               </span>
+              {adminView && <span className="ml-2 whitespace-nowrap rounded-md border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-cyan-200">Administration</span>}
             </div>
           </div>
 
 
 
           {/* Right Actions: Network & Wallet */}
-          <div className="hidden sm:flex items-center gap-3">
+          <div className="hidden min-w-0 sm:flex items-center gap-2 lg:gap-3">
 
             {/* Network Selector */}
             <div className="relative">
@@ -100,7 +102,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setActiveTab, onOpenKyc, onOpenA
                   <Wallet className="w-3.5 h-3.5 text-emerald-400" />
                   <span>{shortAddress}</span>
                   <span className="text-[10px] bg-slate-900/80 px-1.5 py-0.5 rounded text-emerald-400 font-mono">
-                    {balances.ABCD === null ? 'Unavailable' : `${balances.ABCD.toLocaleString()} ABCD`}
+                    {adminView ? (balanceABCD === null ? 'Unavailable' : `${balanceABCD} ABCD`) : (balances.ABCD === null ? 'Unavailable' : `${balances.ABCD.toLocaleString()} ABCD`)}
                   </span>
                 </button>
 
@@ -156,7 +158,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setActiveTab, onOpenKyc, onOpenA
 
             {/* User Profile & Logout */}
             {user ? (
-              <div className="relative flex items-center gap-2 pl-2 border-l border-slate-800">
+              <div className="relative flex min-w-0 items-center gap-2 pl-2 border-l border-slate-800">
                 <button
                   onClick={() => setShowProfileMenu(!showProfileMenu)}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/80 text-slate-200 border border-slate-700 hover:border-slate-600 transition"
@@ -164,7 +166,7 @@ export const Navbar: React.FC<NavbarProps> = ({ setActiveTab, onOpenKyc, onOpenA
                   <div className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                     <User className="w-3 h-3" />
                   </div>
-                  <span className="max-w-[100px] truncate">{user.name || user.email}</span>
+                  <span className="max-w-[100px] truncate">{adminView ? (user.adminRole?.replace('_', ' ') || user.email) : (user.name || user.email)}</span>
                 </button>
 
                 {showProfileMenu && (

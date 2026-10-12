@@ -33,6 +33,31 @@ test('/dashboard always resolves to the user dashboard, including for an adminis
   assert.equal(dashboard.resolveDashboardMode('/dashboard', admin, true), 'user');
 });
 
+test('canonical lending navigation resolves direct and P2P contexts deterministically', () => {
+  assert.deepEqual(dashboard.resolveUserDashboardNavigation('/dashboard', '?tab=lending&lending=direct'), {
+    tab: 'lending', lending: { product: 'direct', section: 'overview' },
+  });
+  assert.deepEqual(dashboard.resolveUserDashboardNavigation('/dashboard', '?tab=lending&lending=p2p'), {
+    tab: 'lending', lending: { product: 'p2p', section: 'requests' },
+  });
+  assert.equal(dashboard.pathForUserDashboardNavigation({ tab: 'lending', lending: { product: 'p2p', section: 'status' } }), '/dashboard?tab=lending&lending=p2p&section=status');
+});
+
+test('legacy lending aliases normalize to the correct canonical product and subsection', () => {
+  const expected = {
+    'view-all-loans': { product: 'direct', section: 'loans' },
+    emi: { product: 'direct', section: 'repayment' },
+    liquidation: { product: 'direct', section: 'risk' },
+    'p2p-loans': { product: 'p2p', section: 'requests' },
+  };
+  for (const [legacy, lending] of Object.entries(expected)) {
+    assert.deepEqual(dashboard.resolveUserDashboardNavigation(`/dashboard/${legacy}`), { tab: 'lending', lending });
+  }
+  assert.deepEqual(dashboard.userDashboardNavigationForTab('emi', { tab: 'overview', lending: { product: 'p2p', section: 'requests' } }), {
+    tab: 'lending', lending: { product: 'direct', section: 'repayment' },
+  });
+});
+
 test('only a verified admin can select the admin dashboard', () => {
   assert.equal(dashboard.resolveDashboardMode('/admin', admin, true), 'admin');
   assert.equal(dashboard.resolveDashboardMode('/admin', user, true), 'user');
@@ -147,32 +172,53 @@ test('top-level incomplete navigation renders an explicit state instead of a bla
   assert.match(userDashboardSource, /not implemented in the active canonical runtime/);
 });
 
-test('the primary UserDashboard groups Lending views while preserving the isolated V2 workflow', () => {
+test('the primary UserDashboard has one Lending destination and passes its controlled context to V2', () => {
   const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
   const mobileDashboardSource = fs.readFileSync(new URL('../src/components/MobileUserDashboard.tsx', import.meta.url), 'utf8');
   const navigationSource = userDashboardSource.slice(
     userDashboardSource.indexOf('const USER_NAVIGATION_GROUPS'),
-    userDashboardSource.indexOf('const LENDING_VIEW_DESCRIPTIONS'),
+    userDashboardSource.indexOf('export const UserDashboard'),
   );
   assert.match(navigationSource, /id: 'lending',\s+label: 'Lending'/);
-  assert.match(navigationSource, /id: 'p2p-loans', label: 'P2P Loans'/);
-  assert.match(navigationSource, /id: 'deposit', label: 'Collateral'/);
-  assert.match(navigationSource, /id: 'emi', label: 'Repayment & EMI'/);
+  assert.doesNotMatch(navigationSource, /id: 'p2p-loans'|id: 'deposit'|id: 'emi'|id: 'liquidation'/);
   assert.doesNotMatch(navigationSource, /id: 'lending-v2'/);
   assert.doesNotMatch(navigationSource, /id: 'security'|id: 'ai-copilot'|id: 'credit'|id: 'notifications'|id: 'settings'/);
-  assert.match(userDashboardSource, /activeTab === 'lending' && <LendingV2\s*\/>/);
-  assert.match(userDashboardSource, /activeTab === 'p2p-loans' &&/);
-  assert.match(userDashboardSource, /aria-label="P2P lending workspace"/);
+  assert.match(userDashboardSource, /activeTab === 'lending' && <LendingV2 context=\{lendingContext\} onContextChange=\{setLendingContext\}/);
+  assert.doesNotMatch(userDashboardSource, /activeTab === 'p2p-loans'/);
   assert.doesNotMatch(userDashboardSource, /from ['"]\.\/LendingPool['"]/);
   assert.doesNotMatch(userDashboardSource, /from ['"]\.\/P2PLendingDashboard['"]/);
   assert.doesNotMatch(mobileDashboardSource, /from ['"]\.\/P2PLendingDashboard['"]/);
+});
+
+test('LendingV2 renders only the controlled Direct or P2P workspace context', () => {
+  const lending = fs.readFileSync(new URL('../src/components/LendingV2.tsx', import.meta.url), 'utf8');
+  assert.match(lending, /const tab = context\?\.product \?\? uncontrolledTab/);
+  assert.match(lending, /onContextChange\?\.\(\{ product: next/);
+  assert.match(lending, /Borrow against your canonical V2 collateral position/);
+  assert.match(lending, /Open borrower requests, wallet-scoped positions, and canonical P2P status/);
+  assert.match(lending, /context\?\.product !== 'direct' \|\| context\.section === 'overview'/);
+});
+
+test('App restores canonical user context after browser back, forward, refresh, and deep links', () => {
+  const appSource = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+  assert.match(appSource, /resolveUserDashboardNavigation\(window\.location\.pathname, window\.location\.search\)/);
+  assert.match(appSource, /pathForUserDashboardNavigation\(userNavigation\)/);
+  assert.match(appSource, /const handlePopState = \(\) => \{[\s\S]*setUserNavigation\(resolveUserDashboardNavigation/s);
+  assert.match(appSource, /navigateUserDashboard\(userDashboardNavigationForTab\(tab, userNavigation\)\)/);
+});
+
+test('Overview shortcuts choose unambiguous Direct Lending and P2P Marketplace contexts', () => {
+  const overviewSource = fs.readFileSync(new URL('../src/components/NextGenProtocolDashboard.tsx', import.meta.url), 'utf8');
+  assert.match(overviewSource, /onNavigateTab\?\.\('borrow'\)[\s\S]*Direct Lending/s);
+  assert.match(overviewSource, /onNavigateTab\?\.\('p2p-loans'\)[\s\S]*P2P Marketplace/s);
+  assert.doesNotMatch(overviewSource, /<div className="text-slate-200">Lend<\/div>/);
 });
 
 test('the canonical user shell groups NFT features and keeps administrative routes separate', () => {
   const userDashboardSource = fs.readFileSync(new URL('../src/components/UserDashboard.tsx', import.meta.url), 'utf8');
   const navigationSource = userDashboardSource.slice(
     userDashboardSource.indexOf('const USER_NAVIGATION_GROUPS'),
-    userDashboardSource.indexOf('const LENDING_VIEW_DESCRIPTIONS'),
+    userDashboardSource.indexOf('export const UserDashboard'),
   );
 
   assert.match(navigationSource, /id: 'nft-ecosystem',\s+label: 'NFT Ecosystem'/);

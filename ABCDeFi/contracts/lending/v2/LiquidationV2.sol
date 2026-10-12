@@ -27,6 +27,7 @@ contract LiquidationV2 is AccessControl, Pausable, ReentrancyGuard {
     // remain fail-closed because they are outside the approved partial-sale path.
     uint16 public constant P2P_PARTIAL_TARGET_LTV_BPS = PARTIAL_LIQUIDATION_TARGET_LTV_BPS;
     uint256 private constant BPS = 10_000;
+    uint256 public constant P2P_RESERVE_CAP_ABCD = 100_000 ether;
     address public constant ETH_ASSET = address(1);
 
     IERC20 public immutable abcd;
@@ -82,6 +83,21 @@ contract LiquidationV2 is AccessControl, Pausable, ReentrancyGuard {
         bool terminalRecovery;
     }
 
+    struct P2PExecution {
+        LoanManagerV2.Loan loan;
+        OracleAdapterV2.PriceSnapshot ethSnapshot;
+        OracleAdapterV2.PriceSnapshot abcdSnapshot;
+        ILiquidationSaleAdapterV2.SaleQuote quote;
+        uint256 debt;
+        uint256 collateralBefore;
+        uint256 actualABCDReceived;
+        uint256 collateralRecovery;
+        uint256 reserveRecovery;
+        uint256 remainingDebt;
+        uint256 borrowerSurplus;
+        uint256 resultingLtvBps;
+    }
+
     event RiskStateSynced(uint256 indexed loanId, uint256 ltvBps, LoanManagerV2.State state);
     event SaleAdapterConfigured(address indexed adapter);
     event EMIManagerConfigured(address indexed emiManager);
@@ -133,6 +149,8 @@ contract LiquidationV2 is AccessControl, Pausable, ReentrancyGuard {
         uint256 remainingBadDebt,
         bool terminalRecovery
     );
+    event P2PPartialLiquidationExecuted(uint256 indexed loanId, address indexed keeper, uint256 collateralSold, uint256 actualABCDReceived, uint256 requiredRecovery, uint256 remainingDebt, uint256 remainingCollateral, uint256 resultingLtvBps);
+    event P2PTerminalRecoveryExecuted(uint256 indexed loanId, address indexed keeper, uint256 collateralSold, uint256 actualABCDReceived, uint256 lenderCollateralRecovery, uint256 reserveRecovery, uint256 borrowerSurplus, uint256 residualDebt, bool recovered);
 
     constructor(
         address admin,
@@ -240,8 +258,9 @@ contract LiquidationV2 is AccessControl, Pausable, ReentrancyGuard {
         potentialBadDebt = 0;
     }
 
-    /// @notice P2P partial liquidation remains outside the approved partial
-    /// sale scope and therefore remains an explicit fail-closed ABI boundary.
+    /// @notice Preview remains strict: a terminal P2P path is intentionally
+    /// not previewable through this ABI because it is allowed only after a
+    /// validator proves that a strict partial quote is impossible.
     function previewP2PPartialLiquidation(uint256 loanId)
         public
         pure
@@ -254,6 +273,88 @@ contract LiquidationV2 is AccessControl, Pausable, ReentrancyGuard {
         remainingCollateral;
         resultingLtvBps;
         revert("p2p partial sale policy required");
+    }
+
+    /// @notice Permissionless approved P2P adverse recovery.  A valid strict
+    /// partial quote takes Path A; only the validator's exact full-collateral
+    /// signal can enter Path B.
+    function liquidateP2P(uint256 loanId) external whenNotPaused nonReentrant {
+        P2PExecution memory execution;
+        execution.loan = loanManager.getLoan(loanId);
+        require(execution.loan.isP2P && p2pMarketplace.isP2PLoan(loanId), "not funded p2p loan");
+        require(execution.loan.state == LoanManagerV2.State.MARGIN_CALL && execution.loan.marginCallCureEnd != 0 && block.timestamp >= execution.loan.marginCallCureEnd, "p2p liquidation not eligible");
+        require(address(saleAdapter) != address(0), "partial liquidation execution not configured");
+        require(currentLtvBps(loanId) >= LIQUIDATION_THRESHOLD_BPS, "p2p liquidation not eligible");
+        (execution.ethSnapshot, execution.abcdSnapshot) = _recordSnapshots();
+        execution.debt = totalDebt(loanId);
+        execution.collateralBefore = collateralVault.loanCollateral(loanId);
+        require(execution.debt != 0 && execution.collateralBefore != 0, "invalid p2p liquidation");
+        require(_ltvBps(execution.debt, execution.collateralBefore, execution.ethSnapshot.priceUSD, execution.abcdSnapshot.priceUSD) >= LIQUIDATION_THRESHOLD_BPS, "p2p liquidation not eligible");
+
+        try saleAdapter.quote(loanId, execution.debt, execution.collateralBefore, PARTIAL_LIQUIDATION_TARGET_LTV_BPS) returns (ILiquidationSaleAdapterV2.SaleQuote memory quote_) {
+            execution.quote = quote_;
+            _executeP2PStrictPartial(loanId, execution);
+        } catch (bytes memory reason) {
+            require(_isFullCollateralBoundary(reason), "p2p partial quote failed");
+            _executeP2PTerminal(loanId, execution);
+        }
+    }
+
+    function _executeP2PStrictPartial(uint256 loanId, P2PExecution memory execution) private {
+        require(execution.quote.collateralAmount != 0 && execution.quote.collateralAmount < execution.collateralBefore, "invalid p2p partial collateral");
+        require(execution.quote.requiredRecovery != 0 && execution.quote.requiredRecovery < execution.debt, "invalid p2p partial recovery");
+        collateralVault.seizeToSaleAdapter(loanId, address(saleAdapter), execution.quote.collateralAmount);
+        execution.actualABCDReceived = saleAdapter.executeSale(loanId, execution.debt, execution.collateralBefore, PARTIAL_LIQUIDATION_TARGET_LTV_BPS);
+        ILiquidationSaleAdapterV2.Recovery memory recovery = saleAdapter.consumeRecovery(loanId);
+        require(recovery.collateralAmount == execution.quote.collateralAmount && recovery.realizedRecoveryABCD == execution.actualABCDReceived && execution.actualABCDReceived >= execution.quote.minOut, "recovery mismatch");
+        (,,, execution.remainingDebt) = loanManager.applyP2PPartialLiquidationRecovery(loanId, execution.quote.requiredRecovery);
+        uint256 remainingCollateral = collateralVault.loanCollateral(loanId);
+        execution.resultingLtvBps = _ltvBps(execution.remainingDebt, remainingCollateral, execution.ethSnapshot.priceUSD, execution.abcdSnapshot.priceUSD);
+        require(execution.resultingLtvBps <= PARTIAL_LIQUIDATION_TARGET_LTV_BPS, "p2p partial target missed");
+        require(abcd.transfer(execution.loan.lender, execution.quote.requiredRecovery), "lender transfer failed");
+        execution.borrowerSurplus = execution.actualABCDReceived - execution.quote.requiredRecovery;
+        if (execution.borrowerSurplus != 0) require(abcd.transfer(execution.loan.borrower, execution.borrowerSurplus), "surplus transfer failed");
+        loanManager.restoreAfterP2PPartialLiquidation(loanId);
+        emit P2PPartialLiquidationExecuted(loanId, msg.sender, execution.quote.collateralAmount, execution.actualABCDReceived, execution.quote.requiredRecovery, execution.remainingDebt, remainingCollateral, execution.resultingLtvBps);
+    }
+
+    function _executeP2PTerminal(uint256 loanId, P2PExecution memory execution) private {
+        execution.quote = saleAdapter.quoteInstallment(loanId, execution.debt, execution.collateralBefore);
+        require(execution.quote.collateralAmount == execution.collateralBefore, "p2p terminal collateral not required");
+        collateralVault.seizeToSaleAdapter(loanId, address(saleAdapter), execution.collateralBefore);
+        execution.actualABCDReceived = saleAdapter.executeInstallmentSale(loanId, execution.debt, execution.collateralBefore);
+        ILiquidationSaleAdapterV2.Recovery memory recovery = saleAdapter.consumeRecovery(loanId);
+        require(recovery.collateralAmount == execution.collateralBefore && recovery.realizedRecoveryABCD == execution.actualABCDReceived && execution.actualABCDReceived >= execution.quote.minOut, "recovery mismatch");
+        execution.collateralRecovery = execution.actualABCDReceived > execution.debt ? execution.debt : execution.actualABCDReceived;
+        uint256 shortfall = execution.debt - execution.collateralRecovery;
+        if (shortfall != 0) {
+            require(reserve.reserveCoverCapABCD() == P2P_RESERVE_CAP_ABCD, "p2p reserve cap mismatch");
+            execution.reserveRecovery = _p2PReserveRecovery(shortfall);
+        }
+        (,,, execution.remainingDebt) = loanManager.applyP2PTerminalRecovery(loanId, execution.collateralRecovery, execution.reserveRecovery);
+        if (execution.reserveRecovery != 0) {
+            uint256 paid = reserve.cover(loanId, execution.loan.lender, shortfall);
+            require(paid == execution.reserveRecovery, "reserve recovery mismatch");
+        }
+        if (execution.collateralRecovery != 0) require(abcd.transfer(execution.loan.lender, execution.collateralRecovery), "lender transfer failed");
+        execution.borrowerSurplus = execution.actualABCDReceived - execution.collateralRecovery;
+        if (execution.borrowerSurplus != 0) require(abcd.transfer(execution.loan.borrower, execution.borrowerSurplus), "surplus transfer failed");
+        if (execution.remainingDebt == 0) p2pMarketplace.markLoanRecovered(loanId);
+        else p2pMarketplace.markLoanDefaulted(loanId, execution.remainingDebt);
+        emit P2PTerminalRecoveryExecuted(loanId, msg.sender, execution.collateralBefore, execution.actualABCDReceived, execution.collateralRecovery, execution.reserveRecovery, execution.borrowerSurplus, execution.remainingDebt, execution.remainingDebt == 0);
+    }
+
+    function _p2PReserveRecovery(uint256 shortfall) private view returns (uint256) {
+        uint256 available = reserve.availableBalance();
+        uint256 capped = shortfall > P2P_RESERVE_CAP_ABCD ? P2P_RESERVE_CAP_ABCD : shortfall;
+        return capped > available ? available : capped;
+    }
+
+    function _isFullCollateralBoundary(bytes memory reason) private pure returns (bool) {
+        if (reason.length < 4) return false;
+        bytes4 selector;
+        assembly ("memory-safe") { selector := mload(add(reason, 32)) }
+        return selector == bytes4(keccak256("FullCollateralSeizureNotApproved()"));
     }
 
     /// @notice Permissionless Direct-only partial sale after margin-call cure.

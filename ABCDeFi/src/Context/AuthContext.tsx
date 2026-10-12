@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { DEVELOPMENT_AUTH_ENABLED } from '../Config/auth';
+import { LOCAL_TEST_DASHBOARD_SESSION_ENABLED, R3_TEST_AUTH_ENABLED } from '../Config/r3TestAuth';
+import type { AdminRole } from '../Services/adminCapability';
 
 export interface AuthUser {
   id?: string;
@@ -14,6 +16,9 @@ export interface AuthUser {
   kycSubmittedAt?: string | null;
   kycProviderReference?: string | null;
   role?: 'user' | 'admin';
+  adminRole?: AdminRole | null;
+  isDelegatedAdminSession?: boolean;
+  delegatedFromMainAdmin?: { email: string } | null;
   creditScore?: number;
   reputation?: number;
   is2FAEnabled?: boolean;
@@ -41,6 +46,9 @@ interface AuthContextType {
   adminLoginStep1: (email: string, password: string) => Promise<{ success: boolean; require2FA?: boolean; userId?: string; email?: string; message?: string }>;
   verifyAdminLoginOtp: (userId: string, otp: string) => Promise<{ success: boolean; message?: string }>;
   resendAdminLoginOtp: (userId: string) => Promise<{ success: boolean; message?: string }>;
+  adminSwitchTargets: () => Promise<{ success: boolean; targets: Array<{ id: string; email: string; name?: string; adminRole: AdminRole; active: boolean; suspended: boolean }>; message?: string }>;
+  switchAdminSession: (targetUserId: string) => Promise<{ success: boolean; message?: string }>;
+  returnToSuperAdmin: () => Promise<{ success: boolean; message?: string }>;
 
   register: (data: { name: string; email: string; mobileNumber?: string; country?: string; password: string; refId?: string; privacyData: boolean }) => Promise<{ success: boolean; userId?: string; email?: string; message?: string }>;
   verifyRegisterOtp: (userId: string, otp: string) => Promise<{ success: boolean; message?: string }>;
@@ -158,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // a reload.  The authenticated backend profile must confirm the session.
   const [sessionVerified, setSessionVerified] = useState(() => {
     const hasToken = Boolean(localStorage.getItem(STORAGE_KEY_TOKEN));
-    return hasToken || !DEVELOPMENT_AUTH_ENABLED || developmentDashboardSessionWasDismissed();
+    return hasToken || !LOCAL_TEST_DASHBOARD_SESSION_ENABLED || developmentDashboardSessionWasDismissed();
   });
 
   const [pendingAuth, setPendingAuthState] = useState<PendingAuthState | null>(readPendingAuth);
@@ -323,7 +331,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.removeItem(STORAGE_KEY_REFRESH);
     }
     localStorage.setItem(STORAGE_KEY_METHOD, method);
-    if (DEVELOPMENT_AUTH_ENABLED) {
+    if (DEVELOPMENT_AUTH_ENABLED || LOCAL_TEST_DASHBOARD_SESSION_ENABLED) {
       localStorage.removeItem(STORAGE_KEY_DEVELOPMENT_DASHBOARD_LOGOUT);
     }
     window.dispatchEvent(new Event('abcdefi-auth-session-changed'));
@@ -333,16 +341,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    if (!DEVELOPMENT_AUTH_ENABLED || token || developmentDashboardSessionWasDismissed() || developmentSessionBootstrapRef.current) return;
+    if (!(DEVELOPMENT_AUTH_ENABLED || LOCAL_TEST_DASHBOARD_SESSION_ENABLED) || token || developmentDashboardSessionWasDismissed() || developmentSessionBootstrapRef.current) return;
     developmentSessionBootstrapRef.current = true;
     let cancelled = false;
     setSessionVerified(false);
 
-    void fetch('/api/user/development-dashboard-session', { method: 'POST' })
+    const fixtureEndpoint = R3_TEST_AUTH_ENABLED
+      ? '/api/user/r3-test-dashboard-session'
+      : '/api/user/development-dashboard-session';
+    void fetch(fixtureEndpoint, { method: 'POST' })
       .then(async (response) => ({ response, data: await response.json().catch(() => ({})) }))
       .then(({ response, data }) => {
         if (cancelled) return;
-        if (response.ok && data.success && data.developmentSession === true && data.data && data.token) {
+        const expectedFixture = R3_TEST_AUTH_ENABLED ? data.r3TestFixtureSession === true : data.developmentSession === true;
+        if (response.ok && data.success && expectedFixture && data.data && data.token) {
           saveAuthSession(data.data, data.token, data.refreshToken, 'development');
           return;
         }
@@ -355,7 +367,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authDiagnostic('development dashboard session failed', { message: error instanceof Error ? error.message : 'unknown error' });
       });
 
-    return () => { cancelled = true; };
+    // React StrictMode deliberately mounts, cleans up, and remounts effects in
+    // development. Release only this in-memory request guard so the remount
+    // can perform the same server-authenticated bootstrap; no browser session
+    // is retained or fabricated by this cleanup path.
+    return () => {
+      cancelled = true;
+      developmentSessionBootstrapRef.current = false;
+    };
   }, [token]);
 
   // WalletContext owns MetaMask interaction. AuthContext owns the app session;
@@ -521,6 +540,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const verifyAdminLoginOtp = (userId: string, otp: string) =>
     verifyLoginOtpForEndpoint('/api/admin/verify-login-otp', userId, otp);
+
+  const hydrateAdminSession = async (data: any, expectedProvenance: 'delegated' | 'main') => {
+    if (!data?.token || !data?.user) return { success: false, message: 'Authentication server did not return an administrator session.' };
+    saveAuthSession(data.user, data.token, data.refreshToken, 'password', false);
+    const profileResponse = await fetch('/api/user/profile', { headers: { Authorization: `Bearer ${data.token}` } });
+    const profile = await profileResponse.json().catch(() => ({}));
+    const verifiedProfile = profile.data;
+    const validDelegatedProfile = verifiedProfile?.role === 'admin'
+      && verifiedProfile?.isDelegatedAdminSession === true
+      && typeof verifiedProfile?.delegatedFromMainAdmin?.email === 'string'
+      && verifiedProfile.delegatedFromMainAdmin.email.length > 0;
+    const validMainProfile = verifiedProfile?.role === 'admin'
+      && verifiedProfile?.adminRole === 'super_admin'
+      && verifiedProfile?.isDelegatedAdminSession !== true
+      && !verifiedProfile?.delegatedFromMainAdmin;
+    if (!profileResponse.ok || !profile.success || !verifiedProfile
+      || (expectedProvenance === 'delegated' ? !validDelegatedProfile : !validMainProfile)) {
+      clearAuthSession(false);
+      return {
+        success: false,
+        message: expectedProvenance === 'delegated'
+          ? 'Delegated administrator provenance could not be verified.'
+          : 'Main Admin session provenance could not be verified.',
+      };
+    }
+    setUser(verifiedProfile);
+    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(verifiedProfile));
+    setSessionVerified(true);
+    return { success: true, message: data.message };
+  };
+
+  const adminSwitchTargets = async () => {
+    if (!token) return { success: false, targets: [], message: 'An authenticated Super Admin session is required.' };
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/session/switch/targets', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      return { success: Boolean(res.ok && data.success), targets: Array.isArray(data.targets) ? data.targets : [], message: data.message };
+    } catch (error: unknown) {
+      return { success: false, targets: [], message: error instanceof Error ? error.message : 'Authentication server unavailable. Please try again.' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchAdminSession = async (targetUserId: string) => {
+    if (!token) return { success: false, message: 'An authenticated administrator session is required.' };
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/session/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ targetUserId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) return { success: false, message: data.message || 'Administrator session switch was denied.' };
+      return hydrateAdminSession(data, 'delegated');
+    } catch (error: unknown) {
+      return { success: false, message: error instanceof Error ? error.message : 'Authentication server unavailable. Please try again.' };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const returnToSuperAdmin = async () => {
+    if (!token) return { success: false, message: 'An authenticated delegated administrator session is required.' };
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/session/switch/return', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) return { success: false, message: data.message || 'Return to Super Admin was denied.' };
+      return hydrateAdminSession(data, 'main');
+    } catch (error: unknown) {
+      return { success: false, message: error instanceof Error ? error.message : 'Authentication server unavailable. Please try again.' };
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const resendLoginOtpForEndpoint = async (endpoint: string, userId: string) => {
     try {
@@ -825,7 +924,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    if (DEVELOPMENT_AUTH_ENABLED) {
+    if (DEVELOPMENT_AUTH_ENABLED || LOCAL_TEST_DASHBOARD_SESSION_ENABLED) {
       localStorage.setItem(STORAGE_KEY_DEVELOPMENT_DASHBOARD_LOGOUT, '1');
     }
     if (token) {
@@ -854,6 +953,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         adminLoginStep1,
         verifyAdminLoginOtp,
         resendAdminLoginOtp,
+        adminSwitchTargets,
+        switchAdminSession,
+        returnToSuperAdmin,
         register,
         verifyRegisterOtp,
         resendRegisterOtp,

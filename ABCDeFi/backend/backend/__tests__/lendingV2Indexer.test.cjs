@@ -125,6 +125,38 @@ test('the checkpoint advances only after all V2 event persistence succeeds', asy
   assert.equal(models.events.length, 0);
 });
 
+test('an interrupted canonical Lending V2 worker resumes from its checkpoint without duplicate or missing events', async () => {
+  const activeManifest = manifest();
+  const allLogs = depositLogs(activeManifest);
+  const provider = new FixtureProvider({ latest: 129, logs: allLogs.filter((event) => event.blockNumber === 129) });
+  const models = new FixtureModels({ lastProcessedBlock: '128', lastProcessedBlockHash: HASH(10_128) });
+
+  // Worker one reaches H, then stops. The checkpoint is the sole restart cursor.
+  await subject(provider, models, { manifest: activeManifest, confirmations: 0 }).syncOnce();
+  assert.equal(models.checkpoint.lastProcessedBlock, '129');
+  assert.equal(models.checkpoint.lastProcessedBlockHash, HASH(10_129));
+  assert.equal(models.events.length, 2);
+
+  // Chain advances to H + 1 while no worker is running; a fresh worker must
+  // consume only the missed canonical block and preserve the prior evidence.
+  provider.latest = 130;
+  provider.blocks.set(130, { number: 130, hash: HASH(10_130), timestamp: 1_700_000_130 });
+  provider.logs = allLogs;
+  await subject(provider, models, { manifest: activeManifest, confirmations: 0 }).syncOnce();
+  assert.equal(models.checkpoint.lastProcessedBlock, '130');
+  assert.equal(models.checkpoint.lastProcessedBlockHash, HASH(10_130));
+  assert.deepEqual(models.events.map((event) => [event.blockNumber, event.eventName]), [
+    ['129', 'DirectDepositCollateralDeposited'], ['129', 'CollateralDepositCreated'],
+    ['130', 'DirectDepositCollateralDeposited'], ['130', 'CollateralDepositCreated'],
+  ]);
+
+  // A later idempotent resume sees no new range and must not duplicate Mongo
+  // projection identities (transaction hash plus log index).
+  await subject(provider, models, { manifest: activeManifest, confirmations: 0 }).syncOnce();
+  assert.equal(models.events.length, 4);
+  assert.equal(new Set(models.events.map((event) => `${event.transactionHash}:${event.logIndex}`)).size, 4);
+});
+
 test('the explicitly local runner requests zero confirmations without changing the reusable default', () => {
   const runner = fs.readFileSync(path.resolve(__dirname, '..', 'scripts', 'runLendingV2Indexer.cjs'), 'utf8');
   assert.match(runner, /loadLendingV2Manifest/);
@@ -179,6 +211,31 @@ test('the canonical V2 raw-event projection indexes the LoanNFTV2 transfer and t
     ['7', '1', '0'], ['7', '2', '1'], ['7', '3', '2'],
   ]);
   assert.equal(models.events.length, 6, 'checkpoint replay must not duplicate certificate projection evidence');
+});
+
+test('the canonical indexer persists the approved P2P adverse-recovery event chain exactly once', async () => {
+  const activeManifest = manifest();
+  const liquidation = new Interface(artifacts.LiquidationV2.abi);
+  const manager = new Interface(artifacts.LoanManagerV2.abi);
+  const market = new Interface(artifacts.LoanMarketplaceV2.abi);
+  const reserve = new Interface(artifacts.InsuranceReserveV2.abi);
+  const partial = liquidation.encodeEventLog(liquidation.getEvent('P2PPartialLiquidationExecuted'), [1n, ADDRESS(901), 10n, 20n, 15n, 55n, 90n, 7000n]);
+  const recovery = manager.encodeEventLog(manager.getEvent('P2PRecoveryApplied'), [1n, 10n, 20n, 30n, 0n, 0n, 40n, true]);
+  const reserveUsed = reserve.encodeEventLog(reserve.getEvent('ReserveUsed'), [1n, ADDRESS(902), 50n, 20n]);
+  const defaulted = market.encodeEventLog(market.getEvent('RequestDefaulted'), [1n, 1n, BORROWER, ADDRESS(902), 40n]);
+  const entries = [
+    [activeManifest.contracts.LiquidationV2.address, partial],
+    [activeManifest.contracts.LoanManagerV2.address, recovery],
+    [activeManifest.contracts.InsuranceReserveV2.address, reserveUsed],
+    [activeManifest.contracts.LoanMarketplaceV2.address, defaulted],
+  ].map(([address, encoded], index) => ({ address, ...encoded, blockNumber: 129, transactionIndex: 0, index, transactionHash: HASH(990), blockHash: HASH(10_129) }));
+  const provider = new FixtureProvider({ latest: 129, logs: entries });
+  const models = new FixtureModels({ lastProcessedBlock: '128', lastProcessedBlockHash: HASH(10_128) });
+  const indexer = subject(provider, models, { manifest: activeManifest, confirmations: 0 });
+  await indexer.syncOnce(); await indexer.syncOnce();
+  assert.deepEqual(models.events.map((event) => event.eventName), ['P2PPartialLiquidationExecuted', 'P2PRecoveryApplied', 'ReserveUsed', 'RequestDefaulted']);
+  assert.equal(models.events.length, 4, 'replay must not duplicate adverse-recovery evidence');
+  assert.equal(models.events.at(-1).args.residualDebt, '40');
 });
 
 test('a checkpoint hash mismatch rebuilds only the deployment-version projection before indexing the replacement canonical chain', async () => {

@@ -40,6 +40,26 @@ test('ICO V3 buyer API serializes a zero-allocation ethers purchase as named fie
   assert.equal(response.value.data.claimableNow, '0');
 });
 
+test('ICO V3 status serializes canonical V3 stage, custody, and oracle state after checkpoint validation', async () => {
+  const provider = { getNetwork: async () => ({ chainId: 31337n }), getCode: async () => '0x1234', getBlock: async () => ({ hash: `0x${'b'.repeat(64)}` }), getBlockNumber: async () => 84 };
+  const runtime = await checkpointRuntimeFields(manifest, provider, [manifest.address, manifest.abcdAddress]);
+  const checkpoint = { chainId: '31337', deploymentVersion: manifest.deploymentVersion, icoAddress: manifest.address, ...projectionRuntimeFields(manifest), ...runtime, lastProcessedBlock: '84', lastProcessedBlockHash: `0x${'b'.repeat(64)}` };
+  const stageOne = { startTime: 1n, endTime: 2n, inventory: 3n, sold: 4n, priceUsdWad: 5n, 0: 1n, 1: 2n, 2: 3n, 3: 4n, 4: 5n, length: 5 };
+  const contract = {
+    abcd: async () => manifest.abcdAddress, lifecycle: async () => 1n, totalAllocated: async () => 2n, totalBnbCollected: async () => 3n, totalBnbRefunded: async () => 4n, totalBnbWithdrawn: async () => 5n, deploymentInventory: async () => 6n, tgeTimestamp: async () => 7n, paused: async () => false, currentStage: async () => 1n,
+    stage: async () => stageOne, icoWallet: async () => '0x0000000000000000000000000000000000000003', proceedsRecipient: async () => '0x0000000000000000000000000000000000000004', bnbUsdFeed: async () => '0x0000000000000000000000000000000000000005', feedDecimals: async () => 8n, maxPriceAge: async () => 3600n,
+  };
+  const models = { IcoV3Checkpoint: { findOne: () => ({ lean: async () => checkpoint }) }, IcoV3Event: { find: () => ({ sort: () => ({ lean: async () => [] }) }) } };
+  const controller = createIcoV3Controller({ loadManifest: () => manifest, projectionModels: models, providerFactory: () => provider, contractFactory: () => contract, feedFactory: () => ({ latestRoundData: async () => ({ roundId: 9n, answer: 60000000000n, updatedAt: 10n, answeredInRound: 9n }) }) });
+  const response = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(value) { this.value = value; return this; } };
+  await controller.status({}, response, (error) => { throw error; });
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.value.status, 'AVAILABLE');
+  assert.equal(response.value.data.stages[0].priceUsdWad, '5');
+  assert.equal(response.value.data.custody.icoWallet, '0x0000000000000000000000000000000000000003');
+  assert.deepEqual(response.value.data.oracle, { feed: '0x0000000000000000000000000000000000000005', feedDecimals: '8', maxPriceAge: '3600', roundId: '9', answer: '60000000000', updatedAt: '10', answeredInRound: '9' });
+});
+
 test('ICO V3 canonical availability accepts only the matching 1Q checkpoint and live bindings', async () => {
   const provider = { getNetwork: async () => ({ chainId: 31337n }), getCode: async () => '0x1234', getBlock: async () => ({ hash: `0x${'a'.repeat(64)}` }), getBlockNumber: async () => 84 };
   const runtime = await checkpointRuntimeFields(manifest, provider, [manifest.address, manifest.abcdAddress]);

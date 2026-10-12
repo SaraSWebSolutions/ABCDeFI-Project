@@ -68,6 +68,10 @@ contract LoanManagerV2 is AccessControl {
     event OverdueCollateralRecoveryApplied(uint256 indexed loanId, uint256 indexed installmentIndex, uint256 recovery, uint256 feeApplied, uint256 interestApplied, uint256 principalApplied, uint256 remainingDebt);
     event ReserveShortfallRecoveryApplied(uint256 indexed loanId, uint256 indexed installmentIndex, uint256 collateralRecovery, uint256 reserveRecovery, uint256 remainingDebt);
     event LiquidationRecoveryApplied(uint256 indexed loanId, uint256 collateralRecovery, uint256 reserveRecovery, uint256 remainingDebt);
+    /// @notice P2P collateral recovery uses its independently approved
+    /// principal -> interest -> fees waterfall.  It is intentionally separate
+    /// from Direct Lending's repayment order.
+    event P2PRecoveryApplied(uint256 indexed loanId, uint256 collateralRecovery, uint256 reserveRecovery, uint256 principalApplied, uint256 interestApplied, uint256 feeApplied, uint256 remainingDebt, bool terminal);
 
     constructor(address admin) {
         require(admin != address(0), "admin=0");
@@ -274,6 +278,62 @@ contract LoanManagerV2 is AccessControl {
         emit LoanStateChanged(id, State.MARGIN_CALL, State.ACTIVE);
     }
 
+    /// @notice Applies the approved strictly-partial P2P recovery.  The risk
+    /// engine must subsequently prove the same-snapshot target LTV before it
+    /// restores ACTIVE; no reserve or bad-debt path is available here.
+    function applyP2PPartialLiquidationRecovery(uint256 id, uint256 recovery)
+        external
+        onlyRole(RISK_SETTLEMENT_ROLE)
+        returns (uint256 principal, uint256 interest, uint256 fee, uint256 remainingDebt)
+    {
+        Loan storage loan = loans[id];
+        require(loan.isP2P && loan.state == State.MARGIN_CALL, "p2p partial recovery unavailable");
+        accrue(id);
+        uint256 debt = _remainingDebt(loan);
+        require(recovery != 0 && recovery < debt, "invalid partial recovery");
+        (principal, interest, fee) = _applyInP2PSettlementOrder(loan, recovery);
+        remainingDebt = _remainingDebt(loan);
+        emit P2PRecoveryApplied(id, recovery, 0, principal, interest, fee, remainingDebt, false);
+    }
+
+    function restoreAfterP2PPartialLiquidation(uint256 id) external onlyRole(RISK_SETTLEMENT_ROLE) {
+        Loan storage loan = loans[id];
+        require(loan.isP2P && loan.state == State.MARGIN_CALL && _remainingDebt(loan) != 0, "p2p partial restoration unavailable");
+        loan.state = State.ACTIVE;
+        emit LoanStateChanged(id, State.MARGIN_CALL, State.ACTIVE);
+    }
+
+    /// @notice Applies terminal P2P recovery after the risk engine has proved
+    /// that no valid strictly-partial solution exists.  Bad debt remains an
+    /// explicit liability; it is never forgiven.
+    function applyP2PTerminalRecovery(uint256 id, uint256 collateralRecovery, uint256 reserveRecovery)
+        external
+        onlyRole(RISK_SETTLEMENT_ROLE)
+        returns (uint256 principal, uint256 interest, uint256 fee, uint256 remainingDebt)
+    {
+        Loan storage loan = loans[id];
+        require(loan.isP2P && loan.state == State.MARGIN_CALL, "p2p terminal recovery unavailable");
+        accrue(id);
+        uint256 debt = _remainingDebt(loan);
+        require(collateralRecovery <= debt && reserveRecovery <= debt - collateralRecovery, "invalid p2p recovery");
+        require(collateralRecovery != 0 || reserveRecovery != 0, "zero p2p recovery");
+        (principal, interest, fee) = _applyInP2PSettlementOrder(loan, collateralRecovery);
+        if (reserveRecovery != 0) {
+            (uint256 reservePrincipal, uint256 reserveInterest, uint256 reserveFee) = _applyInP2PSettlementOrder(loan, reserveRecovery);
+            principal += reservePrincipal;
+            interest += reserveInterest;
+            fee += reserveFee;
+            loan.reserveContribution += uint128(reserveRecovery);
+        }
+        remainingDebt = _remainingDebt(loan);
+        loan.badDebt = uint128(remainingDebt);
+        State previous = loan.state;
+        loan.state = remainingDebt == 0 ? State.LIQUIDATED : State.RESIDUAL_DEBT;
+        emit LoanStateChanged(id, previous, loan.state);
+        if (reserveRecovery != 0 || remainingDebt != 0) emit BadDebtRecorded(id, reserveRecovery, remainingDebt);
+        emit P2PRecoveryApplied(id, collateralRecovery, reserveRecovery, principal, interest, fee, remainingDebt, true);
+    }
+
     /// @notice Applies collateral-sale proceeds to one due installment. This
     /// is distinct from borrower repayment: it never increments totalRepaid or
     /// creates a completion certificate. A fully debt-settling collateral path
@@ -417,6 +477,20 @@ contract LoanManagerV2 is AccessControl {
         amount -= interest;
         principal = amount > loan.principalOutstanding ? loan.principalOutstanding : amount;
         loan.principalOutstanding -= uint128(principal);
+    }
+
+    function _applyInP2PSettlementOrder(Loan storage loan, uint256 amount)
+        private
+        returns (uint256 principal, uint256 interest, uint256 fee)
+    {
+        principal = amount > loan.principalOutstanding ? loan.principalOutstanding : amount;
+        loan.principalOutstanding -= uint128(principal);
+        amount -= principal;
+        interest = amount > loan.accruedInterest ? loan.accruedInterest : amount;
+        loan.accruedInterest -= uint128(interest);
+        amount -= interest;
+        fee = amount > loan.fees ? loan.fees : amount;
+        loan.fees -= uint128(fee);
     }
 
     function _remainingDebt(Loan storage loan) private view returns (uint256) {

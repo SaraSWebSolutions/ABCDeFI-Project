@@ -59,6 +59,14 @@ export default defineConfig({
       url: process.env.ABCDEFI_LOCAL_RPC_URL || "http://127.0.0.1:8545",
       chainId: 31337,
     },
+    b64Lifecycle: {
+      type: "http",
+      chainType: "l1",
+      // This network is deliberately separate from localhost; the scripts
+      // reject it unless the full B6.4 identity is explicitly configured.
+      url: process.env.ABCDEFI_B64_LIFECYCLE_RPC_URL || "http://127.0.0.1:8562",
+      chainId: 31338,
+    },
     sepolia: {
       type: "http",
       chainType: "l1",

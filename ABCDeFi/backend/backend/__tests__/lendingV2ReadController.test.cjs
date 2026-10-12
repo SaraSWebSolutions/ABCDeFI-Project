@@ -8,6 +8,7 @@ const routes = fs.readFileSync(path.resolve(__dirname, '..', 'modules', 'lending
 const {
   canonicalLendingV2Availability,
   isP2PRequestLifecycleEvent,
+  P2P_ADVERSE_RECOVERY_EVENTS,
   loanJson,
   REFERRAL_NON_CLAIMABLE_CURRENT_STATE,
   REFERRAL_PAID,
@@ -60,6 +61,11 @@ test('canonical Lending V2 availability fails closed for missing, stale, mismatc
 
   const legacy = await lendingAvailabilityDependencies({ manifest: { chainId: 31337, rpcUrl: 'http://127.0.0.1:8545', deploymentVersion: 'lending-v2-legacy', contracts: { LendingPoolV2: { address: ADDRESS } } } });
   assert.match((await canonicalLendingV2Availability(legacy)).reason, /explicit canonical 1Q_LOCAL/i);
+});
+
+test('B6.4 Lending availability rejects the default checkpoint model rather than falling back', async () => {
+  const dependencies = { manifest: { chainId: 31338, runtimeFamily: '1Q_LOCAL_B64_LIFECYCLE_TEST', rpcUrl: 'http://127.0.0.1:8562', deploymentIdentity: identity, deploymentVersion: 'b64', contracts: { LendingPoolV2: { address: ADDRESS } } }, provider: {}, models: { V2BlockCheckpoint: { findOne: () => { throw new Error('default checkpoint model must not be read'); } } } };
+  assert.match((await canonicalLendingV2Availability(dependencies)).reason, /sealed B6.4 checkpoint model/i);
 });
 
 test('V2 loan reads load the three completion-certificate role slots directly from LoanNFTV2', () => {
@@ -168,17 +174,31 @@ test('P2P request history is limited to canonical LoanMarketplaceV2 lifecycle ev
   const directCollision = { contractName: 'CollateralVaultV2', eventName: 'CollateralLocked', args: { requestId: '1' }, blockNumber: '80', transactionIndex: 0, logIndex: 7 };
   const created = { contractName: 'LoanMarketplaceV2', eventName: 'RequestCreated', args: { requestId: '1' }, blockNumber: '104', transactionIndex: 0, logIndex: 3 };
   const funded = { contractName: 'LoanMarketplaceV2', eventName: 'RequestFunded', args: { requestId: '1', loanId: '4' }, blockNumber: '106', transactionIndex: 0, logIndex: 4 };
+  const defaulted = { contractName: 'LoanMarketplaceV2', eventName: 'RequestDefaulted', args: { requestId: '1', loanId: '4', residualDebt: '7' }, blockNumber: '108', transactionIndex: 0, logIndex: 1 };
   const otherRequest = { contractName: 'LoanMarketplaceV2', eventName: 'RequestCreated', args: { requestId: '2' }, blockNumber: '105', transactionIndex: 0, logIndex: 1 };
   const unrelatedMarketEvent = { contractName: 'LoanMarketplaceV2', eventName: 'Paused', args: { requestId: '1' }, blockNumber: '107', transactionIndex: 0, logIndex: 0 };
-  const history = [funded, directCollision, unrelatedMarketEvent, created, otherRequest]
+  const history = [funded, directCollision, unrelatedMarketEvent, created, defaulted, otherRequest]
     .filter((event) => isP2PRequestLifecycleEvent(event, '1'))
     .sort((left, right) => Number(left.blockNumber) - Number(right.blockNumber) || left.transactionIndex - right.transactionIndex || left.logIndex - right.logIndex);
-  assert.deepEqual(history, [created, funded]);
+  assert.deepEqual(history, [created, funded, defaulted]);
+  assert.equal(P2P_ADVERSE_RECOVERY_EVENTS.has('P2PTerminalRecoveryExecuted'), true);
+  assert.equal(P2P_ADVERSE_RECOVERY_EVENTS.has('P2PPartialLiquidationExecuted'), true);
+  assert.equal(P2P_ADVERSE_RECOVERY_EVENTS.has('P2PRecoveryApplied'), true);
+  assert.equal(P2P_ADVERSE_RECOVERY_EVENTS.has('ReserveUsed'), true);
+  assert.equal(P2P_ADVERSE_RECOVERY_EVENTS.has('RequestDefaulted'), true);
   assert.equal(isP2PRequestLifecycleEvent(directCollision, '1'), false);
   assert.equal(isP2PRequestLifecycleEvent(otherRequest, '1'), false);
   assert.equal(isP2PRequestLifecycleEvent(unrelatedMarketEvent, '1'), false);
   assert.match(source, /const page = await eventPage\(projectionRuntimeFields\(manifest\), limit, decodeCursor\(req\.query\.cursor, manifest\.deploymentVersion\), \(event\) => isP2PRequestLifecycleEvent\(event, id\)\)/);
   assert.match(source, /page: \{ limit, nextCursor: page\.nextCursor \}/);
+});
+
+test('P2P loan detail serializes deployment-scoped adverse recovery evidence without receipt-only inference', () => {
+  assert.match(source, /const adverseRecovery = \(await eventList\(\{\}, Number\.MAX_SAFE_INTEGER\)\)\.filter/);
+  assert.match(source, /P2P_ADVERSE_RECOVERY_EVENTS\.has\(event\.eventName\)/);
+  assert.match(source, /String\(event\.args\?\.loanId \|\| ''\) === String\(loanId\)/);
+  assert.match(source, /schedule: scheduleJson\(schedule\), adverseRecovery, certificate/);
+  assert.match(source, /never synthesizes recovery[\s\S]*receipt alone/);
 });
 
 test('LoanNFTV2 certificate reads are deployment-scoped indexed-event projections with live contract ownership and no legacy source', () => {

@@ -1,0 +1,48 @@
+{
+  "adminRoles": [
+    "super_admin",
+    "operations_admin",
+    "security_admin",
+    "compliance_admin",
+    "support_admin"
+  ],
+  "permissions": [
+    "dashboard.read",
+    "users.read",
+    "users.support",
+    "p2p.read",
+    "lending.read",
+    "ico.read",
+    "ico.operate",
+    "legion.read",
+    "legion.operate",
+    "marketplace.read",
+    "marketplace.operate",
+    "emergency.read",
+    "emergency.execute",
+    "compliance.read",
+    "compliance.review",
+    "security.read",
+    "audit.read",
+    "admin.users.read",
+    "admin.users.manage"
+  ],
+  "rolePermissions": {
+    "super_admin": ["*"],
+    "operations_admin": [
+      "dashboard.read", "users.read", "p2p.read", "lending.read",
+      "ico.read", "ico.operate", "legion.read", "legion.operate",
+      "marketplace.read", "marketplace.operate", "audit.read"
+    ],
+    "security_admin": [
+      "dashboard.read", "p2p.read", "lending.read", "ico.read",
+      "legion.read", "marketplace.read", "emergency.read",
+      "emergency.execute", "security.read", "audit.read"
+    ],
+    "compliance_admin": [
+      "dashboard.read", "users.read", "compliance.read",
+      "compliance.review", "audit.read"
+    ],
+    "support_admin": ["dashboard.read", "users.read", "users.support"]
+  }
+}

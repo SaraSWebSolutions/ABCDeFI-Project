@@ -144,3 +144,28 @@ test('legacy manifest loaders cannot fall back to deployments.json under 1Q_LOCA
     clearBackendRuntimeFamilyForTests();
   }
 });
+
+test('every canonical backend module fails closed for an unconfigured 1Q_BSC_TESTNET family', () => {
+  const originalFamily = process.env.ABCDEFI_RUNTIME_FAMILY;
+  const originalManifest = process.env.ABCDEFI_1Q_BSC_TESTNET_UNIFIED_MANIFEST_PATH;
+  process.env.ABCDEFI_RUNTIME_FAMILY = '1Q_BSC_TESTNET';
+  delete process.env.ABCDEFI_1Q_BSC_TESTNET_UNIFIED_MANIFEST_PATH;
+  clearBackendRuntimeFamilyForTests();
+  try {
+    const loaders = [
+      require('../config/lendingV2Manifest.cjs').loadLendingV2Manifest,
+      require('../config/treasuryManifest.cjs').loadTreasuryManifest,
+      require('../config/legionNFTV2Manifest.cjs').loadLegionNFTV2Manifest,
+      require('../config/abcdMarketplaceManifest.cjs').loadABCDMarketplaceManifest,
+      require('../config/legionMarketplaceManifest.cjs').loadLegionMarketplaceManifest,
+      require('../config/icoV3Manifest.cjs').loadIcoV3Manifest,
+    ];
+    for (const load of loaders) assert.throws(() => load(), /1Q_BSC_TESTNET requires ABCDEFI_1Q_BSC_TESTNET_UNIFIED_MANIFEST_PATH/);
+  } finally {
+    if (originalFamily === undefined) delete process.env.ABCDEFI_RUNTIME_FAMILY;
+    else process.env.ABCDEFI_RUNTIME_FAMILY = originalFamily;
+    if (originalManifest === undefined) delete process.env.ABCDEFI_1Q_BSC_TESTNET_UNIFIED_MANIFEST_PATH;
+    else process.env.ABCDEFI_1Q_BSC_TESTNET_UNIFIED_MANIFEST_PATH = originalManifest;
+    clearBackendRuntimeFamilyForTests();
+  }
+});

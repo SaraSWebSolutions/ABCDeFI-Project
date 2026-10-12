@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const { keccak256, toUtf8Bytes } = require('ethers');
 const { createLegionNFTV2ReadController } = require('../modules/legionNFTV2Projection/legionNFTV2Read.controller.cjs');
 
 const ADDRESS = '0x0000000000000000000000000000000000000002';
@@ -24,8 +25,25 @@ test('serves only hash-verified canonical LegionNFTV2 territory, transfer, and p
   const request = { requestId: '1', tokenId: '1', currentOwner: ADDRESS, proposedOwner: '0x0000000000000000000000000000000000000003', active: true, approved: false };
   const read = controller({ territory, request, history: [{ tokenId: '1', blockNumber: '12', transactionIndex: 0, logIndex: 0, transactionHash: HASH, eventName: 'TransferRequested' }] });
   const wallet = response(); await read.wallet({ params: { address: ADDRESS }, query: {} }, wallet, assert.fail); assert.equal(wallet.body.status, 'AVAILABLE'); assert.equal(wallet.body.data[0].level, 'COUNTRY'); assert.equal(wallet.body.data[0].parentId, '0');
+  assert.equal(wallet.body.source.contractAddress, manifest.contractAddress);
   const history = response(); await read.history({ params: { tokenId: '1' }, query: {} }, history, assert.fail); assert.equal(history.body.data[0].eventName, 'TransferRequested');
   const transfer = response(); await read.request({ params: { requestId: '1' }, query: {} }, transfer, assert.fail); assert.equal(transfer.body.data.proposedOwner, request.proposedOwner);
+});
+
+test('binds the Legion read source to the strict 1Q runtime identity when that runtime is configured', async () => {
+  const strictManifest = { ...manifest, runtimeFamily: '1Q_LOCAL', rpcUrl: 'http://127.0.0.1:8546', deploymentIdentity: 'fixture-identity' };
+  const code = '0x1234';
+  const contractRuntimeIdentity = keccak256(toUtf8Bytes(`${strictManifest.contractAddress.toLowerCase()}:${keccak256(code)}`));
+  const strictCheckpoint = { lastProcessedBlock: '12', lastProcessedBlockHash: HASH, paused: false, runtimeFamily: '1Q_LOCAL', rpcUrl: strictManifest.rpcUrl, deploymentIdentity: strictManifest.deploymentIdentity, contractRuntimeIdentity };
+  const read = createLegionNFTV2ReadController({
+    models: models({ checkpoint: strictCheckpoint }), manifestLoader: () => strictManifest,
+    providerFactory: () => ({ ...provider(), getCode: async () => code }),
+  });
+  const res = response(); await read.status({}, res, assert.fail);
+  assert.equal(res.body.status, 'AVAILABLE');
+  assert.equal(res.body.source.runtimeFamily, '1Q_LOCAL');
+  assert.equal(res.body.source.rpcUrl, strictManifest.rpcUrl);
+  assert.equal(res.body.source.deploymentIdentity, 'fixture-identity');
 });
 
 test('fails closed when the stored canonical checkpoint hash does not match the live chain', async () => {

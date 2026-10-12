@@ -6,11 +6,12 @@ import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, Typed
   
 
   export interface IP2PSettlementCallbackV2Interface extends Interface {
-    getFunction(nameOrSignature: "isP2PLoan" | "markLoanRecovered" | "markLoanRepaid" | "requestByLoanId" | "settleLiquidation" | "settlePartialLiquidation"): FunctionFragment;
+    getFunction(nameOrSignature: "isP2PLoan" | "markLoanDefaulted" | "markLoanRecovered" | "markLoanRepaid" | "requestByLoanId" | "settleLiquidation" | "settlePartialLiquidation"): FunctionFragment;
 
     
 
     encodeFunctionData(functionFragment: 'isP2PLoan', values: [BigNumberish]): string;
+encodeFunctionData(functionFragment: 'markLoanDefaulted', values: [BigNumberish, BigNumberish]): string;
 encodeFunctionData(functionFragment: 'markLoanRecovered', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'markLoanRepaid', values: [BigNumberish]): string;
 encodeFunctionData(functionFragment: 'requestByLoanId', values: [BigNumberish]): string;
@@ -18,6 +19,7 @@ encodeFunctionData(functionFragment: 'settleLiquidation', values: [BigNumberish,
 encodeFunctionData(functionFragment: 'settlePartialLiquidation', values: [BigNumberish, AddressLike, BigNumberish, BigNumberish]): string;
 
     decodeFunctionResult(functionFragment: 'isP2PLoan', data: BytesLike): Result;
+decodeFunctionResult(functionFragment: 'markLoanDefaulted', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'markLoanRecovered', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'markLoanRepaid', data: BytesLike): Result;
 decodeFunctionResult(functionFragment: 'requestByLoanId', data: BytesLike): Result;
@@ -69,6 +71,14 @@ decodeFunctionResult(functionFragment: 'settlePartialLiquidation', data: BytesLi
     
 
     
+    markLoanDefaulted: TypedContractMethod<
+      [loanId: BigNumberish, residualDebt: BigNumberish, ],
+      [void],
+      'nonpayable'
+    >
+    
+
+    
     markLoanRecovered: TypedContractMethod<
       [loanId: BigNumberish, ],
       [void],
@@ -115,6 +125,11 @@ decodeFunctionResult(functionFragment: 'settlePartialLiquidation', data: BytesLi
       [loanId: BigNumberish, ],
       [boolean],
       'view'
+    >;
+getFunction(nameOrSignature: 'markLoanDefaulted'): TypedContractMethod<
+      [loanId: BigNumberish, residualDebt: BigNumberish, ],
+      [void],
+      'nonpayable'
     >;
 getFunction(nameOrSignature: 'markLoanRecovered'): TypedContractMethod<
       [loanId: BigNumberish, ],

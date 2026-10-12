@@ -2,6 +2,7 @@ import { network } from "hardhat";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ethers as ethersLib } from "ethers";
+import { assertB64ArtifactPath, resolveB64GenerationConfiguration } from "./e2e-runtime/oneq-b64-deployment-manifest-generator.mjs";
 
 const ROLE = (name: string) => ethersLib.keccak256(ethersLib.toUtf8Bytes(name));
 const ETH_ASSET = "0x0000000000000000000000000000000000000001";
@@ -19,7 +20,10 @@ async function main() {
   const manifest = JSON.parse(readFileSync(rootPath, "utf8"));
   if (manifest.model !== "OWNER_APPROVED_1Q_SEVEN_ALLOCATION") throw new Error("Refusing a non-1Q root manifest.");
   const { ethers } = await network.connect(); const signers = await ethers.getSigners(); const admin = signers[0];
-  const chainId = Number((await ethers.provider.getNetwork()).chainId); if (chainId !== 31337 || manifest.chainId !== chainId) throw new Error("1Q Lending deployment requires matching local chain 31337.");
+  const chainId = Number((await ethers.provider.getNetwork()).chainId);
+  const b64 = process.env.ABCDEFI_RUNTIME_FAMILY === "1Q_LOCAL_B64_LIFECYCLE_TEST" ? resolveB64GenerationConfiguration(process.env) : null;
+  if ((!b64 && chainId !== 31337) || (b64 && chainId !== b64.chainId) || manifest.chainId !== chainId) throw new Error("1Q Lending deployment requires the explicitly selected local chain.");
+  if (b64 && (manifest.runtimeFamily !== b64.family || manifest.runId !== b64.runId || manifest.mongoNamespace !== b64.mongoNamespace || manifest.checkpointNamespace !== b64.checkpointNamespace)) throw new Error("B6.4 root manifest does not bind the approved disposable run.");
   const tokenAddress = manifest.contracts?.ABCDTokenV2?.address; const allocation = manifest.allocations;
   if (!tokenAddress || !allocation?.FINANCE_RESOURCE?.wallet || !allocation?.MARKETING?.wallet || !allocation?.RESERVE?.wallet) throw new Error("1Q manifest lacks required token allocation bindings.");
   if (await ethers.provider.getCode(tokenAddress) === "0x") throw new Error("ABCDTokenV2 has no live bytecode.");
@@ -55,8 +59,10 @@ async function main() {
   await confirmed(await token.connect(financeSigner).transfer(admin.address, financeResourceLendingFunding), "Finance Resource lending funding"); await confirmed(await token.connect(financeSigner).transfer(await router.getAddress(), swapFixtureFunding), "Finance Resource router fixture funding"); await confirmed(await token.approve(await pool.getAddress(), financeResourceLendingFunding), "pool approval"); await confirmed(await pool.fundLiquidity(financeResourceLendingFunding), "pool funding");
   await confirmed(await token.connect(reserveSigner).transfer(admin.address, reserveFixtureFunding), "Reserve fixture transfer"); await confirmed(await token.approve(await reserve.getAddress(), reserveFixtureFunding), "reserve approval"); await confirmed(await reserve.fund(reserveFixtureFunding), "reserve funding"); await confirmed(await reserve.setReserveCoverCapABCD(reserveFixtureFunding), "local reserve cap"); await confirmed(await token.connect(marketingSigner).approve(await referral.getAddress(), marketingReferralFunding), "Marketing referral allowance");
   if (await pool.liquidity() !== financeResourceLendingFunding || await reserve.availableBalance() !== reserveFixtureFunding || await token.allowance(marketing, await referral.getAddress()) !== marketingReferralFunding) throw new Error("1Q bounded funding verification failed.");
-  const output = resolve(process.env.LENDING_V2_1Q_MANIFEST_PATH || "deployments.lending-v2-1q-local.json"); const firstBlock = Math.min(...Object.values(deployed).map((v) => v.deploymentBlock)); const block = await ethers.provider.getBlock(firstBlock);
-  const outputManifest = { schemaVersion: "1.0", model: "OWNER_APPROVED_1Q_LENDING_V2", localOnly: true, rpcUrl: LOCAL_RPC_URL, chainId, rootDeploymentVersion: manifest.deploymentVersion, deploymentVersion: `lending-v2-1q-local-${block?.hash}`, deploymentBlock: firstBlock, contracts: { ABCDTokenV2: { address: tokenAddress }, TreasuryV2: deployed.TreasuryV2, ...deployed }, allocations: { financeResource: finance, marketing, reserve: reserveWallet }, localTestFunding: { financeResourceLendingFunding: financeResourceLendingFunding.toString(), marketingReferralFunding: marketingReferralFunding.toString(), reserveFixtureFunding: reserveFixtureFunding.toString(), swapFixtureFunding: swapFixtureFunding.toString() } };
+  const output = resolve(process.env.LENDING_V2_1Q_MANIFEST_PATH || "deployments.lending-v2-1q-local.json"); if (b64) assertB64ArtifactPath('lending', output); const firstBlock = Math.min(...Object.values(deployed).map((v) => v.deploymentBlock)); const block = await ethers.provider.getBlock(firstBlock);
+  const contracts = { ABCDTokenV2: { address: tokenAddress }, TreasuryV2: deployed.TreasuryV2, ...deployed } as Record<string, any>;
+  if (b64) for (const [name, entry] of Object.entries(contracts)) { const code = await ethers.provider.getCode(entry.address); if (code === "0x") throw new Error(`B6.4 ${name} bytecode evidence is unavailable.`); entry.bytecodeHash = ethersLib.keccak256(code); }
+  const outputManifest = { schemaVersion: b64 ? "b64-lifecycle-lending-manifest-v1" : "1.0", model: "OWNER_APPROVED_1Q_LENDING_V2", localOnly: true, rpcUrl: LOCAL_RPC_URL, chainId, ...(b64 ? { runtimeFamily: b64.family, runId: b64.runId, runtimeDirectory: b64.runtimeDirectory, mongoNamespace: b64.mongoNamespace, checkpointNamespace: b64.checkpointNamespace } : {}), rootDeploymentVersion: manifest.deploymentVersion, deploymentVersion: `lending-v2-1q-local-${block?.hash}`, deploymentBlock: firstBlock, contracts, allocations: { financeResource: finance, marketing, reserve: reserveWallet }, localTestFunding: { financeResourceLendingFunding: financeResourceLendingFunding.toString(), marketingReferralFunding: marketingReferralFunding.toString(), reserveFixtureFunding: reserveFixtureFunding.toString(), swapFixtureFunding: swapFixtureFunding.toString() } };
   writeFileSync(output, JSON.stringify(outputManifest, null, 2) + "\n"); console.log(JSON.stringify({ output, ...outputManifest }, null, 2));
 }
 void main();

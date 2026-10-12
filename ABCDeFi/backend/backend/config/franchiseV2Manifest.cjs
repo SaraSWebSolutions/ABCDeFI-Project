@@ -8,6 +8,9 @@ function loadFranchiseV2Manifest() {
   if (isOneQLocalSelected()) {
     const runtime = loadBackendRuntimeFamily();
     const raw = runtime.children.franchise;
+    if (raw?.status === 'excluded' && raw?.unavailable === true) {
+      throw new Error(`Franchise is explicitly excluded from the selected canonical runtime topology: ${raw.reason || 'no exclusion reason supplied'}`);
+    }
     const legion = raw?.contracts?.LegionNFTV2;
     const nft = raw?.contracts?.FranchiseNFTV2;
     const registry = raw?.contracts?.FranchiseRegistryV2;

@@ -5,9 +5,9 @@ const chronological = (records) => [...records].sort((left, right) => {
   return byTransaction || Number(left.logIndex || 0) - Number(right.logIndex || 0);
 });
 
-function createCanonicalAdminController({ moduleRegistry, eventSources = [], checkpointSources = [] }) {
+function createCanonicalAdminController({ moduleRegistry, eventSources = [], checkpointSources = [], authoritativeSources = [] }) {
   const source = { kind: 'canonical-indexed-on-chain-admin' };
-  const status = async (_req, res, next) => {
+  const status = async (req, res, next) => {
     try {
       const modules = moduleRegistry();
       // A deployment manifest proves configuration, not indexer readiness.  Keep
@@ -22,9 +22,20 @@ function createCanonicalAdminController({ moduleRegistry, eventSources = [], che
         }
       }));
       const byModule = new Map(health.map((entry) => [entry.module, entry]));
+      const authorities = await Promise.all(authoritativeSources.map(async (authoritativeSource) => {
+        try {
+          return { module: authoritativeSource.module, available: true, snapshot: await authoritativeSource.read({ walletAddress: req.query?.wallet }) };
+        } catch (error) {
+          return { module: authoritativeSource.module, available: false, snapshot: null, reason: error instanceof Error ? error.message : String(error) };
+        }
+      }));
+      const authorityByModule = new Map(authorities.map((entry) => [entry.module, entry]));
       const enriched = modules.map((module) => {
         const checkpoint = byModule.get(module.name);
-        return checkpoint ? { ...module, indexer: checkpoint } : module;
+        const authority = authorityByModule.get(module.name);
+        if (authority && !authority.available) return { ...module, available: false, status: 'UNAVAILABLE', reason: authority.reason, authority: { kind: 'AUTHORITATIVE_ON_CHAIN', available: false, snapshot: null } };
+        const withAuthority = authority ? { ...module, authority: { kind: 'AUTHORITATIVE_ON_CHAIN', available: true, snapshot: authority.snapshot } } : module;
+        return checkpoint ? { ...withAuthority, indexer: checkpoint } : withAuthority;
       });
       const configured = enriched.filter((entry) => entry.available).length;
       res.json({ source, available: configured > 0, status: configured > 0 ? 'AVAILABLE' : 'UNAVAILABLE', modules: enriched });

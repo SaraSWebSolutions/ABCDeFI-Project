@@ -14,12 +14,22 @@ const sendPushNotification = require("../../../utils/sendPush");
 const Referral = require("../referral/referral.model");
 const { ethers } = require("ethers");
 const logger = require("../../../logger");
+const { isAdminRole } = require("../../admin/adminPermissions.cjs");
+const {
+    DELEGATION_TARGET_ROLES,
+    isDelegationTargetRole,
+    isMainApplicationAdmin,
+} = require("../../admin/mainAdminDelegation.cjs");
 const {
     developmentDiagnosticsEnabled,
     recordDevelopmentLoginOtp,
     getDevelopmentLoginOtp,
     clearDevelopmentLoginOtp,
 } = require("./developmentLoginOtpDiagnostics.cjs");
+const {
+    assertR3TestAuthenticationEnvironment,
+    ensureR3TestDashboardFixture,
+} = require("./r3TestAuth.cjs");
 
 const AUTH_DATABASE_TIMEOUT_MS = 10_000;
 const LOCAL_MONGODB_URI = /^mongodb:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?(?:\/|$)/i;
@@ -61,7 +71,7 @@ function withinAuthenticationDatabaseTimeout(operation) {
 // Helper to generate access and refresh tokens
 const generateTokens = async (user) => {
     const accessToken = jwt.sign(
-        { id: user._id, email: user.email, name: user.name, role: user.role },
+        { id: user._id, email: user.email, name: user.name, role: user.role, adminRole: user.adminRole || null },
         config.jwt,
         { expiresIn: config.jwt_expiry || "15m" }
     );
@@ -127,6 +137,36 @@ exports.developmentDashboardSession = async (req, res, next) => {
             token: accessToken,
             refreshToken,
             developmentSession: true,
+        });
+    } catch (error) {
+        return next(error);
+    }
+};
+
+/**
+ * Sealed R3 browser-certification fixture. This is intentionally separate
+ * from normal login and OTP verification: it is reachable only when the API
+ * process itself has selected and validated the explicit R3 test runtime.
+ */
+exports.r3TestDashboardSession = async (req, res, next) => {
+    try {
+        try {
+            assertR3TestAuthenticationEnvironment();
+        } catch (error) {
+            if (error?.code === 'R3_TEST_AUTH_REJECTED') {
+                return res.status(404).json({ success: false, message: 'Not found.' });
+            }
+            throw error;
+        }
+        if (authenticationDatabaseUnavailable(res)) return;
+        const user = await ensureR3TestDashboardFixture({ model: UserAccount });
+        const { accessToken, refreshToken } = await generateTokens(user);
+        return res.status(200).json({
+            success: true,
+            data: safeProfile(user),
+            token: accessToken,
+            refreshToken,
+            r3TestFixtureSession: true,
         });
     } catch (error) {
         return next(error);
@@ -449,6 +489,7 @@ exports.verifyOtp = async (req, res, next) => {
             email: user.email,
             status: user.status,
             role: user.role,
+            adminRole: user.adminRole || null,
             isKYC: user.isKYC,
             kycStatus: user.kycStatus
         };
@@ -698,6 +739,7 @@ exports.userLogin = async (req, res, next) => {
                 country: user.country,
                 isKYC: user.isKYC,
                 role: user.role,
+                adminRole: user.adminRole || null,
                 is2FAEnabled: user.is2FAEnabled
             }
         });
@@ -805,6 +847,7 @@ exports.verifyLoginOtp = async (req, res, next) => {
                 country: user.country,
                 isKYC: user.isKYC,
                 role: user.role,
+                adminRole: user.adminRole || null,
                 walletAddress: user.walletAddress,
                 is2FAEnabled: user.is2FAEnabled
             }
@@ -818,6 +861,147 @@ exports.verifyAdminLoginOtp = (req, res, next) => {
     req.adminLogin = true;
     return exports.verifyLoginOtp(req, res, next);
 };
+
+function targetAdminIsEligible(user) {
+    return Boolean(user && user.role === "admin" && user.status === true && user.isSuspended !== true && isAdminRole(user.adminRole));
+}
+
+function sourceSuperAdminIsEligible(user) {
+    return Boolean(targetAdminIsEligible(user)
+        && user.adminRole === "super_admin"
+        && isMainApplicationAdmin(user)
+        && user.refreshToken
+        && user.refreshTokenExpiry
+        && new Date(user.refreshTokenExpiry).getTime() > Date.now());
+}
+
+function delegationTargetIsEligible(user) {
+    return Boolean(targetAdminIsEligible(user) && isDelegationTargetRole(user.adminRole));
+}
+
+function delegatedReturnIsEligible(source, delegation, requestUser) {
+    return Boolean(
+        delegation
+        && sourceSuperAdminIsEligible(source)
+        && String(delegation.targetAdminUserId) === String(requestUser?.id)
+        && !delegation.revokedAt
+        && !delegation.returnedAt
+        && new Date(delegation.expiresAt).getTime() > Date.now(),
+    );
+}
+
+function tokenHash(value) {
+    return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function boundedAccessSeconds(source) {
+    const sourceRemaining = Math.floor((new Date(source.refreshTokenExpiry).getTime() - Date.now()) / 1000);
+    return Math.max(1, Math.min(15 * 60, sourceRemaining));
+}
+
+async function generateDelegatedAdminTokens(target, source, delegation) {
+    const accessToken = jwt.sign({
+        id: target._id, email: target.email, name: target.name, role: target.role, adminRole: target.adminRole,
+        delegatedAdminSessionId: delegation.sessionId,
+        delegatedAdminSourceId: String(source._id),
+    }, config.jwt, { expiresIn: boundedAccessSeconds(source) });
+    const sourceRemaining = Math.max(1, Math.floor((new Date(source.refreshTokenExpiry).getTime() - Date.now()) / 1000));
+    const refreshToken = jwt.sign({
+        id: target._id, jti: crypto.randomBytes(16).toString("hex"),
+        delegatedAdminSessionId: delegation.sessionId,
+        delegatedAdminSourceId: String(source._id),
+    }, config.refresh_secret, { expiresIn: sourceRemaining });
+    delegation.delegatedRefreshTokenHash = tokenHash(refreshToken);
+    await source.save();
+    return { accessToken, refreshToken };
+}
+
+function publicAdminIdentity(user) {
+    return { id: user._id, email: user.email, name: user.name, role: user.role, adminRole: user.adminRole || null, is2FAEnabled: user.is2FAEnabled };
+}
+
+function appendSwitchAudit(source, req, event, target = null, result = "SUCCESS") {
+    source.loginHistory.push({
+        timestamp: new Date(), ip: req.ip || "127.0.0.1", device: req.headers["user-agent"] || "Web Browser",
+        status: result === "SUCCESS" ? "Success (Admin session switch)" : "Failed (Admin session switch)",
+        event, sourceAdminUserId: String(source._id), sourceAdminRole: source.adminRole,
+        targetAdminUserId: target ? String(target._id) : null, targetAdminRole: target?.adminRole || null,
+        sessionCorrelationId: crypto.randomUUID(), authenticationResult: result,
+    });
+}
+
+async function loadSwitchSource(req) {
+    return withinAuthenticationDatabaseTimeout(UserAccount.findById(req.user?.id));
+}
+
+// A Super Admin may delegate its *application* session to a configured target
+// account. The target's persisted identity supplies the role; no role from the
+// request is read, and the connected blockchain wallet is never involved.
+exports.switchAdminSession = async (req, res, next) => {
+    try {
+        if (authenticationDatabaseUnavailable(res)) return;
+        if (req.method === "GET") {
+            const source = await loadSwitchSource(req);
+            if (!sourceSuperAdminIsEligible(source)) return res.status(403).json({ success: false, error: "ADMIN_PERMISSION_DENIED" });
+            const targets = await UserAccount.find({ role: "admin", status: true, isSuspended: false, adminRole: { $in: DELEGATION_TARGET_ROLES } })
+                .select("email name adminRole status isSuspended").sort({ adminRole: 1, email: 1 });
+            return res.status(200).json({ success: true, targets: targets.map((target) => ({ id: String(target._id), email: target.email, name: target.name, adminRole: target.adminRole, active: target.status, suspended: target.isSuspended })) });
+        }
+        if (req.path.endsWith("/return")) {
+            const delegationId = req.user?.delegatedAdminSessionId;
+            const source = await withinAuthenticationDatabaseTimeout(UserAccount.findById(req.user?.delegatedAdminSourceId));
+            const delegation = (source?.delegatedAdminSessions || []).find((entry) => String(entry.sessionId) === String(delegationId));
+            if (!delegatedReturnIsEligible(source, delegation, req.user)) {
+                return res.status(403).json({ success: false, error: "ADMIN_SESSION_RETURN_DENIED" });
+            }
+            delegation.returnedAt = new Date();
+            delegation.revokedAt = new Date();
+            appendSwitchAudit(source, req, "ADMIN_SESSION_RETURNED", null, "SUCCESS");
+            const tokens = await generateTokens(source);
+            return res.status(200).json({ success: true, token: tokens.accessToken, refreshToken: tokens.refreshToken, user: publicAdminIdentity(source) });
+        }
+
+        const source = await loadSwitchSource(req);
+        if (!sourceSuperAdminIsEligible(source)) {
+            // A persisted Admin denial is a meaningful security event. Normal
+            // user accounts are not turned into an Admin audit source.
+            if (source?.role === "admin") {
+                appendSwitchAudit(source, req, "ADMIN_SESSION_SWITCH_FAILED", null, "FAILED");
+                await source.save();
+            }
+            return res.status(403).json({ success: false, error: "ADMIN_PERMISSION_DENIED" });
+        }
+        const targetId = req.body?.targetUserId;
+        if (typeof targetId !== "string" || !targetId) {
+            appendSwitchAudit(source, req, "ADMIN_SESSION_SWITCH_FAILED", null, "FAILED");
+            await source.save();
+            return res.status(400).json({ success: false, error: "TARGET_ADMIN_SELECTION_REQUIRED" });
+        }
+        const target = await withinAuthenticationDatabaseTimeout(UserAccount.findById(targetId));
+        if (!delegationTargetIsEligible(target) || String(target._id) === String(source._id)) {
+            appendSwitchAudit(source, req, "ADMIN_SESSION_SWITCH_FAILED", target || null, "FAILED");
+            await source.save();
+            return res.status(403).json({ success: false, error: target?.adminRole == null ? "ADMIN_ROLE_NOT_CONFIGURED" : "TARGET_ADMIN_AUTHENTICATION_DENIED" });
+        }
+        const delegation = {
+            sessionId: crypto.randomUUID(), sourceAdminUserId: String(source._id), sourceAdminRole: source.adminRole,
+            targetAdminUserId: String(target._id), targetAdminRole: target.adminRole,
+            sourceRefreshTokenHash: source.refreshToken, expiresAt: source.refreshTokenExpiry,
+        };
+        source.delegatedAdminSessions.push(delegation);
+        appendSwitchAudit(source, req, "ADMIN_SESSION_SWITCHED", target, "SUCCESS");
+        const tokens = await generateDelegatedAdminTokens(target, source, delegation);
+        return res.status(200).json({ success: true, token: tokens.accessToken, refreshToken: tokens.refreshToken, user: publicAdminIdentity(target) });
+    } catch (err) {
+        if (err?.code === "AUTH_DATABASE_TIMEOUT") return res.status(503).json({ success: false, message: "Authentication database did not respond in time. Please try again later." });
+        next(err);
+    }
+};
+
+exports._targetAdminIsEligible = targetAdminIsEligible;
+exports._sourceSuperAdminIsEligible = sourceSuperAdminIsEligible;
+exports._delegationTargetIsEligible = delegationTargetIsEligible;
+exports._delegatedReturnIsEligible = delegatedReturnIsEligible;
 
 exports.resendLoginOtp = async (req, res, next) => {
     const { userId } = req.body;
@@ -956,6 +1140,20 @@ exports.userProfile = async (req, res, next) => {
         // A pending state is authoritative only after a KYC submission exists.
         if (!profile.kycSubmittedAt && !profile.kycProviderReference && !profile.isKYC && profile.kycStatus === "pending") {
             profile.kycStatus = "unverified";
+        }
+        // Session provenance only: this permits the UI to render Return to
+        // Super Admin only for a server-issued delegation. It grants nothing.
+        profile.isDelegatedAdminSession = Boolean(req.user?.delegatedAdminSessionId);
+        profile.delegatedFromMainAdmin = null;
+        if (profile.isDelegatedAdminSession) {
+            // `auth` has already verified this bounded delegation against the
+            // persisted source and target. Expose only non-secret application
+            // provenance for the return control; never a credential or wallet.
+            const source = await UserAccount.findById(req.user.delegatedAdminSourceId)
+                .select("email role adminRole status isSuspended refreshToken refreshTokenExpiry");
+            if (sourceSuperAdminIsEligible(source)) {
+                profile.delegatedFromMainAdmin = { email: source.email };
+            }
         }
         res.status(200).json({
             success: true,
@@ -1385,10 +1583,30 @@ exports.refreshToken = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(refreshToken, config.refresh_secret);
-        const hashedRefreshToken = crypto
-            .createHash("sha256")
-            .update(refreshToken)
-            .digest("hex");
+        const hashedRefreshToken = tokenHash(refreshToken);
+
+        if (decoded.delegatedAdminSessionId) {
+            const source = await UserAccount.findById(decoded.delegatedAdminSourceId);
+            const delegation = (source?.delegatedAdminSessions || []).find((entry) => String(entry.sessionId) === String(decoded.delegatedAdminSessionId));
+            if (!delegation
+                || !sourceSuperAdminIsEligible(source)
+                || delegation.revokedAt
+                || delegation.returnedAt
+                || new Date(delegation.expiresAt).getTime() <= Date.now()
+                || delegation.sourceRefreshTokenHash !== source.refreshToken
+                || delegation.delegatedRefreshTokenHash !== hashedRefreshToken
+                || String(delegation.targetAdminUserId) !== String(decoded.id)) {
+                return res.status(401).json({ success: false, message: "Invalid or expired refresh token" });
+            }
+            const target = await UserAccount.findById(decoded.id);
+            if (!targetAdminIsEligible(target) || target.adminRole !== delegation.targetAdminRole) {
+                delegation.revokedAt = new Date();
+                await source.save();
+                return res.status(401).json({ success: false, message: "Invalid or expired refresh token" });
+            }
+            const tokens = await generateDelegatedAdminTokens(target, source, delegation);
+            return res.status(200).json({ success: true, token: tokens.accessToken, refreshToken: tokens.refreshToken });
+        }
 
         const user = await UserAccount.findOne({
             _id: decoded.id,
@@ -1414,12 +1632,28 @@ exports.refreshToken = async (req, res, next) => {
 
 exports.logout = async (req, res, next) => {
     try {
-        const userId = req.user.id;
-        const user = await UserAccount.findById(userId);
-        if (user) {
+        if (req.user?.delegatedAdminSessionId) {
+            const source = await UserAccount.findById(req.user.delegatedAdminSourceId);
+            const delegation = (source?.delegatedAdminSessions || []).find((entry) => String(entry.sessionId) === String(req.user.delegatedAdminSessionId));
+            if (delegation && String(delegation.targetAdminUserId) === String(req.user.id)) {
+                delegation.revokedAt = new Date();
+                appendSwitchAudit(source, req, "ADMIN_SESSION_SWITCH_LOGOUT", null, "SUCCESS");
+                await source.save();
+            }
+        } else {
+            const user = await UserAccount.findById(req.user.id);
+            if (user) {
             user.refreshToken = null;
             user.refreshTokenExpiry = null;
+                // A Super Admin logout revokes every application delegation
+                // bound to its existing refresh session.
+                if (user.adminRole === "super_admin") {
+                    for (const delegation of user.delegatedAdminSessions || []) {
+                        if (!delegation.revokedAt && !delegation.returnedAt) delegation.revokedAt = new Date();
+                    }
+                }
             await user.save();
+            }
         }
         res.status(200).json({ success: true, message: "Logged out successfully" });
     } catch (err) {

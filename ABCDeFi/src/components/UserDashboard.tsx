@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import {
   Wallet,
   PieChart,
-  ArrowDownToLine,
-  ArrowUpFromLine,
   Coins,
   RefreshCcw,
   CalendarClock,
@@ -47,6 +45,9 @@ import { MasterProtocolManager } from './MasterProtocolManager';
 import { NFTSubModuleManager } from './NFTSubModuleManager';
 import { LendingV2 } from './LendingV2';
 import { TreasuryV2Dashboard } from './TreasuryV2Dashboard';
+import { ONE_Q_FRANCHISE_EXCLUDED } from '../Config/oneQRuntime';
+import { RuntimeProvenance } from './RuntimeProvenance';
+import type { LendingNavigationContext } from '../Utils/dashboardMode';
 
 import NextGenProtocolDashboard from './NextGenProtocolDashboard';
 
@@ -62,14 +63,15 @@ export interface UserDashboardProps {
   formatDuration: (sec: number) => string;
   paused: boolean;
   activeTab: string;
+  lendingContext: LendingNavigationContext;
   setActiveTab: (tab: string) => void;
+  setLendingContext: (context: LendingNavigationContext) => void;
   canAccessAdmin?: boolean;
   onOpenAdminDashboard?: () => void;
 }
 
 import { useWallet } from '../Context/WalletContext';
 import { useAuth } from '../Context/AuthContext';
-import { CollateralDepositForm } from './CollateralDepositForm';
 import { WalletSection } from './WalletSection';
 
 const USER_NAVIGATION_GROUPS = [
@@ -101,14 +103,7 @@ const USER_NAVIGATION_GROUPS = [
     id: 'lending',
     label: 'Lending',
     icon: Repeat,
-    items: [
-      { id: 'lending', label: 'Direct Lending & Borrow' },
-      { id: 'deposit', label: 'Collateral' },
-      { id: 'view-all-loans', label: 'My Loans' },
-      { id: 'p2p-loans', label: 'P2P Loans' },
-      { id: 'emi', label: 'Repayment & EMI' },
-      { id: 'liquidation', label: 'Position Risk' },
-    ],
+    items: [{ id: 'lending', label: 'Lending' }],
   },
   {
     id: 'nft-ecosystem',
@@ -117,7 +112,7 @@ const USER_NAVIGATION_GROUPS = [
     items: [
       { id: 'loan-nft-certificates', label: 'Loan Completion NFTs' },
       { id: 'legion', label: 'Legion Territories' },
-      { id: 'franchise', label: 'Franchise Assignments' },
+      ...(!ONE_Q_FRANCHISE_EXCLUDED ? [{ id: 'franchise', label: 'Franchise Assignments' }] : []),
       { id: 'abcd-nft-marketplace', label: 'ABCD NFT Marketplace' },
       { id: 'legion-marketplace', label: 'Legion Settlement' },
     ],
@@ -139,18 +134,9 @@ const USER_NAVIGATION_GROUPS = [
   },
 ] as const;
 
-const LENDING_VIEW_DESCRIPTIONS: Record<string, string> = {
-  lending: 'Review direct lending, borrowing capacity, and your active direct position.',
-  'view-all-loans': 'Review your canonical lending positions and their current state.',
-  'p2p-loans': 'Review peer-to-peer requests, funded loans, and their EMI schedule.',
-  emi: 'Review repayment status and submit an eligible repayment from the lending workspace.',
-  liquidation: 'Review position risk and any on-chain cure action available to your own position.',
-};
-
-export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActiveTab, canAccessAdmin = false, onOpenAdminDashboard, ...props }) => {
+export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, lendingContext, setActiveTab, setLendingContext, canAccessAdmin = false, onOpenAdminDashboard, ...props }) => {
   const wallet = useWallet();
   const { user } = useAuth();
-  const [depositSubTab, setDepositSubTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [walletConnectError, setWalletConnectError] = useState('');
 
   const connectMetaMask = async () => {
@@ -183,10 +169,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
   const activeGroup = USER_NAVIGATION_GROUPS.find((group) =>
     group.items.some((item) => item.id === activeTab),
   ) || USER_NAVIGATION_GROUPS[0];
-  const activeLendingLabel = USER_NAVIGATION_GROUPS
-    .find((group) => group.id === 'lending')
-    ?.items.find((item) => item.id === activeTab)?.label;
-
   return (
     <div className="space-y-6">
       {/* LIVE WEB3 WALLET & BALANCES BANNER */}
@@ -289,6 +271,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
         </div>
       </div>
 
+      <RuntimeProvenance />
+
       {/* Canonical user navigation: groups reduce duplicate product entries. */}
       <div className="bg-slate-900/80 backdrop-blur-xl border border-indigo-500/20 rounded-2xl p-2.5 shadow-xl shadow-slate-950/40">
         <div aria-label="User dashboard navigation" className="grid grid-cols-2 gap-2 p-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
@@ -354,56 +338,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
       )}
       {activeTab === 'portfolio' && <PortfolioDashboard />}
       {activeTab === 'ico' && <ICOv2Dashboard />}
-      {activeTab === 'lending' && <LendingV2 />}
-      {activeTab === 'lending-v2' && <LendingV2 />}
-      {activeTab === 'p2p-loans' && (
-        <section aria-label="P2P lending workspace" className="space-y-4">
-          <p className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">{LENDING_VIEW_DESCRIPTIONS['p2p-loans']}</p>
-          <LendingV2 />
-        </section>
-      )}
-      {(activeTab === 'deposit' || activeTab === 'withdraw') && (
-        <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-6 max-w-3xl mx-auto font-mono">
-          {/* Sub-Tab Navigation Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-4 gap-4">
-            <h2 className="text-xl font-bold text-white uppercase flex items-center gap-2">
-              <Repeat className="w-5 h-5 text-emerald-400" /> Deposit & Withdraw Funds
-            </h2>
-            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
-              <button
-                onClick={() => setDepositSubTab('deposit')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${depositSubTab === 'deposit'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
-                  : 'text-slate-400 hover:text-white'
-                  }`}
-              >
-                <ArrowDownToLine className="w-3.5 h-3.5" /> Deposit
-              </button>
-              <button
-                onClick={() => setDepositSubTab('withdraw')}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${depositSubTab === 'withdraw'
-                  ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20'
-                  : 'text-slate-400 hover:text-white'
-                  }`}
-              >
-                <ArrowUpFromLine className="w-3.5 h-3.5" /> Withdraw
-              </button>
-            </div>
-          </div>
-
-          {/* Deposit Content Panel */}
-          {depositSubTab === 'deposit' && <CollateralDepositForm mode="deposit" />}
-
-          {/* Withdraw Content Panel */}
-          {depositSubTab === 'withdraw' && <CollateralDepositForm mode="withdraw" />}
-        </div>
-      )}
-      {['borrow', 'repay', 'emi', 'view-all-loans', 'loan-monitoring', 'defaulted-loans', 'liquidation', 'loan-reports'].includes(activeTab) && (
-        <section aria-label="Lending workspace" className="space-y-4">
-          {activeLendingLabel && <p className="rounded-xl border border-slate-700 bg-slate-900/70 px-4 py-3 text-sm text-slate-300">{LENDING_VIEW_DESCRIPTIONS[activeTab] || `Review ${activeLendingLabel.toLowerCase()} in the lending workspace.`}</p>}
-          <LendingV2 />
-        </section>
-      )}
+      {activeTab === 'lending' && <LendingV2 context={lendingContext} onContextChange={setLendingContext} />}
 
       {activeTab === 'history' && <TransactionHistory />}
       {activeTab === 'ai-59c' && <AIGamesDashboard />}
@@ -462,7 +397,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({ activeTab, setActi
           personal credential and legacy territorial marketplace remain isolated. */}
       {activeTab === 'legion' && <LegionNFTV2Dashboard />}
 
-      {activeTab === 'franchise' && <FranchiseRegistryDashboard />}
+      {activeTab === 'franchise' && !ONE_Q_FRANCHISE_EXCLUDED && <FranchiseRegistryDashboard />}
+      {activeTab === 'franchise' && ONE_Q_FRANCHISE_EXCLUDED && <section aria-label="Franchise topology status" className="mx-auto max-w-5xl rounded-3xl border border-slate-700 bg-slate-900 p-6 text-sm text-slate-300">Franchise is explicitly excluded from this canonical runtime topology. No Franchise controls are available.</section>}
       {activeTab === 'abcd-nft-marketplace' && <ABCDNFTMarketplaceV2Dashboard />}
       {activeTab === 'legion-marketplace' && <LegionMarketplaceV2Dashboard />}
       {activeTab === 'treasury-v2' && <TreasuryV2Dashboard />}

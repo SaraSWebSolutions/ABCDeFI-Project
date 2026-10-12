@@ -11,7 +11,8 @@ export const ONE_Q_RPC_URL = "http://127.0.0.1:8546";
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/;
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const CHILDREN = ["root", "ico", "lending", "legion", "franchise", "marketplace10A", "marketplace10B"];
-const CONTRACTS = ["ABCDTokenV2", "ICOManagerV3", "TreasuryV2", "LendingPoolV2", "LendingReferralManagerV2", "InsuranceReserveV2", "LegionNFTV2", "FranchiseNFTV2", "FranchiseRegistryV2", "ABCDNFTMarketplaceV2", "LegionMarketplaceSettlementAdapterV2"];
+const DEPLOYED_CONTRACTS = ["ABCDTokenV2", "ICOManagerV3", "TreasuryV2", "LendingPoolV2", "LendingReferralManagerV2", "InsuranceReserveV2", "LegionNFTV2", "ABCDNFTMarketplaceV2", "LegionMarketplaceSettlementAdapterV2"];
+const FRANCHISE_CONTRACTS = ["FranchiseNFTV2", "FranchiseRegistryV2"];
 
 export class OneQRuntimeFamilyError extends Error {}
 
@@ -31,6 +32,24 @@ function child(value, name) {
   return value;
 }
 
+/**
+ * Phase 9 is intentionally absent from the owner-authorized BASELINE_V2
+ * topology.  This descriptor is not an undeployed contract and never carries
+ * an address: treating it as either would create a false deployment claim.
+ */
+function excludedFranchise(value, identity) {
+  if (!value || typeof value !== "object" || value.status !== "excluded" || value.unavailable !== true) fail("1Q_LOCAL Franchise exclusion descriptor is invalid.");
+  if (Number(value.chainId) !== ONE_Q_CHAIN_ID || value.rpcUrl !== ONE_Q_RPC_URL) fail("1Q_LOCAL Franchise exclusion provenance is invalid.");
+  if (typeof value.reason !== "string" || value.reason.trim() === "") fail("1Q_LOCAL Franchise exclusion reason is missing.");
+  if (value.contracts && Object.keys(value.contracts).length > 0) fail("1Q_LOCAL excluded Franchise descriptor must not contain contract addresses.");
+  if (!identity || identity.status !== "excluded" || identity.deploymentVersion !== "excluded" || identity.unavailable !== true) fail("1Q_LOCAL unified manifest does not explicitly declare Franchise excluded.");
+  return Object.freeze({ ...value });
+}
+
+export function isOneQLocalChildExcluded(resolved, childName) {
+  return childName === "franchise" && resolved?.children?.franchise?.status === "excluded" && resolved.children.franchise.unavailable === true;
+}
+
 /** Validates only explicitly supplied 1Q data; it never loads historical configuration. */
 export function validateOneQLocalRuntimeFamily(unified, suppliedChildren) {
   if (!unified || typeof unified !== "object") fail("1Q_LOCAL unified manifest is missing or malformed.");
@@ -42,14 +61,27 @@ export function validateOneQLocalRuntimeFamily(unified, suppliedChildren) {
 
   const children = {};
   for (const name of CHILDREN) {
-    if (!unified.childManifests[name]?.path || !unified.childManifests[name]?.deploymentVersion) fail(`1Q_LOCAL unified manifest is missing the ${name} child identity.`);
+    const identity = unified.childManifests[name];
+    if (!identity?.path || !identity?.deploymentVersion) fail(`1Q_LOCAL unified manifest is missing the ${name} child identity.`);
+    if (name === "franchise" && identity.status === "excluded") {
+      children[name] = excludedFranchise(suppliedChildren?.[name], identity);
+      continue;
+    }
     children[name] = child(suppliedChildren?.[name], name);
-    if (children[name].deploymentVersion !== unified.childManifests[name].deploymentVersion) fail(`1Q_LOCAL ${name} child deployment identity does not match the unified manifest.`);
+    if (children[name].deploymentVersion !== identity.deploymentVersion) fail(`1Q_LOCAL ${name} child deployment identity does not match the unified manifest.`);
   }
   if (children.root.model !== "OWNER_APPROVED_1Q_SEVEN_ALLOCATION") fail("1Q_LOCAL root child is not the owner-approved seven-allocation manifest.");
   if (children.ico.model !== "OWNER_APPROVED_1Q_ICO_V3" || children.lending.model !== "OWNER_APPROVED_1Q_LENDING_V2") fail("1Q_LOCAL ICO or Lending child model is invalid.");
 
-  for (const name of CONTRACTS) address(unified.contracts?.[name]?.address, name);
+  const franchiseExcluded = isOneQLocalChildExcluded({ children }, "franchise");
+  for (const name of DEPLOYED_CONTRACTS) address(unified.contracts?.[name]?.address, name);
+  if (franchiseExcluded) {
+    for (const name of FRANCHISE_CONTRACTS) {
+      if (unified.contracts?.[name]) fail(`1Q_LOCAL excluded Franchise module must not declare ${name}.`);
+    }
+  } else {
+    for (const name of FRANCHISE_CONTRACTS) address(unified.contracts?.[name]?.address, name);
+  }
   const token = unified.contracts.ABCDTokenV2.address;
   same(children.root.contracts?.ABCDTokenV2?.address, token, "root ABCDTokenV2");
   same(children.ico.contracts?.ABCDTokenV2?.address, token, "ICO ABCDTokenV2");
@@ -57,9 +89,11 @@ export function validateOneQLocalRuntimeFamily(unified, suppliedChildren) {
   same(children.marketplace10A.contracts?.ABCDTokenV2?.address, token, "Phase 10A ABCDTokenV2");
   same(children.marketplace10B.contracts?.ABCDTokenV2?.address, token, "Phase 10B ABCDTokenV2");
   same(children.legion.contracts?.LegionNFTV2?.address, unified.contracts.LegionNFTV2.address, "LegionNFTV2");
-  same(children.franchise.contracts?.LegionNFTV2?.address, unified.contracts.LegionNFTV2.address, "Franchise Registry LegionNFTV2");
-  same(children.franchise.contracts?.FranchiseNFTV2?.address, unified.contracts.FranchiseNFTV2.address, "FranchiseNFTV2");
-  same(children.franchise.contracts?.FranchiseRegistryV2?.address, unified.contracts.FranchiseRegistryV2.address, "FranchiseRegistryV2");
+  if (!franchiseExcluded) {
+    same(children.franchise.contracts?.LegionNFTV2?.address, unified.contracts.LegionNFTV2.address, "Franchise Registry LegionNFTV2");
+    same(children.franchise.contracts?.FranchiseNFTV2?.address, unified.contracts.FranchiseNFTV2.address, "FranchiseNFTV2");
+    same(children.franchise.contracts?.FranchiseRegistryV2?.address, unified.contracts.FranchiseRegistryV2.address, "FranchiseRegistryV2");
+  }
   same(children.marketplace10B.contracts?.LegionNFTV2?.address, unified.contracts.LegionNFTV2.address, "Phase 10B LegionNFTV2");
   return Object.freeze({ family: ONE_Q_LOCAL, manifest: unified, children: Object.freeze(children) });
 }
@@ -93,11 +127,15 @@ export async function verifyOneQLocalLiveChain(resolved, provider) {
     if (await provider.getCode(valid) === "0x") fail(`1Q_LOCAL ${name} has no live bytecode.`);
     verified.add(key);
   };
-  for (const name of CONTRACTS) await verifyCode(name, resolved.manifest.contracts[name].address);
+  for (const name of DEPLOYED_CONTRACTS) await verifyCode(name, resolved.manifest.contracts[name].address);
+  if (!isOneQLocalChildExcluded(resolved, "franchise")) {
+    for (const name of FRANCHISE_CONTRACTS) await verifyCode(name, resolved.manifest.contracts[name].address);
+  }
   // A selected family cannot leave a child-manifest contract unchecked. The
   // JSON relationship rules above remain centralized; this only proves every
   // declared deployed address still has code on that same live chain.
   for (const [childName, childManifest] of Object.entries(resolved.children)) {
+    if (isOneQLocalChildExcluded(resolved, childName)) continue;
     for (const [contractName, contract] of Object.entries(childManifest.contracts || {})) {
       await verifyCode(`${childName} ${contractName}`, contract?.address);
     }

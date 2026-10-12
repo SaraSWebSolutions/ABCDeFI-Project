@@ -98,18 +98,57 @@ const UserAccountSchema = new mongoose.Schema({
         enum: ["user", "admin"],
         default: "user"
     },
+    // Application authorization is deliberately distinct from blockchain
+    // AccessControl roles. Existing administrators remain unconfigured until
+    // an owner-approved application role is explicitly assigned.
+    adminRole: {
+        type: String,
+        enum: ["super_admin", "operations_admin", "security_admin", "compliance_admin", "support_admin", null],
+        default: null,
+        validate: {
+            validator(value) {
+                return value == null || this.role === "admin";
+            },
+            message: "Only application administrators may have an adminRole."
+        }
+    },
     loginHistory: [{
         timestamp: { type: Date, default: Date.now },
         ip: { type: String, default: "127.0.0.1" },
         device: { type: String, default: "Web Browser" },
         location: { type: String, default: "United States" },
-        status: { type: String, default: "Success" }
+        status: { type: String, default: "Success" },
+        // Application-session audit metadata only. It deliberately never
+        // stores credentials, OTPs, JWTs, refresh tokens, or chain evidence.
+        event: { type: String, default: null },
+        sourceAdminUserId: { type: String, default: null },
+        sourceAdminRole: { type: String, default: null },
+        targetAdminUserId: { type: String, default: null },
+        targetAdminRole: { type: String, default: null },
+        sessionCorrelationId: { type: String, default: null },
+        authenticationResult: { type: String, default: null }
     }],
     activeSessions: [{
         sessionId: { type: String },
         device: { type: String, default: "Web Browser" },
         ip: { type: String, default: "127.0.0.1" },
         lastActive: { type: Date, default: Date.now }
+    }],
+    // Server-authoritative, bounded application-only delegations created by a
+    // live Super Admin session. They are never blockchain credentials and
+    // retain only hashes of delegated refresh tokens.
+    delegatedAdminSessions: [{
+        sessionId: { type: String },
+        sourceAdminUserId: { type: String },
+        sourceAdminRole: { type: String },
+        targetAdminUserId: { type: String },
+        targetAdminRole: { type: String },
+        sourceRefreshTokenHash: { type: String },
+        delegatedRefreshTokenHash: { type: String },
+        expiresAt: { type: Date },
+        revokedAt: { type: Date, default: null },
+        returnedAt: { type: Date, default: null },
+        createdAt: { type: Date, default: Date.now }
     }],
     lastLoginAt: { type: Date, default: null },
     // Refresh token support — stores hashed refresh token and its expiry

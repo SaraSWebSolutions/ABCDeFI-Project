@@ -69,7 +69,8 @@ const afterCursor = (event, cursor) => !cursor || (() => {
 // Request IDs are local to LoanMarketplaceV2.  Direct-loan vault events can
 // contain a numerically equal requestId/depositId, so they are never request
 // lifecycle evidence for a P2P marketplace request.
-const P2P_REQUEST_LIFECYCLE_EVENTS = new Set(['RequestCreated', 'RequestFunded', 'RequestCancelled', 'RequestRepaid', 'RequestRecovered']);
+const P2P_REQUEST_LIFECYCLE_EVENTS = new Set(['RequestCreated', 'RequestFunded', 'RequestCancelled', 'RequestRepaid', 'RequestRecovered', 'RequestDefaulted']);
+const P2P_ADVERSE_RECOVERY_EVENTS = new Set(['P2PPartialLiquidationExecuted', 'P2PTerminalRecoveryExecuted', 'P2PRecoveryApplied', 'RequestDefaulted', 'RequestRecovered', 'ReserveUsed', 'ReserveShortfallSettled', 'BadDebtRecorded']);
 const isP2PRequestLifecycleEvent = (event, requestId) => event.contractName === 'LoanMarketplaceV2'
   && P2P_REQUEST_LIFECYCLE_EVENTS.has(event.eventName)
   && String(event.args?.requestId || '') === String(requestId);
@@ -83,8 +84,11 @@ const isP2PRequestLifecycleEvent = (event, requestId) => event.contractName === 
  * checkpoint block hash before either surface is considered indexed.
  */
 async function canonicalLendingV2Availability({ manifest, models, provider = new JsonRpcProvider(manifest.rpcUrl) }) {
-  if (manifest.runtimeFamily !== '1Q_LOCAL' || !manifest.deploymentIdentity) {
-    return { available: false, status: 'UNAVAILABLE', reason: 'The Admin Lending V2 surface requires the explicit canonical 1Q_LOCAL deployment family.', checkpoint: null };
+  if (manifest.runtimeFamily === '1Q_LOCAL_B64_LIFECYCLE_TEST' && models?.V2BlockCheckpoint?.__abcdefiB64CheckpointNamespace !== 'abcdefi_b64_lifecycle_checkpoint_20261009_01') {
+    return { available: false, status: 'UNAVAILABLE', reason: 'The sealed B6.4 checkpoint model is unavailable or is not bound to its approved checkpoint namespace.', checkpoint: null };
+  }
+  if (!['1Q_LOCAL', '1Q_LOCAL_R2_TEST', '1Q_LOCAL_R3_TEST', '1Q_LOCAL_B64_LIFECYCLE_TEST'].includes(manifest.runtimeFamily) || !manifest.deploymentIdentity) {
+    return { available: false, status: 'UNAVAILABLE', reason: 'The Admin Lending V2 surface requires the explicit canonical 1Q_LOCAL deployment family or a sealed test-runtime family.', checkpoint: null };
   }
   const network = await provider.getNetwork();
   if (Number(network.chainId) !== Number(manifest.chainId)) return { available: false, status: 'UNAVAILABLE', reason: 'The canonical Lending V2 RPC is on the wrong chain.', checkpoint: null };
@@ -162,7 +166,12 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
       return { role: roleNames[role], tokenId: certificateTokenId, owner, tokenURI, certificate: certificateJson(certificate) };
     }))).filter(Boolean);
     const borrowerCertificate = certificates.find((certificate) => certificate.role === 'BORROWER') || null;
-    return toJson({ loan: loanJson(record, currentVaultCollateralETH), previews: { accruedInterest, outstanding, totalRepayment, state, currentLtvBps, healthFactor, liquidatable, riskError, partialLiquidationExecution }, schedule: scheduleJson(schedule), certificate: borrowerCertificate, certificates });
+    // Every field here is either a live canonical contract read or a raw,
+    // deployment-scoped indexed event. The API never synthesizes recovery
+    // progress from a receipt alone.
+    const adverseRecovery = (await eventList({}, Number.MAX_SAFE_INTEGER)).filter((event) => P2P_ADVERSE_RECOVERY_EVENTS.has(event.eventName)
+      && String(event.args?.loanId || '') === String(loanId));
+    return toJson({ loan: loanJson(record, currentVaultCollateralETH), previews: { accruedInterest, outstanding, totalRepayment, state, currentLtvBps, healthFactor, liquidatable, riskError, partialLiquidationExecution }, schedule: scheduleJson(schedule), adverseRecovery, certificate: borrowerCertificate, certificates });
   };
   const includesWallet = (value, wallet) => typeof value === 'string'
     ? value.toLowerCase() === wallet
@@ -355,4 +364,4 @@ function createLendingV2ReadController({ manifest, artifacts, models, provider =
     referral: async (req, res, next) => { try { const wallet = normalizeWallet(req.params.address); if (!wallet) return res.status(400).json({ status: 'INVALID_REQUEST', message: 'Wallet address must be a valid Ethereum address.' }); const state = await requireAvailable(res); if (state) res.json({ source: source(), ...state, data: await readReferral(wallet) }); } catch (error) { next(error); } },
   };
 }
-module.exports = { createLendingV2ReadController, canonicalLendingV2Availability, isP2PRequestLifecycleEvent, loanJson, normalizeWallet, REFERRAL_NON_CLAIMABLE_CURRENT_STATE, REFERRAL_PAID, referralNonClaimableState, referralStatus };
+module.exports = { createLendingV2ReadController, canonicalLendingV2Availability, isP2PRequestLifecycleEvent, P2P_ADVERSE_RECOVERY_EVENTS, loanJson, normalizeWallet, REFERRAL_NON_CLAIMABLE_CURRENT_STATE, REFERRAL_PAID, referralNonClaimableState, referralStatus };

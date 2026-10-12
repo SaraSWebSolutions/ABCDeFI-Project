@@ -10,7 +10,12 @@ const limit = (value, fallback = 100) => {
   const parsed = value === undefined ? fallback : Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, 250) : fallback;
 };
-const source = (manifest) => ({ kind: 'canonical-indexed-on-chain', chainId: String(manifest.chainId), network: manifest.network, deploymentVersion: manifest.deploymentVersion, contractAddress: manifest.contractAddress });
+const source = (manifest) => ({
+  kind: 'canonical-indexed-on-chain', chainId: String(manifest.chainId), network: manifest.network,
+  runtimeFamily: manifest.runtimeFamily, rpcUrl: manifest.rpcUrl,
+  deploymentIdentity: manifest.deploymentIdentity, deploymentVersion: manifest.deploymentVersion,
+  contractAddress: manifest.contractAddress,
+});
 const lower = (value) => typeof value === 'string' ? value.toLowerCase() : '';
 
 function canonicalUint(value) {

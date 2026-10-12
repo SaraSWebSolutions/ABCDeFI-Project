@@ -1,7 +1,9 @@
-const fs = require('node:fs');
-const path = require('node:path');
 const { isAddress } = require('ethers');
-const { isOneQLocalSelected, loadBackendRuntimeFamily } = require('./runtimeFamily.cjs');
+const { loadBackendRuntimeFamily } = require('./runtimeFamily.cjs');
+const { ONE_Q_LOCAL_R2_TEST } = require('./oneQLocalR2TestRuntime.cjs');
+const { ONE_Q_LOCAL_R3_TEST } = require('./oneQLocalR3TestRuntime.cjs');
+const { ONE_Q_LOCAL_B64_LIFECYCLE_TEST } = require('./oneQLocalB64LifecycleTestRuntime.cjs');
+const { registerSealedR2TestLendingManifest, registerSealedR3TestLendingManifest, registerSealedB64LifecycleTestLendingManifest } = require('./projectionRuntimeContext.cjs');
 
 const REQUIRED = Object.freeze([
   'OracleAdapterV2', 'CollateralVaultV2', 'LoanManagerV2', 'LendingPoolV2',
@@ -9,68 +11,35 @@ const REQUIRED = Object.freeze([
 ]);
 const OPTIONAL = Object.freeze(['LendingReferralManagerV2', 'LiquidationSaleAdapterV2']);
 
-function manifestPath() {
-  return process.env.LENDING_V2_MANIFEST_PATH
-    ? path.resolve(process.env.LENDING_V2_MANIFEST_PATH)
-    : path.resolve(__dirname, '../../..', 'deployments.json');
-}
-
 function loadLendingV2Manifest() {
-  if (isOneQLocalSelected()) {
     const runtime = loadBackendRuntimeFamily();
     const v2 = runtime.children.lending;
     const contracts = {};
     for (const name of REQUIRED) {
       const entry = v2.contracts?.[name];
       if (!entry || !isAddress(entry.address) || !Number.isInteger(Number(entry.deploymentBlock))) {
-        throw new Error(`1Q_LOCAL Lending V2 manifest is missing a valid ${name} deployment.`);
+        throw new Error(`${runtime.family} Lending V2 manifest is missing a valid ${name} deployment.`);
       }
       contracts[name] = Object.freeze({ address: entry.address, deploymentBlock: Number(entry.deploymentBlock), deploymentTransactionHash: entry.deploymentTransactionHash });
     }
     for (const name of OPTIONAL) {
       const entry = v2.contracts?.[name];
       if (entry == null) continue;
-      if (!isAddress(entry.address) || !Number.isInteger(Number(entry.deploymentBlock))) throw new Error(`1Q_LOCAL Lending V2 manifest has an invalid optional ${name} entry.`);
+      if (!isAddress(entry.address) || !Number.isInteger(Number(entry.deploymentBlock))) throw new Error(`${runtime.family} Lending V2 manifest has an invalid optional ${name} entry.`);
       contracts[name] = Object.freeze({ address: entry.address, deploymentBlock: Number(entry.deploymentBlock), deploymentTransactionHash: entry.deploymentTransactionHash });
     }
-    return Object.freeze({
-      manifestPath: runtime.manifestPath, chainId: runtime.chainId, network: 'localhost', rpcUrl: runtime.rpcUrl,
+    const manifest = {
+      manifestPath: runtime.manifestPath, chainId: runtime.chainId, network: runtime.family === '1Q_BSC_TESTNET' ? 'bsc-testnet' : 'localhost', rpcUrl: runtime.rpcUrl,
       deploymentBlock: Number(v2.deploymentBlock), deploymentVersion: v2.deploymentVersion,
       abcdToken: runtime.contracts.ABCDTokenV2.address, contracts: Object.freeze(contracts), raw: v2,
       runtimeFamily: runtime.family, deploymentIdentity: runtime.deploymentIdentity,
-    });
-  }
-  const sourcePath = manifestPath();
-  if (!fs.existsSync(sourcePath)) throw new Error(`Canonical V2 deployment manifest is missing: ${sourcePath}`);
-  let root;
-  try { root = JSON.parse(fs.readFileSync(sourcePath, 'utf8')); } catch (error) { throw new Error(`Canonical V2 deployment manifest cannot be parsed: ${error.message}`); }
-  const v2 = root.lendingV2;
-  if (!v2 || typeof v2 !== 'object') throw new Error('Canonical deployment manifest has no lendingV2 namespace.');
-  if (Number(v2.chainId) !== 31337 || v2.network !== 'localhost' || v2.localOnly !== true) {
-    throw new Error('Lending V2 backend accepts only the isolated localhost chain 31337 deployment.');
-  }
-  if (!Number.isInteger(Number(v2.deploymentBlock)) || Number(v2.deploymentBlock) < 0) throw new Error('Lending V2 deployment block is invalid.');
-  if (typeof v2.deploymentVersion !== 'string' || !v2.deploymentVersion) throw new Error('Lending V2 deployment version is missing.');
-  if (!v2.contracts || typeof v2.contracts !== 'object') throw new Error('Lending V2 contract map is missing.');
-  const contracts = {};
-  for (const name of REQUIRED) {
-    const entry = v2.contracts[name];
-    if (!entry || !isAddress(entry.address)) throw new Error(`Lending V2 manifest is missing a valid ${name} address.`);
-    if (!Number.isInteger(Number(entry.deploymentBlock))) throw new Error(`Lending V2 manifest has an invalid ${name} deployment block.`);
-    contracts[name] = Object.freeze({ address: entry.address, deploymentBlock: Number(entry.deploymentBlock), deploymentTransactionHash: entry.deploymentTransactionHash });
-  }
-  for (const name of OPTIONAL) {
-    const entry = v2.contracts[name];
-    if (entry == null) continue;
-    if (!isAddress(entry.address) || !Number.isInteger(Number(entry.deploymentBlock))) throw new Error(`Lending V2 manifest has an invalid optional ${name} entry.`);
-    contracts[name] = Object.freeze({ address: entry.address, deploymentBlock: Number(entry.deploymentBlock), deploymentTransactionHash: entry.deploymentTransactionHash });
-  }
-  if (!root.contracts?.ABCDToken || !isAddress(root.contracts.ABCDToken.address)) throw new Error('Root manifest ABCDToken address is invalid.');
-  return Object.freeze({
-    manifestPath: sourcePath, chainId: 31337, network: 'localhost', rpcUrl: root.rpcUrl,
-    deploymentBlock: Number(v2.deploymentBlock), deploymentVersion: v2.deploymentVersion,
-    abcdToken: root.contracts.ABCDToken.address, contracts: Object.freeze(contracts), raw: v2,
-  });
+    };
+    if (runtime.family === ONE_Q_LOCAL_R2_TEST) {
+      registerSealedR2TestLendingManifest(manifest, runtime);
+    }
+    if (runtime.family === ONE_Q_LOCAL_R3_TEST) registerSealedR3TestLendingManifest(manifest, runtime);
+    if (runtime.family === ONE_Q_LOCAL_B64_LIFECYCLE_TEST) registerSealedB64LifecycleTestLendingManifest(manifest, runtime);
+    return Object.freeze(manifest);
 }
 
 module.exports = { REQUIRED, OPTIONAL, loadLendingV2Manifest };

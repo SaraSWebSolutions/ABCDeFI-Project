@@ -36,7 +36,7 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
     // RECOVERED is appended so existing persisted request-state values retain
     // their meaning. It distinguishes collateral settlement from an honoured
     // borrower repayment and never grants LoanNFT completion eligibility.
-    enum RequestState { OPEN, FUNDED, CANCELLED, SETTLED, RECOVERED }
+    enum RequestState { OPEN, FUNDED, CANCELLED, SETTLED, RECOVERED, DEFAULTED }
     // A request does not create a LoanNFT. Completion provenance belongs to
     // the settled loan, not to an unfunded request.
     struct Request { address borrower; uint128 principal; uint128 collateral; uint48 term; RequestState state; address lender; uint256 loanId; uint16 initialLtvBps; }
@@ -46,6 +46,7 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
     event RequestFunded(uint256 indexed requestId, uint256 indexed loanId, address indexed lender, uint256 principal, uint256 collateral, uint48 maturity);
     event RequestRepaid(uint256 indexed requestId, uint256 indexed loanId, address indexed borrower, address lender);
     event RequestRecovered(uint256 indexed requestId, uint256 indexed loanId, address indexed borrower, address lender);
+    event RequestDefaulted(uint256 indexed requestId, uint256 indexed loanId, address indexed borrower, address lender, uint256 residualDebt);
     event RequestCancelled(uint256 indexed requestId);
 
     constructor(address admin, address abcd_, address manager_, address vault_, address oracle_, address loanNFT_, address lendingReferralManager_) {
@@ -119,6 +120,18 @@ contract LoanMarketplaceV2 is AccessControl, Pausable, ReentrancyGuard {
         require(loanManager.getLoan(loanId).state == LoanManagerV2.State.LIQUIDATED, "loan not recovered");
         r.state = RequestState.RECOVERED;
         emit RequestRecovered(requestId, loanId, r.borrower, r.lender);
+    }
+    /// @notice Terminal collateral recovery with an unpaid balance must never
+    /// be represented as a recovered or honoured request.
+    function markLoanDefaulted(uint256 loanId, uint256 residualDebt) external {
+        require(msg.sender == liquidationEngine && liquidationEngine != address(0), "not liquidation engine");
+        uint256 requestId = requestByLoanId[loanId];
+        require(requestId != 0 && residualDebt != 0, "missing residual debt");
+        Request storage r = requests[requestId];
+        require(r.state == RequestState.FUNDED && r.loanId == loanId, "not funded request");
+        require(loanManager.getLoan(loanId).state == LoanManagerV2.State.RESIDUAL_DEBT, "loan not residual debt");
+        r.state = RequestState.DEFAULTED;
+        emit RequestDefaulted(requestId, loanId, r.borrower, r.lender, residualDebt);
     }
     function isP2PLoan(uint256 loanId) external view returns (bool) {
         uint256 requestId = requestByLoanId[loanId];

@@ -1,13 +1,13 @@
 import { Contract, Interface, isAddress } from 'ethers';
 import LegionNFTV2Artifact from '../../artifacts/contracts/nft/LegionNFTV2.sol/LegionNFTV2.json';
-import { ONE_Q_CONTRACTS } from '../Config/oneQRuntime';
+import { requireOneQContractAddress } from '../Config/oneQRuntime';
 import { getSigner } from './wallet';
 
 export type LegionNFTV2Level = 'COUNTRY' | 'STATE' | 'DISTRICT';
 export type LegionNFTV2Event = { eventName: string; blockNumber: string; transactionHash: string; logIndex: number; args: Record<string, string> };
 export type LegionNFTV2TransferRequest = { requestId: string; tokenId: string; currentOwner: string; proposedOwner: string; active: boolean; approved: boolean };
 export type LegionNFTV2Territory = { tokenId: string; owner: string; level: LegionNFTV2Level; parentId: string; population: string; displayName: string; canonicalIdentifier: string; metadataURI: string; territoryKey: string; activeTransferRequestId: string };
-export type LegionNFTV2Availability = { available: boolean; status: 'AVAILABLE' | 'UNAVAILABLE' | 'UNDEPLOYED'; paused: boolean; checkpoint?: string | null; reason?: string; source?: { chainId: string; contractAddress: string; deploymentVersion: string }; roles?: Record<string, string> };
+export type LegionNFTV2Availability = { available: boolean; status: 'AVAILABLE' | 'UNAVAILABLE' | 'UNDEPLOYED'; paused: boolean; checkpoint?: string | null; reason?: string; source?: { chainId: string; contractAddress: string; deploymentVersion: string; runtimeFamily?: string; rpcUrl?: string; deploymentIdentity?: string }; roles?: Record<string, string> };
 export type LegionNFTV2Snapshot = LegionNFTV2Availability & { territories: LegionNFTV2Territory[]; history: Record<string, LegionNFTV2Event[]>; requests: Record<string, LegionNFTV2TransferRequest> };
 type Envelope<T> = LegionNFTV2Availability & { data?: T; message?: string };
 type FetchLike = (input: string) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
@@ -32,6 +32,13 @@ export async function getLegionNFTV2TransferRequest(requestId: string, fetcher: 
   if (!payload.data) throw new Error('The canonical Legion transfer request was not found.');
   return payload.data;
 }
+export async function getLegionNFTV2History(tokenId: string, fetcher: FetchLike = fetch): Promise<LegionNFTV2Event[]> {
+  if (!/^\d+$/.test(tokenId) || BigInt(tokenId) === 0n) throw new Error('A positive territory token ID is required.');
+  const availability = await getLegionNFTV2Availability(fetcher);
+  if (!availability.available) throw new Error(availability.reason || 'Canonical LegionNFTV2 state is unavailable.');
+  const payload = await read<LegionNFTV2Event[]>(`${api}/territories/${tokenId}/history?limit=250`, fetcher);
+  return Array.isArray(payload.data) ? payload.data : [];
+}
 export async function getLegionNFTV2Snapshot(wallet: string, fetcher: FetchLike = fetch): Promise<LegionNFTV2Snapshot> {
   if (!walletPattern.test(wallet)) throw new Error('Connected wallet address is invalid.');
   const availability = await getLegionNFTV2Availability(fetcher); if (!availability.available) return { ...availability, territories: [], history: {}, requests: {} };
@@ -41,7 +48,7 @@ export async function getLegionNFTV2Snapshot(wallet: string, fetcher: FetchLike 
   return { ...availability, territories, history, requests: Object.fromEntries(requestEntries.filter(([, request]) => Boolean(request))) as Record<string, LegionNFTV2TransferRequest> };
 }
 
-function requireSource(availability: LegionNFTV2Availability) { if (!availability.available || !availability.source?.contractAddress || availability.source.chainId !== '31337' || availability.source.contractAddress.toLowerCase() !== ONE_Q_CONTRACTS.LegionNFTV2.toLowerCase()) throw new Error(availability.reason || 'Canonical 1Q LegionNFTV2 is not available from the indexer.'); return availability.source.contractAddress; }
+function requireSource(availability: LegionNFTV2Availability) { if (!availability.available || !availability.source?.contractAddress || availability.source.chainId !== '31337' || availability.source.contractAddress.toLowerCase() !== requireOneQContractAddress('LegionNFTV2').toLowerCase()) throw new Error(availability.reason || 'Canonical 1Q LegionNFTV2 is not available from the indexer.'); return availability.source.contractAddress; }
 export async function hasLegionNFTV2AdminCapability(wallet: string, availability: LegionNFTV2Availability): Promise<boolean> {
   if (!isAddress(wallet)) return false;
   try {

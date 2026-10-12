@@ -9,10 +9,39 @@ const decodeCursor = (value) => {
   if (!value || typeof value !== 'string') return null;
   try { return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')); } catch { throw new Error('cursor must be a valid marketplace continuation cursor.'); }
 };
+function createMarketplaceAvailability({ models, manifest, providerFactory = (value) => new JsonRpcProvider(value.rpcUrl), marketplaceFactory = (address, provider) => new Contract(address, marketplaceArtifact.abi, provider) }) {
+  const identity = { chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, ...projectionRuntimeFields(manifest), marketplaceAddress: manifest.marketplaceAddress };
+  const unavailable = (reason) => ({ available: false, status: 'UNAVAILABLE', reason, checkpoint: null });
+  return async () => {
+    const checkpoint = await models.MarketplaceCheckpoint.findOne(identity).lean();
+    if (!checkpoint?.lastProcessedBlock || !checkpoint?.lastProcessedBlockHash) return unavailable('The canonical ABCD marketplace indexer has not completed a hash-verified sync for this deployment.');
+    try {
+      const provider = providerFactory(manifest);
+      const [network, code, block, latest, runtime] = await Promise.all([
+        provider.getNetwork(),
+        provider.getCode(manifest.marketplaceAddress),
+        provider.getBlock(Number(checkpoint.lastProcessedBlock)),
+        provider.getBlockNumber(),
+        checkpointRuntimeFields(manifest, provider, [manifest.marketplaceAddress, manifest.abcdAddress]),
+      ]);
+      if (Number(network.chainId) !== Number(manifest.chainId)) return unavailable('The canonical ABCD marketplace RPC chain does not match the deployment manifest.');
+      if (code === '0x' || code === '0x0') return unavailable('Canonical ABCD marketplace bytecode is unavailable on the active chain.');
+      if (!block || lower(block.hash) !== lower(checkpoint.lastProcessedBlockHash)) return unavailable('The canonical ABCD marketplace checkpoint block hash does not match the live chain.');
+      if (!checkpointRuntimeMatches(checkpoint, runtime)) return unavailable('The canonical ABCD marketplace checkpoint runtime identity does not match the live deployment.');
+      if (Number(checkpoint.lastProcessedBlock) < Number(latest)) return unavailable('The canonical ABCD marketplace indexer checkpoint is stale.');
+      const token = await marketplaceFactory(manifest.marketplaceAddress, provider).abcdToken();
+      if (lower(token) !== lower(manifest.abcdAddress)) return unavailable('The canonical ABCD marketplace binding does not match the deployment manifest.');
+      return { available: true, status: 'AVAILABLE', checkpoint: checkpoint.lastProcessedBlock };
+    } catch {
+      return unavailable('The canonical ABCD marketplace checkpoint cannot be verified against the live chain.');
+    }
+  };
+}
+
 function createMarketplaceReadController({ models, manifest, providerFactory = (value) => new JsonRpcProvider(value.rpcUrl), marketplaceFactory = (address, provider) => new Contract(address, marketplaceArtifact.abi, provider) }) {
   const identity = { chainId: String(manifest.chainId), deploymentVersion: manifest.deploymentVersion, ...projectionRuntimeFields(manifest), marketplaceAddress: manifest.marketplaceAddress };
   const source = { kind: 'canonical-indexed-on-chain', chainId: String(manifest.chainId), network: manifest.network, deploymentVersion: manifest.deploymentVersion, marketplaceAddress: manifest.marketplaceAddress, abcdAddress: manifest.abcdAddress };
-  const unavailable = (reason) => ({ available: false, status: 'UNAVAILABLE', reason, checkpoint: null });
+  const available = createMarketplaceAvailability({ models, manifest, providerFactory, marketplaceFactory });
   const page = (records, query, kind, compare, cursorValue) => {
     const requested = decodeCursor(query.cursor);
     if (requested && (requested.kind !== kind || requested.chainId !== identity.chainId || requested.deploymentVersion !== identity.deploymentVersion || lower(requested.marketplaceAddress) !== lower(identity.marketplaceAddress))) throw new Error('cursor does not belong to this canonical marketplace deployment.');
@@ -37,30 +66,6 @@ function createMarketplaceReadController({ models, manifest, providerFactory = (
     const byLog = Number(a.logIndex) - Number(b.logIndex);
     return byLog || lower(a.transactionHash).localeCompare(lower(b.transactionHash));
   };
-  const available = async () => {
-    const checkpoint = await models.MarketplaceCheckpoint.findOne(identity).lean();
-    if (!checkpoint?.lastProcessedBlock || !checkpoint?.lastProcessedBlockHash) return unavailable('The canonical ABCD marketplace indexer has not completed a hash-verified sync for this deployment.');
-    try {
-      const provider = providerFactory(manifest);
-      const [network, code, block, latest, runtime] = await Promise.all([
-        provider.getNetwork(),
-        provider.getCode(manifest.marketplaceAddress),
-        provider.getBlock(Number(checkpoint.lastProcessedBlock)),
-        provider.getBlockNumber(),
-        checkpointRuntimeFields(manifest, provider, [manifest.marketplaceAddress, manifest.abcdAddress]),
-      ]);
-      if (Number(network.chainId) !== Number(manifest.chainId)) return unavailable('The canonical ABCD marketplace RPC chain does not match the deployment manifest.');
-      if (code === '0x' || code === '0x0') return unavailable('Canonical ABCD marketplace bytecode is unavailable on the active chain.');
-      if (!block || lower(block.hash) !== lower(checkpoint.lastProcessedBlockHash)) return unavailable('The canonical ABCD marketplace checkpoint block hash does not match the live chain.');
-      if (!checkpointRuntimeMatches(checkpoint, runtime)) return unavailable('The canonical ABCD marketplace checkpoint runtime identity does not match the live deployment.');
-      if (Number(checkpoint.lastProcessedBlock) < Number(latest)) return unavailable('The canonical ABCD marketplace indexer checkpoint is stale.');
-      const token = await marketplaceFactory(manifest.marketplaceAddress, provider).abcdToken();
-      if (lower(token) !== lower(manifest.abcdAddress)) return unavailable('The canonical ABCD marketplace binding does not match the deployment manifest.');
-      return { available: true, status: 'AVAILABLE', checkpoint: checkpoint.lastProcessedBlock };
-    } catch {
-      return unavailable('The canonical ABCD marketplace checkpoint cannot be verified against the live chain.');
-    }
-  };
   const guard = async (res, fallback) => { const state = await available(); if (!state.available) { res.json({ source, ...state, data: fallback }); return null; } return state; };
   return {
     status: async (_req, res, next) => { try { res.json({ source, ...(await available()) }); } catch (error) { next(error); } },
@@ -72,4 +77,4 @@ function createMarketplaceReadController({ models, manifest, providerFactory = (
     history: async (req, res, next) => { try { const state = await guard(res, []); if (!state) return; const result = page(await models.MarketplaceEvent.find(identity).lean(), req.query, 'history', eventCompare, (record) => ({ blockNumber: record.blockNumber, logIndex: record.logIndex, transactionHash: lower(record.transactionHash) })); res.json({ source, ...state, ...result }); } catch (error) { if (/cursor/.test(error.message)) return res.status(400).json({ status: 'INVALID_REQUEST', message: error.message }); next(error); } },
   };
 }
-module.exports = { createMarketplaceReadController };
+module.exports = { createMarketplaceReadController, createMarketplaceAvailability };

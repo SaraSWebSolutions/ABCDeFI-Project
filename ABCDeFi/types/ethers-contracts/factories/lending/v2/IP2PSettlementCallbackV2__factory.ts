@@ -31,6 +31,24 @@
         "internalType": "uint256",
         "name": "loanId",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "residualDebt",
+        "type": "uint256"
+      }
+    ],
+    "name": "markLoanDefaulted",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "loanId",
+        "type": "uint256"
       }
     ],
     "name": "markLoanRecovered",
